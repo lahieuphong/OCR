@@ -1,0 +1,8 @@
+# macOS
+.DS_Store
+
+# Editor settings (machine-specific absolute paths)
+.vscode/
+
+# Local backup of the upstream PaddleOCR git history
+/.paddleocr-upstream.git/
