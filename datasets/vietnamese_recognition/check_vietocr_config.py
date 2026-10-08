@@ -1,16 +1,19 @@
 #!/usr/bin/env python3
-"""Check that the fine-tuning config is ready to train from, without training.
+"""Check that the fine-tuning configs are ready to train from, without training.
 
 Usage (VietOCR environment, ``.venv-vietocr``):
     python datasets/vietnamese_recognition/check_vietocr_config.py
 
-Does what a training run would do before its first step, then stops:
+For each config of the width experiment, does what a training run would do
+before its first step, then stops:
 
     1. builds the model from the config and loads the pretrained checkpoint
        the way ``vietocr.model.trainer.Trainer.load_weights`` does, reporting
        any tensor that would not load;
     2. encodes every training and validation label with the model's
-       vocabulary and checks its image exists;
+       vocabulary, checks its image exists, and refuses a config whose
+       training or validation file holds a line of the blind test or of the
+       bake-off regression, or whose validation file is not real lines only;
     3. runs one forward pass, without gradients, at the pretrained width and
        at the configured maximum width, and measures the activations.
 
@@ -31,7 +34,7 @@ import dataset_common as dataset
 
 from run_vietocr import VIETOCR_COMMIT, check_pinned_checkout  # noqa: E402  (path set up by dataset_common)
 
-CONFIG = dataset.VIETOCR_CONFIG_DIR / "vgg_transformer_vi_admin.yml"
+CONFIGS = sorted(dataset.VIETOCR_CONFIG_DIR.glob("exp_*.yml"))
 BYTES_PER_FLOAT = 4
 # A training step keeps the activations for the backward pass and computes a
 # gradient of each: about twice the forward activations. AdamW holds the
@@ -47,7 +50,7 @@ def megabytes(count: float) -> float:
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--config", type=Path, default=CONFIG)
+    parser.add_argument("--config", type=Path, action="append", help="Default: every exp_*.yml.")
     parser.add_argument("--device", default="cpu", choices=("cpu", "mps"))
     return parser.parse_args(argv)
 
@@ -57,6 +60,15 @@ def main(argv: list[str] | None = None) -> int:
     check_pinned_checkout()
     sys.dont_write_bytecode = True
     sys.path.insert(0, str(dataset.VIETOCR_DIR))
+    ready = [check(path, args.device) for path in (args.config or CONFIGS)]
+    return 0 if ready and all(ready) else 1
+
+
+def check(path: Path, device: str) -> bool:
+    """Everything short of a training step for one config; True when it could start."""
+    import argparse as _argparse
+
+    args = _argparse.Namespace(config=path, device=device)
     import torch
     from vietocr.tool.config import Cfg
     from vietocr.tool.translate import build_model
@@ -86,7 +98,7 @@ def main(argv: list[str] | None = None) -> int:
         lines = path.read_text(encoding="utf-8").splitlines() if path.is_file() else []
         counts[key] = len(lines)
         if not lines:
-            problems.append(f"{path}: missing or empty (run build_dataset.py)")
+            problems.append(f"{path.name}: no line in this set yet")
         for line in lines:
             fields = line.strip().split("\t")  # as vietocr.tool.create_dataset reads it
             if len(fields) != 2:
@@ -100,6 +112,11 @@ def main(argv: list[str] | None = None) -> int:
                 problems.append(f"{image}: character {error} is not in the vocabulary")
             if not (data_root / image).is_file():
                 problems.append(f"{image}: image not found")
+    # Training reads the training sets, validation reads real lines, and
+    # neither ever reads the blind test or the bake-off regression.
+    problems += dataset.training_data_problems(
+        data_root / config["dataset"]["train_annotation"], data_root / config["dataset"]["valid_annotation"], data_root
+    )
     print(f"2. annotations: {counts['train_annotation']} training and {counts['valid_annotation']} validation lines; "
           f"longest label {longest} characters; problems: {len(problems)}")
     for problem in problems[:10]:
@@ -118,7 +135,7 @@ def main(argv: list[str] | None = None) -> int:
     batch = config["trainer"]["batch_size"]
     print("3. forward pass of one image, without gradients")
     measured = {}
-    for width in (512, config["dataset"]["image_max_width"]):
+    for width in sorted({512, config["dataset"]["image_max_width"]}):
         sizes.clear()
         image = torch.rand(1, 3, height, width, device=args.device)
         # A 100-character label, time first, as the collator hands it to the model.
@@ -143,7 +160,7 @@ def main(argv: list[str] | None = None) -> int:
                   f"about {seconds * STEP_TO_FORWARD_TIME * size:.1f} s per step on this {args.device}")
     ready = not problems and not not_found and not mismatched
     print(f"READY TO TRAIN FROM: {'yes' if ready else 'NO'} (nothing was trained)")
-    return 0 if ready else 1
+    return ready
 
 
 if __name__ == "__main__":

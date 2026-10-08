@@ -58,6 +58,12 @@ MENU = """\
 [q] save and quit        ([o] open the image, [u] undo the last action)"""
 
 
+MENU_WITHOUT_PREDICTIONS = """\
+[e] enter exact ground truth
+[s] skip this line
+[q] save and quit        ([o] open the image, [u] undo the last action)"""
+
+
 def git_user_name() -> str:
     try:
         completed = subprocess.run(
@@ -135,10 +141,11 @@ def run_cli(
             say(f"ID:\n{row['id']}")
             say(f"Document:\n{row['document']}")
             say(f"Page:\n{row['page']}")
-            say(f"\nPP-OCRv6:\n{row['ppocr_prediction']}")
-            say(f"\nVietOCR:\n{row['vietocr_prediction']}")
+            if store.show_predictions:
+                say(f"\nPP-OCRv6:\n{row['ppocr_prediction']}")
+                say(f"\nVietOCR:\n{row['vietocr_prediction']}")
             say(f"\nImage:\n{image}\n")
-            say(MENU)
+            say(MENU if store.show_predictions else MENU_WITHOUT_PREDICTIONS)
             choice = ask("> ").strip().lower()
             try:
                 if choice == "p":
@@ -200,6 +207,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         choices=sorted([*ACCEPTED_SOURCE.values(), TYPED_SOURCE]),
         help="Go again through every line that was verified this way.",
     )
+    parser.add_argument(
+        "--hide-predictions",
+        action="store_true",
+        help="Show only the crop: every line is typed, no prediction can be accepted.",
+    )
     parser.add_argument("--annotation-dir", type=Path, default=bakeoff.ANNOTATION_DIR)
     parser.add_argument("--manifest", type=Path, default=bakeoff.MANIFEST)
     return parser.parse_args(argv)
@@ -221,6 +233,7 @@ def main(argv: list[str] | None = None) -> int:
         target=args.target,
         selection=load_selection(args.annotation_dir / bakeoff.SELECTION_REPORT.name),
         only_ids=reopened,
+        show_predictions=not args.hide_predictions,
     )
     mirror = args.annotation_dir / bakeoff.CANDIDATES_DIR.name / CURRENT_CROP
 

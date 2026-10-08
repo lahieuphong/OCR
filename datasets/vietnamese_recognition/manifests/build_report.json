@@ -1,14 +1,16 @@
 {
   "dataset": "pilot-v1",
   "specification": {
-    "train": {
+    "synthetic_train": {
+      "folder": "train",
       "seed": 20261101,
       "synthetic": 3000,
       "long_lines": 1000,
       "per_hard_case": 12,
       "min_letter_occurrences": 30
     },
-    "val": {
+    "synthetic_val": {
+      "folder": "val",
       "seed": 20261102,
       "synthetic": 300,
       "long_lines": 100,
@@ -16,28 +18,6 @@
       "min_letter_occurrences": 3
     }
   },
-  "samples": {
-    "train": {
-      "synthetic/general": 3000,
-      "synthetic/long_line": 1000,
-      "hard_case/general": 564,
-      "synthetic/coverage": 495
-    },
-    "val": {
-      "synthetic/general": 300,
-      "synthetic/long_line": 100,
-      "hard_case/general": 94,
-      "synthetic/coverage": 58
-    },
-    "test": {
-      "real/general": 100
-    }
-  },
-  "real_lines": {
-    "verified": 0,
-    "refused_as_test": 0
-  },
-  "synthetic_may_repeat_test_texts": false,
   "hard_cases": 47,
   "fonts_accepted": [
     "Arial",
@@ -73,6 +53,31 @@
     "Trebuchet MS Italic.ttf": "92 glyph(s) missing, e.g. ảẢạẠằẰẳẲ",
     "Trebuchet MS.ttf": "92 glyph(s) missing, e.g. ảẢạẠằẰẳẲ"
   },
+  "libraries": {
+    "pillow": "12.1.0",
+    "opencv": "4.10.0",
+    "numpy": "2.3.5"
+  },
+  "samples": {
+    "real_train": {},
+    "real_val": {},
+    "synthetic_train": {
+      "synthetic/general": 3000,
+      "synthetic/long_line": 1000,
+      "hard_case/general": 564,
+      "synthetic/coverage": 495
+    },
+    "synthetic_val": {
+      "synthetic/general": 300,
+      "synthetic/long_line": 100,
+      "hard_case/general": 94,
+      "synthetic/coverage": 58
+    },
+    "bakeoff_regression": {
+      "real/general": 100
+    },
+    "blind_test": {}
+  },
   "fonts_used": {
     "Times New Roman": 2296,
     "Arial Bold": 253,
@@ -97,10 +102,21 @@
     "Courier New Bold Italic": 5,
     "Georgia Bold Italic": 6
   },
-  "libraries": {
-    "pillow": "12.1.0",
-    "opencv": "4.10.0",
-    "numpy": "2.3.5"
+  "synthetic_may_repeat_regression_texts": false,
+  "blind_test_frozen": false,
+  "real_lines_outside_the_vocabulary": {
+    "real_train": 0,
+    "real_val": 0
   },
-  "seconds": 42.2
+  "training_mix": {
+    "method": "oversample_real",
+    "wanted_real_to_synthetic": "1:2",
+    "real_lines": 0,
+    "real_repeats": 1,
+    "real_samples": 0,
+    "synthetic_samples": 5059,
+    "samples_per_pass": 5059,
+    "real_share": 0.0
+  },
+  "seconds": 0.1
 }

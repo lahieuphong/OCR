@@ -125,6 +125,7 @@ class AnnotationStore:
         target: int = TARGET_VERIFIED,
         selection: dict[str, dict] | None = None,
         only_ids: list[str] | None = None,
+        show_predictions: bool = True,
         clock: Callable[[], str] = utc_now,
     ) -> None:
         if not annotator.strip():
@@ -132,6 +133,9 @@ class AnnotationStore:
         self.table_path, self.log_path = table_path, log_path
         self.annotator, self.target, self.clock = annotator.strip(), target, clock
         self.selection = selection or {}
+        # With predictions hidden the annotator types every line from the image
+        # alone; no recognizer's text can become the ground truth by a keystroke.
+        self.show_predictions = show_predictions
         self.rows = bakeoff.read_annotation(table_path)
         self.by_id = {row["id"]: row for row in self.rows}
         self.order = annotation_order(self.rows, self.selection)
@@ -202,6 +206,8 @@ class AnnotationStore:
     def accept(self, row_id: str, recognizer: str) -> dict:
         """The annotator states that this recognizer's text matches the crop exactly."""
         row = self._current_row(row_id)
+        if not self.show_predictions:
+            raise ActionError("Predictions are hidden in this session: type the text of the crop.")
         text = row[PREDICTION_COLUMN[recognizer]]
         if not normalise(text):
             raise ActionError("That prediction is empty; type the text or skip the line.")

@@ -460,8 +460,11 @@ Ba điều cần nhớ khi dùng các con số này:
 - **PP-OCRv6 thua chủ yếu vì 88 chữ.** 487 trong 634 lỗi của nó nằm đúng ở các
   chữ đó.
 
-100 dòng này từ nay là **tập test đóng băng**; xem
-`datasets/vietnamese_recognition/README.md`.
+100 dòng này đã được đóng băng với tên **`bakeoff_regression`**. Chúng đã chọn
+ra recognizer và lỗi trên chúng đã định hình danh sách hard case, nên chúng
+dùng để phát hiện regression và so sánh với các con số ở trên, **không phải là
+blind test** và không phải thước đo chất lượng cuối cùng. Con số cuối cùng sẽ
+được đo trên tài liệu mới; xem `datasets/vietnamese_recognition/README.md`.
 
 ## Quan sát trước khi có ground truth
 

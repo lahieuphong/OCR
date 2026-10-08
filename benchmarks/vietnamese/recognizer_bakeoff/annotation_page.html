@@ -69,6 +69,7 @@
   #done { display: none; text-align: center; padding: 48px 16px; }
   #done h1 { font-size: 22px; margin: 0 0 8px; color: var(--ok); }
   body.done #work { display: none; }
+  body.no-predictions .prediction, body.no-predictions .with-predictions { display: none; }
   body.done #done { display: block; }
 </style>
 </head>
@@ -95,7 +96,7 @@
     </div>
   </section>
 
-  <section>
+  <section class="prediction">
     <h2>PP-OCRv6</h2>
     <div class="text" id="ppocr"></div>
     <div class="actions">
@@ -104,7 +105,7 @@
     </div>
   </section>
 
-  <section>
+  <section class="prediction">
     <h2>VietOCR</h2>
     <div class="text" id="vietocr"></div>
     <div class="actions">
@@ -120,7 +121,7 @@
     <div class="actions">
       <button class="primary" id="save"><kbd>Enter</kbd> Lưu là verified</button>
       <button id="skip"><kbd>s</kbd> Bỏ qua dòng này</button>
-      <span class="hint">Bấm <kbd>p</kbd> hoặc <kbd>v</kbd> nghĩa là: tôi đã nhìn ảnh và text đó khớp chính xác từng ký tự.</span>
+      <span class="hint with-predictions">Bấm <kbd>p</kbd> hoặc <kbd>v</kbd> nghĩa là: tôi đã nhìn ảnh và text đó khớp chính xác từng ký tự.</span>
     </div>
     <div class="actions" id="skip-reasons"></div>
   </section>
@@ -130,7 +131,7 @@
     <ul>
       <li>Giữ nguyên dấu, chữ hoa/thường, dấu câu, khoảng trắng và cả lỗi chính tả của văn bản gốc.</li>
       <li>Không sửa theo suy đoán, không viết lại, không khai triển chữ viết tắt, không thêm chữ ảnh không có.</li>
-      <li>Hai prediction chỉ để tham khảo: cả hai đều có thể sai ở cùng một chỗ.</li>
+      <li class="with-predictions">Hai prediction chỉ để tham khảo: cả hai đều có thể sai ở cùng một chỗ.</li>
       <li>Chữ ký tay, con dấu che chữ, dòng không đọc được chắc chắn, crop lỗi: bấm <kbd>s</kbd> để bỏ qua.</li>
     </ul>
   </section>
@@ -193,6 +194,7 @@ function render(next) {
   $("rest").textContent = rest;
   $("undo").disabled = !progress.can_undo;
   document.body.classList.toggle("done", next.done);
+  document.body.classList.toggle("no-predictions", !next.show_predictions);
   $("skip-reasons").classList.remove("open");
   if (next.done) {
     $("done-reason").textContent = next.stop_reason + " — verified " + progress.verified
@@ -294,6 +296,7 @@ document.addEventListener("keydown", (event) => {
     return;
   }
   const key = event.key.toLowerCase();
+  if ((key === "p" || key === "v") && !state.show_predictions) return;
   if (key === "p") { event.preventDefault(); event.shiftKey ? editFrom(state.item.ppocr) : act("accept_ppocr"); }
   else if (key === "v") { event.preventDefault(); event.shiftKey ? editFrom(state.item.vietocr) : act("accept_vietocr"); }
   else if (key === "e") { event.preventDefault(); gt.focus(); }

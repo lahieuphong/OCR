@@ -1,27 +1,25 @@
 #!/usr/bin/env python3
-"""Lay out the remaining real line crops for human verification as training data.
+"""Set aside the unverified lines of the three bake-off documents as legacy candidates.
 
 Usage:
-    python datasets/vietnamese_recognition/prepare_real_candidates.py
-    python benchmarks/vietnamese/recognizer_bakeoff/annotate.py \\
-        --annotation-dir datasets/vietnamese_recognition/real_annotation --target 50
+    python datasets/vietnamese_recognition/prepare_legacy_candidates.py
 
-Writes ``real_annotation/manifest.tsv``, an annotation table in the format
-``annotate.py`` works on, with ``ground_truth`` empty and ``verified=false`` on
-every row. Nothing in it is a label yet: the two predictions are shown to the
-annotator and are never used as ground truth. ``build_dataset.py`` takes a row
-into training only once a person has verified it.
+Writes ``legacy_candidates/manifest.tsv``: the crops of the bake-off documents
+that are not in the frozen regression set, in the annotation-table format, with
+``ground_truth`` empty and ``verified=false``.
 
-Left out of the table:
+These lines are **not training data** and are not to be annotated for now.
+They come from the very documents the regression set was drawn from, pages
+included; training on them would turn that set into a measure of how well
+three documents were memorised. They are kept, marked ``legacy_candidate``, so
+that the question can be reopened once an independent blind test is frozen.
+No script reads them into a set, and the audit fails if one turns up in a set.
 
-    - every line of the frozen test holdout, by id and by image;
+Left out of the table altogether:
+
+    - every line of the frozen regression set, by id and by image;
     - "text twins": crops for which a recognizer predicts exactly the text of
-      a frozen test line (the same stamp or header on another page). Training
-      on them would teach the test set by another route.
-
-All candidates come from the documents the test set was drawn from. Training
-on them makes the test set measure those documents rather than new ones; the
-audit reports how many such lines are in training.
+      a frozen line (the same stamp or header on another page).
 """
 
 from __future__ import annotations
@@ -37,15 +35,18 @@ import bakeoff_common as bakeoff  # noqa: E402  (path set up by dataset_common)
 from select_annotation_subset import has_annotation_work  # noqa: E402
 
 
-def candidates(manifest: list[dict], predictions: dict[str, dict], holdout: dataset.Holdout) -> tuple[list[dict], Counter]:
-    """Annotation rows for the crops that may become training data, and why others were left out."""
+ROLE = "legacy_candidate"
+
+
+def candidates(manifest: list[dict], predictions: dict[str, dict], holdout: dataset.FrozenLines) -> tuple[list[dict], Counter]:
+    """Annotation rows for the leftover crops of the bake-off documents, and why others were left out."""
     rows, left_out = [], Counter()
     for crop in manifest:
         texts = {name: predictions[name][crop["id"]]["prediction"] for name in predictions}
         if crop["id"] in holdout.ids or crop["crop_sha256"] in holdout.hashes:
-            left_out["frozen test line"] += 1
+            left_out["frozen regression line"] += 1
         elif any(dataset.nfc(text.strip()) in holdout.texts for text in texts.values()):
-            left_out["text twin of a frozen test line"] += 1
+            left_out["text twin of a frozen regression line"] += 1
         else:
             rows.append(
                 {
@@ -65,7 +66,7 @@ def candidates(manifest: list[dict], predictions: dict[str, dict], holdout: data
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--output-dir", type=Path, default=dataset.REAL_ANNOTATION_DIR)
+    parser.add_argument("--output-dir", type=Path, default=dataset.LEGACY_DIR)
     parser.add_argument("--force", action="store_true", help="Replace a table that holds no annotation work yet.")
     return parser.parse_args(argv)
 
@@ -79,7 +80,7 @@ def main(argv: list[str] | None = None) -> int:
         if not args.force:
             raise SystemExit(f"{table} already exists; pass --force to replace it.")
 
-    holdout = dataset.Holdout.load()
+    holdout = dataset.FrozenLines.load(dataset.BAKEOFF_REGRESSION)
     manifest = bakeoff.load_manifest()
     predictions = {name: bakeoff.load_predictions(path) for name, path in bakeoff.PREDICTION_FILES.items()}
     rows, left_out = candidates(manifest, predictions, holdout)
@@ -87,6 +88,10 @@ def main(argv: list[str] | None = None) -> int:
     bakeoff.write_json(
         args.output_dir / "candidates_report.json",
         {
+            "role": ROLE,
+            "usable_for_training": False,
+            "reason": "same documents and pages as the frozen bake-off regression set; "
+            "to be reconsidered only after an independent blind test is frozen",
             "crops": len(manifest),
             "left_out": dict(left_out),
             "candidates": len(rows),
@@ -100,8 +105,8 @@ def main(argv: list[str] | None = None) -> int:
     print(f"crops: {len(manifest)}")
     for reason, count in left_out.items():
         print(f"left out, {reason}: {count}")
-    print(f"candidates awaiting human verification: {len(rows)} -> {table}")
-    print("none of them is a training label until a person verifies it with annotate.py")
+    print(f"{ROLE}: {len(rows)} line(s) -> {table}")
+    print("not training data, and not to be annotated until an independent blind test is frozen")
     return 0
 
 

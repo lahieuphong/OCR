@@ -1,4 +1,4 @@
-"""The fine-tuning config: derived from the pinned pretrained one, nothing else changed."""
+"""The width-experiment configs: derived from the pinned pretrained one, equal but for the width."""
 
 import math
 import unittest
@@ -11,74 +11,119 @@ import yaml
 from run_vietocr import VIETOCR_COMMIT, WEIGHTS_PATH
 
 
-class Config(unittest.TestCase):
+def flatten(value, prefix=""):
+    if not isinstance(value, dict):
+        return {prefix: value}
+    return {k: v for key, child in value.items() for k, v in flatten(child, f"{prefix}.{key}".strip(".")).items()}
+
+
+class Configs(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.pretrained = builder.pretrained_config()
-        cls.config = yaml.safe_load(builder.CONFIG.read_text(encoding="utf-8"))
+        cls.configs = {
+            name: yaml.safe_load(builder.config_path(name).read_text(encoding="utf-8")) for name in builder.EXPERIMENTS
+        }
 
-    def test_file_is_what_the_builder_produces(self):
-        self.assertEqual(builder.CONFIG.read_text(encoding="utf-8"), builder.render_config())
-        self.assertEqual(self.config, builder.fine_tuning_config())
+    def test_files_are_what_the_builder_produces(self):
+        for name in builder.EXPERIMENTS:
+            self.assertEqual(builder.config_path(name).read_text(encoding="utf-8"), builder.render_config(name))
+            self.assertEqual(self.configs[name], builder.fine_tuning_config(name))
         self.assertEqual(builder.main(["--check"]), 0)
 
-    def test_it_lives_outside_the_vietocr_checkout(self):
-        self.assertNotIn(dataset.VIETOCR_DIR, builder.CONFIG.parents)
-        self.assertEqual(builder.CONFIG.parent, dataset.REPO_ROOT / "configs" / "vietnamese" / "vietocr")
+    def test_two_experiments_512_and_1024(self):
+        self.assertEqual(
+            {name: config["dataset"]["image_max_width"] for name, config in self.configs.items()},
+            {"exp_a_width512": 512, "exp_b_width1024": 1024},
+        )
+        self.assertEqual(self.pretrained["dataset"]["image_max_width"], 512)
 
-    def test_vocabulary_is_the_pretrained_one(self):
-        # Another vocabulary would change the output layer and orphan the checkpoint.
-        self.assertEqual(self.config["vocab"], self.pretrained["vocab"])
+    def test_the_experiments_differ_in_width_and_output_paths_only(self):
+        first, second = (flatten(self.configs[name]) for name in ("exp_a_width512", "exp_b_width1024"))
+        different = {key for key in first.keys() | second.keys() if first.get(key) != second.get(key)}
+        self.assertEqual(
+            different,
+            {"dataset.image_max_width", "weights", "trainer.export", "trainer.checkpoint", "trainer.log", "experiment.name"},
+        )
+        # In particular: same data, seed, starting weights, learning rate, batch and budget.
+        for key in ("dataset.name", "dataset.train_annotation", "dataset.valid_annotation", "experiment.seed",
+                    "pretrain", "optimizer.max_lr", "optimizer.pct_start", "trainer.batch_size", "trainer.iters",
+                    "trainer.valid_every", "aug.image_aug", "aug.masked_language_model", "vocab"):  # fmt: skip
+            self.assertEqual(first[key], second[key], key)
+
+    def test_they_live_outside_the_vietocr_checkout(self):
+        for name in builder.EXPERIMENTS:
+            self.assertNotIn(dataset.VIETOCR_DIR, builder.config_path(name).parents)
+            self.assertEqual(builder.config_path(name).parent, dataset.VIETOCR_CONFIG_DIR)
+        self.assertFalse((dataset.VIETOCR_CONFIG_DIR / "vgg_transformer_vi_admin.yml").exists())
+
+    def test_vocabulary_and_architecture_are_the_pretrained_ones(self):
+        for config in self.configs.values():
+            # Another vocabulary would change the output layer and orphan the checkpoint.
+            self.assertEqual(config["vocab"], self.pretrained["vocab"])
+            for key in ("backbone", "seq_modeling", "transformer"):
+                self.assertEqual(config[key], self.pretrained[key], key)
+            for key in ("ss", "ks", "hidden"):
+                self.assertEqual(config["cnn"][key], self.pretrained["cnn"][key], key)
         self.assertNotIn("vocab", builder.OVERRIDES)
 
-    def test_architecture_is_the_pretrained_one(self):
-        for key in ("backbone", "seq_modeling", "transformer"):
-            self.assertEqual(self.config[key], self.pretrained[key], key)
-        for key in ("ss", "ks", "hidden"):
-            self.assertEqual(self.config["cnn"][key], self.pretrained["cnn"][key], key)
-        self.assertEqual(self.config["backbone"], "vgg19_bn")
-        self.assertEqual(self.config["seq_modeling"], "transformer")
+    def test_only_documented_settings_differ_from_pretrained(self):
+        before = flatten(self.pretrained)
+        for name, config in self.configs.items():
+            after = flatten(config)
+            changed = {key for key in before.keys() | after.keys() if before.get(key) != after.get(key)}
+            allowed = set(flatten(builder.OVERRIDES)) | set(flatten(builder.experiment_overrides(name)))
+            self.assertLessEqual(changed, allowed, name)
 
-    def test_only_documented_settings_differ(self):
-        def flatten(value, prefix=""):
-            if not isinstance(value, dict):
-                return {prefix: value}
-            return {k: v for key, child in value.items() for k, v in flatten(child, f"{prefix}.{key}".strip(".")).items()}
-
-        before, after = flatten(self.pretrained), flatten(self.config)
-        changed = {key for key in before.keys() | after.keys() if before.get(key) != after.get(key)}
-        self.assertLessEqual(changed, set(flatten(builder.OVERRIDES)))
-
-    def test_it_starts_from_the_checkpoint_the_bakeoff_evaluated(self):
-        self.assertEqual(dataset.REPO_ROOT / self.config["pretrain"], WEIGHTS_PATH)
-        self.assertEqual(self.pretrained["pretrain"], "https://vocr.vn/data/vietocr/vgg_transformer.pth")
+    def test_they_start_from_the_checkpoint_the_bakeoff_evaluated(self):
+        for config in self.configs.values():
+            self.assertEqual(dataset.REPO_ROOT / config["pretrain"], WEIGHTS_PATH)
         self.assertEqual(len(VIETOCR_COMMIT), 40)
 
-    def test_dataset_paths_point_at_the_training_and_validation_annotations(self):
-        data = self.config["dataset"]
-        self.assertEqual(dataset.REPO_ROOT / data["data_root"], dataset.DATASET_DIR)
-        self.assertEqual(data["train_annotation"], "manifests/vietocr/train_annotation.txt")
-        self.assertEqual(data["valid_annotation"], "manifests/vietocr/val_annotation.txt")
-        self.assertNotIn("test", data["train_annotation"] + data["valid_annotation"])
+    def test_training_uses_the_mix_and_validation_is_real(self):
+        for config in self.configs.values():
+            data = config["dataset"]
+            self.assertEqual(dataset.REPO_ROOT / data["data_root"], dataset.DATASET_DIR)
+            self.assertEqual(data["train_annotation"], "manifests/vietocr/train_mix_annotation.txt")
+            self.assertEqual(data["valid_annotation"], "manifests/vietocr/real_val_annotation.txt")
+
+    def test_selection_is_on_real_validation_never_on_the_blind_test(self):
+        for config in self.configs.values():
+            experiment = config["experiment"]
+            self.assertEqual(experiment["selection_split"], dataset.REAL_VAL)
+            self.assertEqual((experiment["selection_metric"], experiment["selection_tiebreak"]), ("cer_nfc", "wer_nfc"))
+            self.assertFalse(experiment["blind_test_used_for_selection"])
+            self.assertNotIn(dataset.BLIND_TEST, experiment["diagnostic_splits"])
+            self.assertNotIn(dataset.BLIND_TEST, experiment["selection_split"])
+            text = yaml.safe_dump({k: v for k, v in config.items() if k != "experiment"})
+            self.assertNotIn("blind", text)  # no path of the run points at the blind test
+
+    def test_the_files_a_run_would_read_hold_no_evaluation_line(self):
+        for config in self.configs.values():
+            data = config["dataset"]
+            root = dataset.REPO_ROOT / data["data_root"]
+            self.assertEqual(dataset.training_data_problems(root / data["train_annotation"], root / data["valid_annotation"], root), [])
+        check = (dataset.DATASET_DIR / "check_vietocr_config.py").read_text(encoding="utf-8")
+        self.assertIn("dataset.training_data_problems(", check)  # the readiness check applies the same rule
 
     def test_image_width_fits_the_positional_encoding(self):
-        data = self.config["dataset"]
-        self.assertEqual(data["image_height"], 32)
-        self.assertGreaterEqual(data["image_max_width"], 512)
-        # The VGG backbone halves the height four times and the width twice,
-        # and the feature map is flattened: (H / 16) * (W / 4) positions.
-        positions = (data["image_height"] // 16) * math.ceil(data["image_max_width"] / 4)
-        self.assertLessEqual(positions, self.config["transformer"]["max_seq_length"])
+        for config in self.configs.values():
+            data = config["dataset"]
+            self.assertEqual(data["image_height"], 32)
+            # The VGG backbone halves the height four times and the width twice,
+            # and the feature map is flattened: (H / 16) * (W / 4) positions.
+            positions = (data["image_height"] // 16) * math.ceil(data["image_max_width"] / 4)
+            self.assertLessEqual(positions, config["transformer"]["max_seq_length"])
 
     def test_training_settings(self):
-        trainer = self.config["trainer"]
-        self.assertGreater(trainer["batch_size"], 0)
-        self.assertGreater(trainer["iters"], trainer["valid_every"])
-        self.assertLess(self.config["optimizer"]["max_lr"], self.pretrained["optimizer"]["max_lr"])
-        for key in ("export", "checkpoint", "log"):
-            self.assertTrue(trainer[key].startswith("models/"), key)  # outside git
-        self.assertFalse(self.config["cnn"]["pretrained"])
-        self.assertFalse(self.config["aug"]["image_aug"])
+        for config in self.configs.values():
+            trainer = config["trainer"]
+            self.assertGreater(trainer["iters"], trainer["valid_every"])
+            self.assertLess(config["optimizer"]["max_lr"], self.pretrained["optimizer"]["max_lr"])
+            for key in ("export", "checkpoint", "log"):
+                self.assertTrue(trainer[key].startswith("models/"), key)  # outside git
+            self.assertFalse(config["cnn"]["pretrained"])
+            self.assertFalse(config["aug"]["image_aug"])
 
 
 if __name__ == "__main__":

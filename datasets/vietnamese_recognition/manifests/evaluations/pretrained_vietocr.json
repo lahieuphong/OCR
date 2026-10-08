@@ -1,0 +1,22 @@
+{
+  "label": "pretrained_vietocr",
+  "predictions": "vietocr.jsonl",
+  "results": {
+    "bakeoff_regression": {
+      "lines": 100,
+      "scored_lines": 100,
+      "characters": 4853,
+      "words": 1053,
+      "cer_raw": 0.045126725736657734,
+      "cer_nfc": 0.045126725736657734,
+      "wer_raw": 0.08831908831908832,
+      "wer_nfc": 0.08831908831908832,
+      "exact_line_nfc": 0.57
+    },
+    "blind_test": {
+      "lines": 0,
+      "status": "LOCKED",
+      "predictions_not_scored": 0
+    }
+  }
+}

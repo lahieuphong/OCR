@@ -1,11 +1,22 @@
 #!/usr/bin/env python3
-"""Write the VietOCR fine-tuning config for the Vietnamese administrative dataset.
+"""Write the VietOCR fine-tuning configs of the width experiment.
 
 Usage:
-    python datasets/vietnamese_recognition/build_vietocr_config.py            # write it
-    python datasets/vietnamese_recognition/build_vietocr_config.py --check    # verify it
+    python datasets/vietnamese_recognition/build_vietocr_config.py            # write them
+    python datasets/vietnamese_recognition/build_vietocr_config.py --check    # verify them
 
-The config is the pretrained ``vgg_transformer`` configuration of the pinned
+Two configs are written, for two training runs that differ in one thing only,
+the widest image the recognizer is given:
+
+    exp_a_width512.yml    image_max_width = 512   (the pretrained value)
+    exp_b_width1024.yml   image_max_width = 1024
+
+Dataset, training mix, seed, pretrained checkpoint, learning rate, batch size
+and number of iterations are the same in both; only the width and the place
+each run writes its outputs differ. Which width wins is decided on real
+validation lines, never on the blind test.
+
+Each config is the pretrained ``vgg_transformer`` configuration of the pinned
 VietOCR checkout (``config/base.yml`` merged with ``config/vgg-transformer.yml``,
 the way ``Cfg.load_config_from_name`` merges them) with the overrides listed in
 ``OVERRIDES`` below. Nothing in ``third_party/vietocr`` is edited.
@@ -14,7 +25,7 @@ The vocabulary is deliberately left as it is. It already holds every
 Vietnamese letter, and changing it would change the size of the output layer,
 which could then no longer be loaded from the pretrained checkpoint.
 
-This script prepares a file. It does not train anything.
+This script prepares files. It does not train anything.
 """
 
 from __future__ import annotations
@@ -28,42 +39,39 @@ import yaml
 
 import dataset_common as dataset
 
-CONFIG = dataset.VIETOCR_CONFIG_DIR / "vgg_transformer_vi_admin.yml"
 BASE_FILES = ("base.yml", "vgg-transformer.yml")
 DATASET_NAME = "vi_admin_pilot_v1"
 OUTPUT_DIR = "models/vietocr/finetuned"
+# The one setting the two experiments differ in.
+EXPERIMENTS = {"exp_a_width512": 512, "exp_b_width1024": 1024}
 
 # Paths are relative to the repository root, where training is started from.
 OVERRIDES = {
     # The checkpoint the bake-off evaluated, as a local file instead of a URL.
     "pretrain": "models/vietocr/vgg_transformer.pth",
-    # Where a predictor finds the fine-tuned weights afterwards.
-    "weights": f"{OUTPUT_DIR}/vgg_transformer_vi_admin.pth",
     "device": "cuda:0",
     # ImageNet weights would be downloaded only to be overwritten by `pretrain`.
     "cnn": {"pretrained": False},
     "dataset": {
+        # Both experiments share this name, hence the same cached training data.
         "name": DATASET_NAME,
         "data_root": "datasets/vietnamese_recognition",
-        "train_annotation": "manifests/vietocr/train_annotation.txt",
-        "valid_annotation": "manifests/vietocr/val_annotation.txt",
+        # Real and synthetic lines mixed as data_mix.yml says.
+        "train_annotation": "manifests/vietocr/train_mix_annotation.txt",
+        # Real lines only: VietOCR keeps the weights that do best on this file.
+        "valid_annotation": "manifests/vietocr/real_val_annotation.txt",
         "image_height": 32,
         "image_min_width": 32,
-        # Pretrained value: 512. At height 32 that squeezes 62 of the 100 test
-        # lines; 1024 squeezes one. See the README next to the config.
-        "image_max_width": 1024,
     },
     "trainer": {
         "batch_size": 16,
         "print_every": 50,
         "valid_every": 320,
-        # 30 passes over the 5,059 pilot training lines at batch size 16.
+        # About 30 passes over the 5,059 synthetic training lines at batch size
+        # 16. Recompute once real lines are mixed in: passes x ceil(samples / 16).
         "iters": 9500,
-        "export": f"{OUTPUT_DIR}/vgg_transformer_vi_admin.pth",
-        "checkpoint": f"{OUTPUT_DIR}/vgg_transformer_vi_admin_checkpoint.pth",
-        "log": f"{OUTPUT_DIR}/train.log",
-        # Validation samples used to compute accuracy: all of them.
-        "metrics": 552,
+        # Validation lines used to compute accuracy: more than there will be.
+        "metrics": 10000,
     },
     # A third of the pretrained peak rate: adapt the model, do not retrain it.
     "optimizer": {"max_lr": 0.0001, "pct_start": 0.1},
@@ -75,17 +83,50 @@ OVERRIDES = {
     },
     "dataloader": {"num_workers": 4, "pin_memory": True},
     "predictor": {"beamsearch": False},
+    # Not read by VietOCR: how the run is to be seeded, judged and compared.
+    "experiment": {
+        "seed": 20261201,
+        "data_mix": "configs/vietnamese/vietocr/data_mix.yml",
+        "selection_split": dataset.REAL_VAL,
+        "selection_metric": "cer_nfc",
+        "selection_tiebreak": "wer_nfc",
+        "diagnostic_splits": [dataset.SYNTHETIC_VAL, dataset.BAKEOFF_REGRESSION],
+        # Scored once, after a config is chosen, with --unlock-blind-test.
+        "blind_split": dataset.BLIND_TEST,
+        "blind_test_used_for_selection": False,
+    },
 }
 
 HEADER = """\
-# VietOCR fine-tuning config: Vietnamese administrative documents, pilot dataset.
+# VietOCR fine-tuning config: Vietnamese administrative documents, width experiment.
 #
 # GENERATED by datasets/vietnamese_recognition/build_vietocr_config.py from the
 # pinned checkout third_party/vietocr (config/base.yml + config/vgg-transformer.yml).
 # Change the overrides in that script, not this file; `--check` compares them.
+# The two experiment files must differ in image_max_width and output paths only.
 #
 # Nothing has been trained with this file. See README.md in this directory.
 """
+
+
+def config_path(name: str) -> Path:
+    return dataset.VIETOCR_CONFIG_DIR / f"{name}.yml"
+
+
+def experiment_overrides(name: str) -> dict:
+    """What one experiment sets on top of the shared overrides."""
+    folder = f"{OUTPUT_DIR}/{name}"
+    return {
+        # Where a predictor finds the fine-tuned weights afterwards.
+        "weights": f"{folder}/weights.pth",
+        "dataset": {"image_max_width": EXPERIMENTS[name]},
+        "trainer": {
+            "export": f"{folder}/weights.pth",
+            "checkpoint": f"{folder}/checkpoint.pth",
+            "log": f"{folder}/train.log",
+        },
+        "experiment": {"name": name},
+    }
 
 
 def deep_update(target: dict, changes: dict) -> dict:
@@ -106,36 +147,36 @@ def pretrained_config() -> dict:
     return merged
 
 
-def fine_tuning_config() -> dict:
-    return deep_update(pretrained_config(), OVERRIDES)
+def fine_tuning_config(name: str) -> dict:
+    return deep_update(deep_update(pretrained_config(), OVERRIDES), experiment_overrides(name))
 
 
-def render_config() -> str:
-    body = yaml.safe_dump(fine_tuning_config(), allow_unicode=True, sort_keys=False, width=1000)
+def render_config(name: str) -> str:
+    body = yaml.safe_dump(fine_tuning_config(name), allow_unicode=True, sort_keys=False, width=1000)
     return HEADER + body
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--output", type=Path, default=CONFIG)
-    parser.add_argument("--check", action="store_true", help="Write nothing; fail if the file is out of date.")
+    parser.add_argument("--check", action="store_true", help="Write nothing; fail if a file is out of date.")
     return parser.parse_args(argv)
 
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
-    text = render_config()
-    if yaml.safe_load(text) != fine_tuning_config():
-        raise SystemExit("The config does not survive a YAML round trip.")
-    if args.check:
-        if not args.output.is_file() or args.output.read_text(encoding="utf-8") != text:
-            print(f"OUT OF DATE: {args.output}")
-            return 1
-        print(f"up to date: {args.output}")
-        return 0
-    dataset.write_text_atomic(args.output, text)
-    print(f"wrote {args.output}")
-    return 0
+    status = 0
+    for name in EXPERIMENTS:
+        text, path = render_config(name), config_path(name)
+        if yaml.safe_load(text) != fine_tuning_config(name):
+            raise SystemExit(f"{name}: the config does not survive a YAML round trip.")
+        if args.check:
+            current = path.is_file() and path.read_text(encoding="utf-8") == text
+            print(f"{'up to date' if current else 'OUT OF DATE'}: {path}")
+            status |= not current
+        else:
+            dataset.write_text_atomic(path, text)
+            print(f"wrote {path}")
+    return status
 
 
 if __name__ == "__main__":

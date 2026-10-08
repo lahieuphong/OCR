@@ -1,0 +1,24 @@
+# How real and synthetic lines are combined into one training pass.
+#
+# Read by datasets/vietnamese_recognition/build_dataset.py, which writes the
+# result to manifests/vietocr/train_mix_annotation.txt. Nothing here is
+# permanent: change a value, run `build_dataset.py --skip-synthetic`, and the
+# mix is rebuilt. The manifests of the two sets are never altered by it.
+#
+# Without a rule like this, a few hundred real lines would be drowned by
+# several thousand synthetic ones.
+
+# Wanted balance of real to synthetic samples within one pass.
+real_to_synthetic: [1, 2]
+
+# oversample_real      repeat every real line until the balance is reached;
+#                      all synthetic lines are kept.
+# subsample_synthetic  keep every real line once and draw only as many
+#                      synthetic lines as the balance allows.
+method: oversample_real
+
+# A real line is never repeated more often than this within one pass.
+max_real_repeats: 10
+
+# Seed of the synthetic draw (subsample_synthetic only).
+seed: 20261201

@@ -36,13 +36,15 @@ class AnnotationApp:
     def state(self) -> dict:
         row = self.store.current()
         item = None
+        shown = self.store.show_predictions
         if row is not None:
             item = {
                 "id": row["id"],
                 "document": row["document"],
                 "page": row["page"],
-                "ppocr": row["ppocr_prediction"],
-                "vietocr": row["vietocr_prediction"],
+                # Hidden predictions never leave the server.
+                "ppocr": row["ppocr_prediction"] if shown else "",
+                "vietocr": row["vietocr_prediction"] if shown else "",
                 "image": f"/crop/{quote(row['id'], safe='')}",
                 # Only set when a verified row is reopened on purpose.
                 "ground_truth": row["ground_truth"],
@@ -53,6 +55,7 @@ class AnnotationApp:
             "stop_reason": self.store.stop_reason() if item is None else "",
             "progress": self.store.progress(),
             "annotator": self.store.annotator,
+            "show_predictions": shown,
             "skip_reasons": SKIP_REASONS,
         }
 

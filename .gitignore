@@ -66,8 +66,32 @@ __pycache__/
 # Manifests and reports are text and are versioned; the VietOCR annotation
 # files are the same splits in another format and are rebuilt.
 /datasets/vietnamese_recognition/manifests/vietocr/
-# Candidate real training lines awaiting human verification: document text.
-/datasets/vietnamese_recognition/real_annotation/
+# New real documents: the source files, and everything derived from them
+# (staged copies, OCR output, line crops, annotation working tables).
+/datasets/vietnamese_recognition/real_source/*
+!/datasets/vietnamese_recognition/real_source/.gitkeep
+/datasets/vietnamese_recognition/real_work/
+# Leftover lines of the bake-off documents, set aside: predictions of real text.
+/datasets/vietnamese_recognition/legacy_candidates/
+
+# Belt and braces: a document, a scan or a crop dropped in the wrong folder of
+# the project's own trees is ignored too, whatever its place.
+/datasets/**/*.[pP][dD][fF]
+/datasets/**/*.[pP][nN][gG]
+/datasets/**/*.[jJ][pP][gG]
+/datasets/**/*.[jJ][pP][eE][gG]
+/datasets/**/*.[tT][iI][fF]
+/datasets/**/*.[tT][iI][fF][fF]
+/datasets/**/*.[bB][mM][pP]
+/datasets/**/*.[wW][eE][bB][pP]
+/benchmarks/**/*.[pP][dD][fF]
+/benchmarks/**/*.[pP][nN][gG]
+/benchmarks/**/*.[jJ][pP][gG]
+/benchmarks/**/*.[jJ][pP][eE][gG]
+/benchmarks/**/*.[tT][iI][fF]
+/benchmarks/**/*.[tT][iI][fF][fF]
+/benchmarks/**/*.[bB][mM][pP]
+/benchmarks/**/*.[wW][eE][bB][pP]
 
 # VietOCR builds its LMDB caches in the directory training is started from.
 /train_vi_admin*/

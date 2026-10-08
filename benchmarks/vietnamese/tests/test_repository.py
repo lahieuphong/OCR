@@ -39,7 +39,7 @@ class NothingSensitiveCanBeCommitted(unittest.TestCase):
         # Everything `git add -A` would put in a commit, plus what is staged now.
         cls.candidates = sorted(
             set(project_files("ls-files", "--cached", "--others", "--exclude-standard"))
-            | set(project_files("diff", "--cached", "--name-only"))
+            | set(project_files("diff", "--cached", "--name-only", "--diff-filter=d"))  # a staged deletion adds nothing
         )
 
     def test_there_is_something_to_check(self):
@@ -90,29 +90,78 @@ class NothingSensitiveCanBeCommitted(unittest.TestCase):
 class RecognitionDataset(unittest.TestCase):
     ROOT = "datasets/vietnamese_recognition"
 
-    def test_generated_images_and_manifests_are_ignored(self):
+    def test_generated_images_and_trainer_files_are_ignored(self):
         paths = [
             f"{self.ROOT}/train/images/syn_train_000001.png",
             f"{self.ROOT}/train/clean/syn_train_000001.png",
             f"{self.ROOT}/val/images/syn_val_000001.png",
-            f"{self.ROOT}/manifests/vietocr/train_annotation.txt",
-            f"{self.ROOT}/real_annotation/manifest.tsv",
+            f"{self.ROOT}/manifests/vietocr/train_mix_annotation.txt",
             "train_vi_admin_pilot_v1/data.mdb",
+            "valid_vi_admin_pilot_v1/data.mdb",
         ]
         self.assertEqual(len(git("check-ignore", *paths).splitlines()), len(paths))
 
-    def test_holdout_hard_cases_and_sources_are_not_ignored(self):
+    def test_real_documents_and_everything_derived_from_them_are_ignored(self):
+        paths = [
+            f"{self.ROOT}/real_source/cong-van-moi.pdf",
+            f"{self.ROOT}/real_source/scan-001.png",
+            f"{self.ROOT}/real_source/scan-002.jpg",
+            f"{self.ROOT}/real_source/scan-003.tiff",
+            f"{self.ROOT}/real_work/staged/doc_0123456789ab.pdf",
+            f"{self.ROOT}/real_work/ocr/doc_0123456789ab/page_0001.json",
+            f"{self.ROOT}/real_work/crops/doc_0123456789ab_p001_l001.png",
+            f"{self.ROOT}/real_work/manifest.jsonl",
+            f"{self.ROOT}/real_work/predictions/vietocr.jsonl",
+            f"{self.ROOT}/real_work/annotation/real_train/manifest.tsv",
+            f"{self.ROOT}/real_work/annotation/blind_test/manifest.tsv",
+            f"{self.ROOT}/legacy_candidates/manifest.tsv",
+        ]
+        self.assertEqual(len(git("check-ignore", *paths).splitlines()), len(paths))
+
+    def test_a_document_or_image_in_the_wrong_folder_is_ignored_too(self):
+        paths = [
+            f"{self.ROOT}/scan.pdf",
+            f"{self.ROOT}/SCAN.PDF",
+            f"{self.ROOT}/blind_test/page_0001.png",
+            f"{self.ROOT}/bakeoff_regression/crop.jpg",
+            f"{self.ROOT}/manifests/photo.JPEG",
+            f"{self.ROOT}/lexicon/page.tiff",
+            f"{self.ROOT}/tests/fixture.tif",
+            "datasets/another_dataset/line.png",
+            "benchmarks/vietnamese/cong-van.pdf",
+            "benchmarks/vietnamese/recognizer_bakeoff/results/line.png",
+        ]
+        self.assertEqual(len(git("check-ignore", *paths).splitlines()), len(paths))
+
+    def test_sources_frozen_sets_and_manifests_are_not_ignored(self):
         for path in (
-            f"{self.ROOT}/test_holdout/test_holdout.tsv",
-            f"{self.ROOT}/test_holdout/test_holdout.sha256",
+            f"{self.ROOT}/bakeoff_regression/bakeoff_regression.tsv",
+            f"{self.ROOT}/bakeoff_regression/bakeoff_regression.sha256",
+            f"{self.ROOT}/bakeoff_regression/source_documents.tsv",
+            f"{self.ROOT}/blind_test/blind_test.tsv",
+            f"{self.ROOT}/blind_test/blind_test.sha256",
+            f"{self.ROOT}/real_documents.tsv",
+            f"{self.ROOT}/real_source/.gitkeep",
             f"{self.ROOT}/manifests/hard_cases.txt",
-            f"{self.ROOT}/manifests/train.tsv",
+            f"{self.ROOT}/manifests/synthetic_train.tsv",
+            f"{self.ROOT}/manifests/real_train.tsv",
+            f"{self.ROOT}/manifests/blind_test_unlocks.jsonl",
             f"{self.ROOT}/lexicon/administrative.txt",
             f"{self.ROOT}/build_dataset.py",
-            "configs/vietnamese/vietocr/vgg_transformer_vi_admin.yml",
+            f"{self.ROOT}/import_real_documents.py",
+            "configs/vietnamese/vietocr/exp_a_width512.yml",
+            "configs/vietnamese/vietocr/exp_b_width1024.yml",
+            "configs/vietnamese/vietocr/data_mix.yml",
         ):
             ignored = subprocess.run(["git", "check-ignore", "-q", path], cwd=_paths.REPO_ROOT).returncode == 0
             self.assertFalse(ignored, path)
+
+    def test_no_document_image_or_model_file_is_tracked_or_stageable(self):
+        tracked = git("ls-files").splitlines()
+        untracked = git("ls-files", "--others", "--exclude-standard").splitlines()
+        binary = (".pdf", ".png", ".jpg", ".jpeg", ".tif", ".tiff", ".pth", ".pdparams", ".onnx", ".mdb")
+        mine = [path for path in tracked + untracked if not path.startswith(("PaddleOCR/", "third_party/"))]
+        self.assertEqual([path for path in mine if path.lower().endswith(binary)], [])
 
 
 class PinnedVietOCR(unittest.TestCase):

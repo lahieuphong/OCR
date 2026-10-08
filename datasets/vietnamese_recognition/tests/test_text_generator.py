@@ -153,12 +153,12 @@ class HardCasesAndCoverage(unittest.TestCase):
 class SplitTexts(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.banned = frozenset(dataset.Holdout.load().texts)
+        cls.banned = frozenset(dataset.FrozenLines.load(dataset.BAKEOFF_REGRESSION).texts)
         cls.cases = load_hard_cases(dataset.HARD_CASES)[:6]
         cls.seen: set[str] = set()
         make = generator(cls.banned)
-        cls.train = build_dataset.split_texts(make, build_dataset.SplitSpec(11, 150, 40, 2, 4), "train", cls.cases, cls.seen)
-        cls.val = build_dataset.split_texts(make, build_dataset.SplitSpec(12, 40, 10, 1, 1), "val", cls.cases, cls.seen)
+        cls.train = build_dataset.split_texts(make, build_dataset.SplitSpec("train", 11, 150, 40, 2, 4), cls.cases, cls.seen)
+        cls.val = build_dataset.split_texts(make, build_dataset.SplitSpec("val", 12, 40, 10, 1, 1), cls.cases, cls.seen)
 
     def test_every_letter_reaches_its_minimum(self):
         counts = Counter(character for sample in self.train for character in sample["text"])
@@ -172,7 +172,7 @@ class SplitTexts(unittest.TestCase):
         self.assertEqual(len(set(val)), len(val))
         self.assertEqual(set(train) & set(val), set())
 
-    def test_no_text_of_the_frozen_test_set(self):
+    def test_no_text_of_the_frozen_regression_set(self):
         self.assertEqual({s["text"] for s in self.train + self.val} & self.banned, set())
 
     def test_ids_subsets_and_sources(self):
@@ -185,12 +185,13 @@ class SplitTexts(unittest.TestCase):
 
     def test_same_specification_same_texts(self):
         again = build_dataset.split_texts(
-            generator(self.banned), build_dataset.SplitSpec(11, 150, 40, 2, 4), "train", self.cases, set()
+            generator(self.banned), build_dataset.SplitSpec("train", 11, 150, 40, 2, 4), self.cases, set()
         )
         self.assertEqual(again, self.train)
 
     def test_validation_seed_differs_from_training_seed(self):
-        self.assertNotEqual(build_dataset.PILOT["train"].seed, build_dataset.PILOT["val"].seed)
+        seeds = [spec.seed for spec in build_dataset.PILOT.values()]
+        self.assertEqual(len(set(seeds)), len(seeds))
 
 
 if __name__ == "__main__":
