@@ -1,0 +1,112 @@
+{
+  "checkpoint_url": "https://paddle-model-ecology.bj.bcebos.com/paddlex/official_pretrained_model/PP-OCRv6_medium_rec_pretrained.pdparams",
+  "checkpoint_sha256": "c4a110423c23739f157ff870e27f41649d8c89e4c8df5230c2cd2e9fd90a7e92",
+  "config": "PaddleOCR/configs/rec/PP-OCRv6/PP-OCRv6_medium_rec.yml",
+  "use_space_char": true,
+  "tensors": 441,
+  "parameters": 58150582,
+  "classes": {
+    "original": {
+      "ctc": 18710,
+      "nrtr": 18714
+    },
+    "extended": {
+      "ctc": 18798,
+      "nrtr": 18802
+    }
+  },
+  "vocabulary_dependent_tensors": {
+    "head.ctc_head.fc.weight": {
+      "original": [
+        192,
+        18710
+      ],
+      "extended": [
+        192,
+        18798
+      ]
+    },
+    "head.ctc_head.fc.bias": {
+      "original": [
+        18710
+      ],
+      "extended": [
+        18798
+      ]
+    },
+    "head.gtc_head.embedding.embedding.weight": {
+      "original": [
+        18714,
+        512
+      ],
+      "extended": [
+        18802,
+        512
+      ]
+    },
+    "head.gtc_head.tgt_word_prj.weight": {
+      "original": [
+        512,
+        18714
+      ],
+      "extended": [
+        512,
+        18802
+      ]
+    }
+  },
+  "moved_classes": {
+    "ctc": [
+      {
+        "character": " ",
+        "from": 18709,
+        "to": 18797
+      }
+    ],
+    "nrtr": [
+      {
+        "character": " ",
+        "from": 18712,
+        "to": 18800
+      },
+      {
+        "character": "<unused trailing row>",
+        "from": 18713,
+        "to": 18801
+      }
+    ]
+  },
+  "loader_warnings": [
+    "The shape of model params head.ctc_head.fc.weight [192, 18798] not matched with loaded params head.ctc_head.fc.weight [192, 18710] !",
+    "The shape of model params head.ctc_head.fc.bias [18798] not matched with loaded params head.ctc_head.fc.bias [18710] !",
+    "The shape of model params head.gtc_head.embedding.embedding.weight [18802, 512] not matched with loaded params head.gtc_head.embedding.embedding.weight [18714, 512] !",
+    "The shape of model params head.gtc_head.tgt_word_prj.weight [512, 18802] not matched with loaded params head.gtc_head.tgt_word_prj.weight [512, 18714] !"
+  ],
+  "loader_skipped_tensors": [
+    "head.ctc_head.fc.bias",
+    "head.ctc_head.fc.weight",
+    "head.gtc_head.embedding.embedding.weight",
+    "head.gtc_head.tgt_word_prj.weight"
+  ],
+  "loader_skips_exactly_the_dependent_tensors": true,
+  "migration_check": {
+    "crops": 364,
+    "max_feature_difference": 0.0,
+    "max_old_class_logit_difference": 0.0,
+    "checkpoint_matches_inference_model": 364,
+    "new_row_initialisation": {
+      "random (the head's own initialiser)": {
+        "crops_with_unchanged_text": 231,
+        "time_steps_won_by_a_new_class": 223
+      },
+      "silent (zero weight, bias -0.07 = lowest old bias)": {
+        "crops_with_unchanged_text": 364,
+        "time_steps_won_by_a_new_class": 0
+      },
+      "copy of the nearest existing letter": {
+        "crops_with_unchanged_text": 364,
+        "time_steps_won_by_a_new_class": 0
+      }
+    }
+  }
+}

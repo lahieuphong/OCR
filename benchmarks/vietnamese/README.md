@@ -61,6 +61,10 @@ Khi chưa có trang nào được verified, bước 5 không tính gì và in
 | `annotation_candidates/` | Bản nháp từ OCR, `verified: false` |
 | `results/` | Kết quả sinh ra bởi các script |
 | `ground_truth.tsv` | Khung cho ground truth mức dòng (dùng khi chuẩn bị dữ liệu train), hiện chỉ có header |
+| `audit_charset.py` | Liệt kê chữ tiếng Việt mà từ điển PP-OCRv6 không có |
+| `build_extended_dict.py` | Sinh `configs/vietnamese/ppocrv6_vi_ext_dict.txt` (dict gốc + các chữ thiếu) |
+| `recognizer_bakeoff/` | So sánh PP-OCRv6 và VietOCR trên cùng line crop, xem `recognizer_bakeoff/README.md` |
+| `tests/` | `python -m unittest discover -s benchmarks/vietnamese/tests` |
 
 Output OCR của từng profile nằm ở
 `experiments/vietnamese_baseline/output/<profile>/<document>/`.
@@ -129,6 +133,12 @@ chữ như `thc hin`, `t chc`, `vưng mc`. Cả 13 mục trong `hard_cases.txt` 
 ít nhất một chữ bị thiếu, và không mục nào xuất hiện trong output.
 Vì vậy lựa chọn giữa profile A và B không giải quyết được nguồn lỗi chính; muốn
 nhận dạng đúng các chữ này thì phải mở rộng từ điển khi fine-tune.
+
+Danh sách đầy đủ kèm code point và tên Unicode: `python
+benchmarks/vietnamese/audit_charset.py`. Hai chữ thuộc khối Latin Extended
+Additional mà từ điển có là `Ạ` (U+1EA0) và `ồ` (U+1ED3); dạng còn lại của
+chúng, `ạ` và `Ồ`, thì thiếu. Từ điển mở rộng và những gì cần làm để dùng được
+nó: `configs/vietnamese/README.md`.
 
 ## Nguyên tắc
 
