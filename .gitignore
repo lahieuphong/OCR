@@ -50,3 +50,9 @@ __pycache__/
 /benchmarks/vietnamese/recognizer_bakeoff/results/*
 !/benchmarks/vietnamese/recognizer_bakeoff/results/ppocrv6_head_analysis.json
 !/benchmarks/vietnamese/recognizer_bakeoff/results/ppocrv6_medium_rec_state_dict.csv
+# Aggregate metrics of the bake-off: numbers and labels only, no line of text.
+!/benchmarks/vietnamese/recognizer_bakeoff/results/summary.json
+!/benchmarks/vietnamese/recognizer_bakeoff/results/recognizer_metrics.csv
+!/benchmarks/vietnamese/recognizer_bakeoff/results/line_length_groups.csv
+!/benchmarks/vietnamese/recognizer_bakeoff/results/ground_truth_source_groups.csv
+!/benchmarks/vietnamese/recognizer_bakeoff/results/missing_characters.csv

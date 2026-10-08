@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Annotation ground truth</title>
+<style>
+  :root {
+    --bg: #f4f5f7; --panel: #ffffff; --text: #16181d; --muted: #5d6470; --line: #d5d9e0;
+    --accent: #0b5cad; --accent-text: #ffffff; --warn: #9a3412; --ok: #166534; --paper: #ffffff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #15171c; --panel: #1f232b; --text: #e8eaee; --muted: #a2a9b6; --line: #3a404c;
+      --accent: #6cb0f5; --accent-text: #0d1117; --warn: #fdba74; --ok: #86efac; --paper: #ffffff;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.45 system-ui, sans-serif; }
+  header {
+    position: sticky; top: 0; z-index: 2; display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center;
+    padding: 10px 16px; background: var(--panel); border-bottom: 1px solid var(--line);
+  }
+  header .count { font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  header .rest { color: var(--muted); }
+  header .spacer { flex: 1; }
+  main { max-width: 1280px; margin: 0 auto; padding: 16px; display: grid; gap: 14px; }
+  section { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; }
+  .meta { color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
+  .meta b { color: var(--text); font-weight: 600; }
+  .crop-box { background: var(--paper); border: 1px solid var(--line); border-radius: 6px; padding: 10px; overflow-x: auto; }
+  .crop-box img { display: block; max-width: none; }
+  .zoom { display: flex; gap: 6px; align-items: center; margin-top: 8px; color: var(--muted); font-size: 13px; }
+  h2 { margin: 0 0 6px; font-size: 13px; font-weight: 600; color: var(--muted); text-transform: none; }
+  .text {
+    font: 24px/1.4 "Times New Roman", Times, serif; white-space: pre-wrap; overflow-wrap: anywhere;
+    padding: 4px 0 10px; min-height: 1.4em;
+  }
+  .text.empty::before { content: "(model không xuất ra gì)"; color: var(--muted); font: 15px system-ui, sans-serif; }
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  button {
+    font: inherit; padding: 7px 12px; border-radius: 6px; border: 1px solid var(--line);
+    background: var(--panel); color: var(--text); cursor: pointer;
+  }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); font-weight: 600; }
+  button:disabled { opacity: .45; cursor: default; }
+  button:focus-visible, input:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  kbd {
+    font: 12px ui-monospace, monospace; padding: 1px 5px; border: 1px solid var(--line); border-radius: 4px;
+    background: var(--bg); color: var(--text);
+  }
+  button.primary kbd { background: transparent; color: inherit; border-color: currentColor; }
+  input[type=text] {
+    width: 100%; font: 24px/1.4 "Times New Roman", Times, serif; padding: 6px 8px; margin-bottom: 10px;
+    border: 1px solid var(--line); border-radius: 6px; background: var(--paper); color: #16181d;
+  }
+  .hint { color: var(--muted); font-size: 13px; }
+  #skip-reasons { display: none; margin-top: 10px; }
+  #skip-reasons.open { display: flex; }
+  .rules { font-size: 13px; color: var(--muted); }
+  .rules ul { margin: 4px 0 0; padding-left: 18px; }
+  #toast {
+    position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); padding: 8px 14px; border-radius: 6px;
+    background: var(--text); color: var(--bg); font-size: 14px; opacity: 0; transition: opacity .15s; pointer-events: none;
+    max-width: calc(100vw - 32px);
+  }
+  #toast.show { opacity: 1; }
+  #toast.error { background: var(--warn); color: #fff; }
+  #done { display: none; text-align: center; padding: 48px 16px; }
+  #done h1 { font-size: 22px; margin: 0 0 8px; color: var(--ok); }
+  body.done #work { display: none; }
+  body.done #done { display: block; }
+</style>
+</head>
+<body>
+<header>
+  <span class="count"><span id="verified">0</span> / <span id="target">100</span> verified</span>
+  <span class="rest" id="rest"></span>
+  <span class="spacer"></span>
+  <span class="rest">Annotator: <b id="annotator"></b></span>
+  <button id="undo" title="Hoàn tác thao tác gần nhất của phiên này"><kbd>u</kbd> Hoàn tác</button>
+  <button id="quit"><kbd>q</kbd> Lưu và thoát</button>
+</header>
+
+<main id="work">
+  <section>
+    <div class="meta">ID: <b id="id"></b> &nbsp;·&nbsp; Document: <b id="document"></b> &nbsp;·&nbsp; Page: <b id="page"></b></div>
+    <div class="crop-box" id="crop-box"><img id="crop" alt="Ảnh crop của dòng cần gõ ground truth"></div>
+    <div class="zoom">
+      Phóng ảnh:
+      <button id="zoom-out" aria-label="Thu nhỏ ảnh">−</button>
+      <button id="zoom-in" aria-label="Phóng to ảnh">+</button>
+      <button id="zoom-fit">Vừa khung</button>
+      <span id="zoom-label"></span>
+    </div>
+  </section>
+
+  <section>
+    <h2>PP-OCRv6</h2>
+    <div class="text" id="ppocr"></div>
+    <div class="actions">
+      <button class="primary" id="accept-ppocr"><kbd>p</kbd> Khớp chính xác với ảnh</button>
+      <button id="edit-ppocr"><kbd>Shift</kbd>+<kbd>P</kbd> Sửa từ bản này</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>VietOCR</h2>
+    <div class="text" id="vietocr"></div>
+    <div class="actions">
+      <button class="primary" id="accept-vietocr"><kbd>v</kbd> Khớp chính xác với ảnh</button>
+      <button id="edit-vietocr"><kbd>Shift</kbd>+<kbd>V</kbd> Sửa từ bản này</button>
+    </div>
+  </section>
+
+  <section>
+    <h2><kbd>e</kbd> Gõ hoặc sửa ground truth chính xác</h2>
+    <input type="text" id="gt" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"
+           aria-label="Ground truth: đúng những chữ nhìn thấy trên ảnh">
+    <div class="actions">
+      <button class="primary" id="save"><kbd>Enter</kbd> Lưu là verified</button>
+      <button id="skip"><kbd>s</kbd> Bỏ qua dòng này</button>
+      <span class="hint">Bấm <kbd>p</kbd> hoặc <kbd>v</kbd> nghĩa là: tôi đã nhìn ảnh và text đó khớp chính xác từng ký tự.</span>
+    </div>
+    <div class="actions" id="skip-reasons"></div>
+  </section>
+
+  <section class="rules">
+    Ground truth là <b>đúng những chữ in nhìn thấy trên ảnh</b>.
+    <ul>
+      <li>Giữ nguyên dấu, chữ hoa/thường, dấu câu, khoảng trắng và cả lỗi chính tả của văn bản gốc.</li>
+      <li>Không sửa theo suy đoán, không viết lại, không khai triển chữ viết tắt, không thêm chữ ảnh không có.</li>
+      <li>Hai prediction chỉ để tham khảo: cả hai đều có thể sai ở cùng một chỗ.</li>
+      <li>Chữ ký tay, con dấu che chữ, dòng không đọc được chắc chắn, crop lỗi: bấm <kbd>s</kbd> để bỏ qua.</li>
+    </ul>
+  </section>
+</main>
+
+<div id="done">
+  <h1>Phiên annotation đã kết thúc</h1>
+  <p id="done-reason"></p>
+  <p class="hint">Mọi dòng đã được lưu. Có thể đóng tab này.</p>
+</div>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+const TOKEN = "__TOKEN__";
+const $ = (id) => document.getElementById(id);
+const gt = $("gt"), crop = $("crop");
+let state = null, busy = false, zoom = null;
+
+try { zoom = parseFloat(localStorage.getItem("annotation-zoom")) || null; } catch (error) { zoom = null; }
+
+function toast(message, isError) {
+  const element = $("toast");
+  element.textContent = message;
+  element.className = "show" + (isError ? " error" : "");
+  clearTimeout(toast.timer);
+  toast.timer = setTimeout(() => { element.className = ""; }, isError ? 5000 : 1600);
+}
+
+function applyZoom() {
+  if (!crop.naturalWidth) return;
+  const fit = Math.min(3, Math.max(1, ($("crop-box").clientWidth - 22) / crop.naturalWidth));
+  const scale = zoom || fit;
+  crop.style.width = Math.round(crop.naturalWidth * scale) + "px";
+  $("zoom-label").textContent = Math.round(scale * 100) + "%" + (zoom ? "" : " (vừa khung)");
+}
+
+function setZoom(value) {
+  zoom = value;
+  try { value ? localStorage.setItem("annotation-zoom", value) : localStorage.removeItem("annotation-zoom"); } catch (error) {}
+  applyZoom();
+}
+
+function setText(id, text) {
+  const element = $(id);
+  element.textContent = text;
+  element.classList.toggle("empty", text === "");
+}
+
+function render(next) {
+  state = next;
+  const progress = next.progress;
+  $("verified").textContent = progress.verified;
+  $("target").textContent = progress.target;
+  $("annotator").textContent = next.annotator;
+  let rest = "bỏ qua " + progress.skipped + " · còn " + progress.pending + " dòng chưa xem · "
+    + progress.documents + " tài liệu, " + progress.pages + " trang";
+  if (progress.verified >= progress.target && progress.missing_coverage.length) {
+    rest += " · cần thêm: " + progress.missing_coverage.join(", ");
+  }
+  $("rest").textContent = rest;
+  $("undo").disabled = !progress.can_undo;
+  document.body.classList.toggle("done", next.done);
+  $("skip-reasons").classList.remove("open");
+  if (next.done) {
+    $("done-reason").textContent = next.stop_reason + " — verified " + progress.verified
+      + ", bỏ qua " + progress.skipped + ".";
+    return;
+  }
+  const item = next.item;
+  $("id").textContent = item.id;
+  $("document").textContent = item.document;
+  $("page").textContent = item.page;
+  setText("ppocr", item.ppocr);
+  setText("vietocr", item.vietocr);
+  $("accept-ppocr").disabled = item.ppocr.trim() === "";
+  $("accept-vietocr").disabled = item.vietocr.trim() === "";
+  if (crop.dataset.id !== item.id) {
+    crop.dataset.id = item.id;
+    crop.src = item.image;
+    gt.value = item.ground_truth || "";
+    gt.blur();
+    window.scrollTo(0, 0);
+  }
+}
+
+async function act(action, extra) {
+  if (busy || !state) return;
+  if (state.done && action !== "undo") return;
+  busy = true;
+  try {
+    const response = await fetch("/api/action", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Annotation-Token": TOKEN },
+      body: JSON.stringify(Object.assign({ id: state.item ? state.item.id : "", action: action }, extra || {})),
+    });
+    const data = await response.json();
+    if (data.error) toast(data.error, true);
+    else if (action === "undo") toast("Đã hoàn tác");
+    else if (action === "skip") toast("Đã bỏ qua");
+    else if (action !== "quit") toast("Đã lưu là verified");
+    if (data.progress) render(data);
+  } catch (error) {
+    toast("Không liên lạc được với annotate.py. Các dòng trước đó đã được lưu; hãy chạy lại lệnh.", true);
+  } finally {
+    busy = false;
+  }
+}
+
+function saveTyped() {
+  if (gt.value.trim() === "") { toast("Chưa gõ gì. Gõ đúng chữ trên ảnh, hoặc bấm s để bỏ qua.", true); return; }
+  act("enter", { text: gt.value });
+}
+
+function editFrom(text) {
+  gt.value = text;
+  gt.focus();
+  gt.setSelectionRange(text.length, text.length);
+}
+
+function toggleSkip() {
+  const panel = $("skip-reasons");
+  if (!panel.childElementCount) {
+    Object.entries(state.skip_reasons).forEach(([reason, label], index) => {
+      const button = document.createElement("button");
+      button.innerHTML = "<kbd>" + (index + 1) + "</kbd> ";
+      button.append(label);
+      button.dataset.reason = reason;
+      button.addEventListener("click", () => act("skip", { reason: reason }));
+      panel.append(button);
+    });
+  }
+  panel.classList.toggle("open");
+}
+
+$("accept-ppocr").addEventListener("click", () => act("accept_ppocr"));
+$("accept-vietocr").addEventListener("click", () => act("accept_vietocr"));
+$("edit-ppocr").addEventListener("click", () => editFrom(state.item.ppocr));
+$("edit-vietocr").addEventListener("click", () => editFrom(state.item.vietocr));
+$("save").addEventListener("click", saveTyped);
+$("skip").addEventListener("click", toggleSkip);
+$("undo").addEventListener("click", () => act("undo"));
+$("quit").addEventListener("click", () => act("quit"));
+$("zoom-in").addEventListener("click", () => setZoom(Math.min(6, (zoom || parseFloat(crop.style.width) / crop.naturalWidth) * 1.25)));
+$("zoom-out").addEventListener("click", () => setZoom(Math.max(0.5, (zoom || parseFloat(crop.style.width) / crop.naturalWidth) / 1.25)));
+$("zoom-fit").addEventListener("click", () => setZoom(null));
+crop.addEventListener("load", applyZoom);
+window.addEventListener("resize", applyZoom);
+
+document.addEventListener("keydown", (event) => {
+  if (event.metaKey || event.ctrlKey || event.altKey || !state || state.done) return;
+  if (document.activeElement === gt) {
+    // Enter saves what was typed; never while an input method is composing.
+    if (event.key === "Enter" && !event.isComposing) { event.preventDefault(); saveTyped(); }
+    else if (event.key === "Escape") gt.blur();
+    return;
+  }
+  const reasons = $("skip-reasons");
+  if (reasons.classList.contains("open") && /^[1-9]$/.test(event.key)) {
+    const button = reasons.children[Number(event.key) - 1];
+    if (button) { event.preventDefault(); button.click(); }
+    return;
+  }
+  const key = event.key.toLowerCase();
+  if (key === "p") { event.preventDefault(); event.shiftKey ? editFrom(state.item.ppocr) : act("accept_ppocr"); }
+  else if (key === "v") { event.preventDefault(); event.shiftKey ? editFrom(state.item.vietocr) : act("accept_vietocr"); }
+  else if (key === "e") { event.preventDefault(); gt.focus(); }
+  else if (key === "s") { event.preventDefault(); toggleSkip(); }
+  else if (key === "u") { event.preventDefault(); act("undo"); }
+  else if (key === "q") { event.preventDefault(); act("quit"); }
+});
+
+fetch("/api/state").then((response) => response.json()).then(render)
+  .catch(() => toast("Không tải được trạng thái từ annotate.py.", true));
+</script>
+</body>
+</html>

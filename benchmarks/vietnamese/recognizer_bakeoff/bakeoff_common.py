@@ -43,7 +43,8 @@ PREDICTION_FILES = {
     VIETOCR: PREDICTIONS_DIR / f"{VIETOCR}.jsonl",
 }
 
-ANNOTATION_COLUMNS = (
+# The columns a freshly selected table starts from ...
+SELECTION_COLUMNS = (
     "id",
     "document",
     "page",
@@ -53,6 +54,16 @@ ANNOTATION_COLUMNS = (
     "ground_truth",
     "verified",
 )
+# ... and the ones the annotation tool fills in. `excluded_reason` marks a row a
+# person looked at and set aside; such a row stays `verified=false`.
+REVIEW_COLUMNS = (
+    "excluded_reason",
+    "ground_truth_source",
+    "annotator",
+    "verified_at",
+    "ground_truth_sha256",
+)
+ANNOTATION_COLUMNS = SELECTION_COLUMNS + REVIEW_COLUMNS
 
 
 def crop_id(document: str, page: int, line_index: int) -> str:
@@ -157,12 +168,16 @@ def check_same_ids(id_sets: dict[str, set[str]]) -> None:
 
 
 def read_annotation(path: Path = ANNOTATION_MANIFEST) -> list[dict]:
-    """Rows of the annotation table. Fields are plain text: no quoting rules."""
+    """Rows of the annotation table. Fields are plain text: no quoting rules.
+
+    A table written before the review columns existed is accepted and gets
+    them empty; it is upgraded the next time it is saved.
+    """
     with path.open(encoding="utf-8", newline="") as stream:
         reader = csv.DictReader(stream, delimiter="\t", quoting=csv.QUOTE_NONE)
-        if tuple(reader.fieldnames or ()) != ANNOTATION_COLUMNS:
+        if tuple(reader.fieldnames or ()) not in (ANNOTATION_COLUMNS, SELECTION_COLUMNS):
             raise SystemExit(f"{path}: unexpected columns {reader.fieldnames}")
-        rows = list(reader)
+        rows = [{column: row.get(column) or "" for column in ANNOTATION_COLUMNS} for row in reader]
     repeated = duplicates([row["id"] for row in rows])
     if repeated:
         raise SystemExit(f"{path}: duplicate id: {', '.join(repeated[:5])}")
@@ -183,3 +198,16 @@ def write_annotation(path: Path, rows: list[dict]) -> None:
 
 def is_verified(row: dict) -> bool:
     return row["verified"] == "true"
+
+
+def is_excluded(row: dict) -> bool:
+    """Looked at by a person and set aside: never scored."""
+    return not is_verified(row) and bool(row["excluded_reason"])
+
+
+def is_pending(row: dict) -> bool:
+    return not is_verified(row) and not row["excluded_reason"]
+
+
+def text_sha256(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()

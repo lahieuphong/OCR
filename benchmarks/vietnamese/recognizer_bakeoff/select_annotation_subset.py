@@ -159,7 +159,8 @@ def select(rows: list[dict], tags: dict[str, set[str]], quotas: dict[str, int], 
 
 def has_annotation_work(path: Path) -> bool:
     return any(
-        row["ground_truth"] or bakeoff.is_verified(row) for row in bakeoff.read_annotation(path)
+        row["ground_truth"] or bakeoff.is_verified(row) or bakeoff.is_excluded(row)
+        for row in bakeoff.read_annotation(path)
     )
 
 
@@ -231,6 +232,7 @@ def main(argv: list[str] | None = None) -> int:
                 "vietocr_prediction": predictions[bakeoff.VIETOCR][row["id"]]["prediction"],
                 "ground_truth": "",
                 "verified": "false",
+                **dict.fromkeys(bakeoff.REVIEW_COLUMNS, ""),
             }
         )
     bakeoff.write_annotation(table_path, table)

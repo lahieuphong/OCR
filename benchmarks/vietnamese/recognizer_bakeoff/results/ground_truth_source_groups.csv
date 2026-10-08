@@ -1,0 +1,7 @@
+ground_truth_source,recognizer,lines,characters_gt,micro_cer_nfc,micro_wer_nfc,exact_line_nfc
+ppocr_accepted,ppocrv6,2,44,0.000000,0.000000,1.000000
+ppocr_accepted,vietocr,2,44,0.113636,1.000000,0.000000
+typed,ppocrv6,41,2208,0.126359,0.532495,0.000000
+typed,vietocr,41,2208,0.096920,0.186583,0.000000
+vietocr_accepted,ppocrv6,57,2601,0.136486,0.540210,0.017544
+vietocr_accepted,vietocr,57,2601,0.000000,0.000000,1.000000

@@ -1,0 +1,259 @@
+{
+  "ground_truth": {
+    "verified_lines": 100,
+    "characters": 4853,
+    "words": 1053,
+    "all_nfc": true,
+    "documents": [
+      "21-bct.signed",
+      "216-tb.signed",
+      "738-ttg.signed"
+    ],
+    "pages": 9,
+    "by_source": {
+      "vietocr_accepted": 57,
+      "typed": 41,
+      "ppocr_accepted": 2
+    },
+    "by_length_group": {
+      "short": 38,
+      "long": 41,
+      "medium": 21
+    },
+    "skipped": 0,
+    "skipped_by_reason": {},
+    "selected": 150
+  },
+  "recognizers": {
+    "ppocrv6": {
+      "recognizer": "ppocrv6",
+      "verified_lines": 100,
+      "characters_gt": 4853,
+      "words_gt": 1053,
+      "micro_cer_raw": 0.1306408407170822,
+      "micro_cer_nfc": 0.1306408407170822,
+      "micro_wer_raw": 0.5346628679962013,
+      "micro_wer_nfc": 0.5346628679962013,
+      "exact_line_raw": 0.03,
+      "exact_line_nfc": 0.03,
+      "missing_char_occurrences": 487,
+      "missing_char_correct": 0,
+      "missing_char_accuracy": 0.0,
+      "other_char_occurrences": 4366,
+      "other_char_correct": 4232,
+      "other_char_accuracy": 0.9693082913421897,
+      "hard_case_occurrences": 63,
+      "hard_case_correct": 0,
+      "hard_case_accuracy": 0.0,
+      "lines_with_edge_insertion": 0,
+      "substitutions": 172,
+      "deletions": 449,
+      "insertions": 13
+    },
+    "vietocr": {
+      "recognizer": "vietocr",
+      "verified_lines": 100,
+      "characters_gt": 4853,
+      "words_gt": 1053,
+      "micro_cer_raw": 0.045126725736657734,
+      "micro_cer_nfc": 0.045126725736657734,
+      "micro_wer_raw": 0.08831908831908832,
+      "micro_wer_nfc": 0.08831908831908832,
+      "exact_line_raw": 0.57,
+      "exact_line_nfc": 0.57,
+      "missing_char_occurrences": 487,
+      "missing_char_correct": 470,
+      "missing_char_accuracy": 0.9650924024640657,
+      "other_char_occurrences": 4366,
+      "other_char_correct": 4290,
+      "other_char_accuracy": 0.9825927622537792,
+      "hard_case_occurrences": 63,
+      "hard_case_correct": 55,
+      "hard_case_accuracy": 0.873015873015873,
+      "lines_with_edge_insertion": 9,
+      "substitutions": 76,
+      "deletions": 17,
+      "insertions": 126
+    }
+  },
+  "paired": {
+    "ppocr_wins": 14,
+    "vietocr_wins": 81,
+    "ties": 5,
+    "mean_cer_delta": -0.0969808825783847,
+    "median_cer_delta": -0.11269841269841269,
+    "micro_cer_delta": {
+      "difference": -0.08551411498042447,
+      "low": -0.10472589792060491,
+      "high": -0.06451612903225806
+    }
+  },
+  "line_length": [
+    {
+      "length_group": "short",
+      "recognizer": "ppocrv6",
+      "lines": 38,
+      "characters_gt": 847,
+      "micro_cer_nfc": 0.16646989374262103,
+      "micro_wer_nfc": 0.5449438202247191,
+      "exact_line_nfc": 0.07894736842105263
+    },
+    {
+      "length_group": "short",
+      "recognizer": "vietocr",
+      "lines": 38,
+      "characters_gt": 847,
+      "micro_cer_nfc": 0.05430932703659976,
+      "micro_wer_nfc": 0.16292134831460675,
+      "exact_line_nfc": 0.6578947368421053
+    },
+    {
+      "length_group": "medium",
+      "recognizer": "ppocrv6",
+      "lines": 21,
+      "characters_gt": 1005,
+      "micro_cer_nfc": 0.12139303482587065,
+      "micro_wer_nfc": 0.484304932735426,
+      "exact_line_nfc": 0.0
+    },
+    {
+      "length_group": "medium",
+      "recognizer": "vietocr",
+      "lines": 21,
+      "characters_gt": 1005,
+      "micro_cer_nfc": 0.050746268656716415,
+      "micro_wer_nfc": 0.12556053811659193,
+      "exact_line_nfc": 0.38095238095238093
+    },
+    {
+      "length_group": "long",
+      "recognizer": "ppocrv6",
+      "lines": 41,
+      "characters_gt": 3001,
+      "micro_cer_nfc": 0.12362545818060647,
+      "micro_wer_nfc": 0.549079754601227,
+      "exact_line_nfc": 0.0
+    },
+    {
+      "length_group": "long",
+      "recognizer": "vietocr",
+      "lines": 41,
+      "characters_gt": 3001,
+      "micro_cer_nfc": 0.04065311562812396,
+      "micro_wer_nfc": 0.05521472392638037,
+      "exact_line_nfc": 0.5853658536585366
+    }
+  ],
+  "by_ground_truth_source": [
+    {
+      "ground_truth_source": "ppocr_accepted",
+      "recognizer": "ppocrv6",
+      "lines": 2,
+      "characters_gt": 44,
+      "micro_cer_nfc": 0.0,
+      "micro_wer_nfc": 0.0,
+      "exact_line_nfc": 1.0
+    },
+    {
+      "ground_truth_source": "ppocr_accepted",
+      "recognizer": "vietocr",
+      "lines": 2,
+      "characters_gt": 44,
+      "micro_cer_nfc": 0.11363636363636363,
+      "micro_wer_nfc": 1.0,
+      "exact_line_nfc": 0.0
+    },
+    {
+      "ground_truth_source": "typed",
+      "recognizer": "ppocrv6",
+      "lines": 41,
+      "characters_gt": 2208,
+      "micro_cer_nfc": 0.12635869565217392,
+      "micro_wer_nfc": 0.5324947589098532,
+      "exact_line_nfc": 0.0
+    },
+    {
+      "ground_truth_source": "typed",
+      "recognizer": "vietocr",
+      "lines": 41,
+      "characters_gt": 2208,
+      "micro_cer_nfc": 0.09692028985507246,
+      "micro_wer_nfc": 0.18658280922431866,
+      "exact_line_nfc": 0.0
+    },
+    {
+      "ground_truth_source": "vietocr_accepted",
+      "recognizer": "ppocrv6",
+      "lines": 57,
+      "characters_gt": 2601,
+      "micro_cer_nfc": 0.13648596693579393,
+      "micro_wer_nfc": 0.5402097902097902,
+      "exact_line_nfc": 0.017543859649122806
+    },
+    {
+      "ground_truth_source": "vietocr_accepted",
+      "recognizer": "vietocr",
+      "lines": 57,
+      "characters_gt": 2601,
+      "micro_cer_nfc": 0.0,
+      "micro_wer_nfc": 0.0,
+      "exact_line_nfc": 1.0
+    }
+  ],
+  "edge_insertions": {
+    "ppocrv6": {
+      "lines": 0,
+      "prefix": 0,
+      "suffix": 0
+    },
+    "vietocr": {
+      "lines": 9,
+      "prefix": 4,
+      "suffix": 9
+    }
+  },
+  "decision": {
+    "verdict": "VIETOCR",
+    "differences": {
+      "cer": {
+        "difference": -0.08551411498042447,
+        "low": -0.10472589792060491,
+        "high": -0.06451612903225806
+      },
+      "wer": {
+        "difference": -0.44634377967711303,
+        "low": -0.4855595667870036,
+        "high": -0.4074074074074074
+      },
+      "missing": {
+        "difference": 0.9650924024640657,
+        "low": 0.946058091286307,
+        "high": 0.9810924369747899
+      },
+      "other": {
+        "difference": -0.013284470911589574,
+        "low": -0.024645431295047593,
+        "high": -0.0018331805682859637
+      },
+      "long_cer": {
+        "difference": -0.08297234255248251,
+        "low": -0.10636856368563685,
+        "high": -0.05598133955348217
+      }
+    },
+    "conditions": {
+      "vietocr": {
+        "CER clearly lower than PP-OCRv6": true,
+        "WER lower than PP-OCRv6": true,
+        "accuracy on the missing letters far higher": true,
+        "not clearly worse than PP-OCRv6 on long lines": true
+      },
+      "custom_ppocr": {
+        "PP-OCRv6 close to VietOCR overall": false,
+        "PP-OCRv6 errors concentrated in the missing letters": false,
+        "VietOCR clearly worse on long lines": false,
+        "head migration shown to work": true
+      }
+    }
+  }
+}

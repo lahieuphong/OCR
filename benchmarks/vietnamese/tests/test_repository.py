@@ -78,7 +78,8 @@ class NothingSensitiveCanBeCommitted(unittest.TestCase):
             f"{bakeoff}/manifest.jsonl",
             f"{bakeoff}/annotation/manifest.tsv",
             f"{bakeoff}/annotation/annotation_log.jsonl",
-            f"{bakeoff}/results/missing_characters.csv",
+            f"{bakeoff}/results/recognizer_errors.csv",
+            f"{bakeoff}/results/edge_insertions.csv",
             f"{bakeoff}/results/recognizer_hard_cases.csv",
         ]
         self.assertEqual(len(git("check-ignore", *paths).splitlines()), len(paths))

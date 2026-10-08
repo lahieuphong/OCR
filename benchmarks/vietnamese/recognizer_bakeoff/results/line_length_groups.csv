@@ -1,0 +1,7 @@
+length_group,recognizer,lines,characters_gt,micro_cer_nfc,micro_wer_nfc
+short,ppocrv6,38,847,0.166470,0.544944
+short,vietocr,38,847,0.054309,0.162921
+medium,ppocrv6,21,1005,0.121393,0.484305
+medium,vietocr,21,1005,0.050746,0.125561
+long,ppocrv6,41,3001,0.123625,0.549080
+long,vietocr,41,3001,0.040653,0.055215

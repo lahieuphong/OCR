@@ -110,8 +110,8 @@ python $B/run_ppocr_rec.py
 # 3. Chọn khoảng 150 dòng để người gõ ground truth
 python $B/select_annotation_subset.py
 
-# 4. (người làm) gõ ground truth
-python $B/annotate.py --annotator "<tên>"
+# 4. (người làm) verify ground truth; tự dừng khi đủ 100 dòng
+python $B/annotate.py
 
 # 5. Tính chỉ số trên các dòng đã verified
 python $B/evaluate_recognizers.py
@@ -132,7 +132,9 @@ trước.
 | `run_ppocr_rec.py` | `PP-OCRv6_medium_rec` trên các crop → `predictions/ppocrv6.jsonl` |
 | `run_vietocr.py` | VietOCR trên các crop → `predictions/vietocr.jsonl` |
 | `select_annotation_subset.py` | Lấy mẫu phân tầng, tạo `annotation/manifest.tsv` |
-| `annotate.py` | Công cụ gõ ground truth |
+| `annotate.py` | Công cụ verify ground truth: trang web local (mặc định) hoặc terminal (`--cli`) |
+| `annotation_store.py` | Trạng thái phiên annotation: thứ tự dòng, lưu, resume, điều kiện dừng |
+| `annotation_server.py`, `annotation_page.html` | Trang web local của `annotate.py` (chỉ dùng thư viện chuẩn) |
 | `evaluate_recognizers.py` | Chỉ số, bảng ký tự thiếu, quy tắc quyết định |
 | `inspect_rec_checkpoint.py` | Khảo sát checkpoint training của PP-OCRv6 |
 | `PP_OCRV6_HEAD_ANALYSIS.md` | Kết quả khảo sát: mở rộng head cho 88 chữ |
@@ -149,6 +151,10 @@ trước.
 - file chứa text của tài liệu thật: `manifest.jsonl` (có `paddle_prediction`),
   `export_metadata.json`, mọi thứ trong `annotation/` (bảng annotation, ground
   truth, log), và các file trong `results/` có trích dẫn dòng văn bản.
+
+Các file tổng hợp trong `results/` chỉ gồm số liệu và nhãn thì được track:
+`summary.json`, `recognizer_metrics.csv`, `line_length_groups.csv`,
+`ground_truth_source_groups.csv`, `missing_characters.csv`.
 
 Ground truth trong `annotation/manifest.tsv` là công sức của người gõ và không
 sinh lại được, nhưng hiện chỉ nằm trên máy này. Nên sao lưu nó; nếu muốn đưa nó
@@ -223,54 +229,106 @@ Kết quả hiện tại: 48 dòng từ `21-bct`, 62 từ `216-tb`, 40 từ `738
 Schema của `annotation/manifest.tsv` (TSV thuần, không có quy tắc quote):
 
 ```text
-id	document	page	crop_path	ppocr_prediction	vietocr_prediction	ground_truth	verified
+id  document  page  crop_path  ppocr_prediction  vietocr_prediction  ground_truth  verified
+excluded_reason  ground_truth_source  annotator  verified_at  ground_truth_sha256
 ```
 
-Ban đầu `ground_truth` rỗng và `verified=false` ở mọi dòng. Không có prediction
-nào được copy vào `ground_truth`. Script chọn mẫu không bao giờ ghi đè một bảng
-đã có ground truth.
+Tám cột đầu do `select_annotation_subset.py` tạo: `ground_truth` rỗng và
+`verified=false` ở mọi dòng, không có prediction nào được copy vào
+`ground_truth`. Năm cột sau do `annotate.py` điền. Script chọn mẫu không bao giờ
+ghi đè một bảng đã có ground truth hoặc đã có dòng bị bỏ qua.
 
-## Gõ ground truth
+Một dòng ở đúng một trong ba trạng thái:
+
+| Trạng thái | `verified` | `excluded_reason` | Được tính điểm |
+| --- | --- | --- | --- |
+| chưa xem | `false` | rỗng | không |
+| verified | `true` | rỗng | có |
+| bỏ qua | `false` | lý do | không |
+
+## Verify ground truth
 
 ```bash
-python benchmarks/vietnamese/recognizer_bakeoff/annotate.py --annotator "<tên>"
+python benchmarks/vietnamese/recognizer_bakeoff/annotate.py          # trang web local
+python benchmarks/vietnamese/recognizer_bakeoff/annotate.py --cli    # trong terminal
 ```
 
-Với mỗi dòng chưa verified, công cụ in đường dẫn crop và hai prediction, rồi
-chờ gõ. Crop hiện tại được chép sang `annotation/candidates/_current.png`: mở
-file này trong VS Code (hoặc trình xem ảnh tự nạp lại khi file đổi) và nó sẽ
-đổi theo từng dòng.
+Mặc định, lệnh mở một trang ở `http://127.0.0.1:8765/` hiển thị ảnh crop phóng
+to, hai prediction và các nút thao tác. Server chỉ nghe trên `127.0.0.1` và chỉ
+dùng thư viện chuẩn của Python; ảnh không rời khỏi máy. `--cli` làm cùng việc
+trong terminal, với đúng các phím dưới đây.
 
-| Gõ | Tác dụng |
+| Phím | Ý nghĩa |
 | --- | --- |
-| nội dung của dòng | ground truth; sau đó `y` để lưu là verified, `r` để gõ lại, `s` để bỏ qua |
-| `:s` | bỏ qua dòng này, không verified |
-| `:e` | crop không có chữ (ground truth rỗng) |
-| `:q` | lưu và thoát |
+| `p` | text của PP-OCRv6 khớp chính xác với ảnh |
+| `v` | text của VietOCR khớp chính xác với ảnh |
+| `e` | gõ, hoặc sửa, đúng text của ảnh rồi lưu |
+| `s` | bỏ qua dòng này, kèm lý do |
+| `q` | lưu và thoát |
+| `u` | hoàn tác thao tác gần nhất của phiên |
 
-Nguyên tắc:
+`p` và `v` **không** có nghĩa là prediction tự động đúng. Bấm một trong hai là
+người làm xác nhận: *tôi đã nhìn ảnh và text này khớp chính xác từng ký tự*.
+Không có lựa chọn mặc định nào, và nhấn Enter khi chưa làm gì không lưu gì cả.
 
-- Công cụ không tự điền gì: không chọn một trong hai prediction, không sửa chính
-  tả, không gợi ý. Nhấn Enter khi chưa gõ gì không được tính là câu trả lời.
-- Gõ **đúng những gì có trong ảnh**, kể cả lỗi chính tả của văn bản gốc. Hai
-  prediction chỉ để tham khảo, cả hai đều có thể sai.
-- Dòng không đọc được chắc chắn (chữ ký tay, dấu đóng chồng lên chữ) thì bỏ qua
-  bằng `:s`. Một ground truth đoán mò làm sai lệch cả hai model.
-- Ground truth được lưu ở Unicode NFC, bỏ khoảng trắng ở hai đầu. Nguyên văn
-  phím gõ được giữ trong `annotation/annotation_log.jsonl`.
-- Bảng được lưu sau mỗi lần xác nhận. Thoát giữa chừng rồi chạy lại sẽ tiếp tục
-  từ dòng chưa làm. `--id <id>` để làm lại một dòng, `--redo` để duyệt lại tất
-  cả.
+Trên trang web, `Shift+P` và `Shift+V` chép một prediction vào ô nhập để sửa
+vài ký tự thay vì gõ lại cả dòng; phải nhấn Enter mới lưu. Ở chế độ terminal,
+`e` yêu cầu gõ cả dòng rồi xác nhận, và `o` mở ảnh bằng trình xem mặc định (file
+`annotation/candidates/_current.png` luôn là crop hiện tại, nên chỉ có một cửa
+sổ).
 
-Có thể gõ sẵn vào cột `ground_truth` của file TSV bằng editor; khi chạy
-`annotate.py`, dòng đó hiện ra dưới dạng bản nháp và vẫn cần xác nhận từng dòng
-mới thành `verified=true`.
+**Ground truth là đúng những chữ in nhìn thấy trên ảnh.**
+
+- Giữ nguyên dấu, chữ hoa/thường, dấu câu, khoảng trắng và cả lỗi chính tả của
+  văn bản gốc.
+- Không sửa theo suy đoán, không viết lại, không khai triển chữ viết tắt, không
+  thêm chữ ảnh không có, không bỏ dấu.
+- Hai prediction chỉ để tham khảo: cả hai có thể sai ở cùng một chỗ, nên không
+  dựa vào chúng để đoán.
+- Ground truth được lưu ở Unicode NFC, bỏ khoảng trắng ở hai đầu.
+
+**Bỏ qua (`s`)** khi không xác định được ground truth đáng tin: chữ ký tay, con
+dấu che chữ, dòng không đọc được chắc chắn, crop lỗi nặng. Dòng bị bỏ qua giữ
+`verified=false`, được ghi `excluded_reason` và không bao giờ vào CER/WER.
+
+**Thứ tự và điểm dừng.** Các dòng được đưa ra theo thứ tự luân phiên giữa tài
+liệu, giữa các trang và giữa các tầng lấy mẫu, nên dừng ở bất kỳ đâu thì tập đã
+verified vẫn trải đều. Phiên tự kết thúc khi đủ 100 dòng verified (`--target`),
+không cần làm hết 150. Dòng bị bỏ qua không được tính vào 100. Nếu lúc đạt 100
+mà còn thiếu một tài liệu, một trang hoặc một loại dòng (heading, body, số hiệu,
+dòng dài, dòng ngắn, chữ thuộc nhóm 88, mẫu random), phiên tiếp tục với đúng
+các dòng lấp chỗ thiếu đó.
+
+**Lưu và resume.** Bảng được ghi lại sau mỗi thao tác. Đóng terminal hay tắt
+máy giữa chừng không mất gì; chạy lại lệnh sẽ tiếp tục ở dòng kế tiếp. Với mỗi
+dòng verified, bảng ghi `annotator`, `verified_at`, cách verify
+(`ground_truth_source`: `ppocr_accepted`, `vietocr_accepted` hoặc `typed`) và
+`ground_truth_sha256` (hash của ground truth ở NFC). Nguyên văn phím gõ và mọi
+thao tác, kể cả hoàn tác, nằm trong `annotation/annotation_log.jsonl`.
+
+Một dòng đã verified không bao giờ bị ghi đè trong phiên thường. Muốn sửa thì
+gọi đích danh: `annotate.py --id <id>`. Nếu ground truth bị sửa tay trong file
+TSV sau khi verify, hash không còn khớp và evaluator sẽ không chấm dòng đó.
+
+**Soát lại các dòng đã chấp nhận.** Chấp nhận nguyên văn một prediction là cách
+verify nhanh nhất và cũng dễ sót nhất: mắt dễ bỏ qua một dấu thanh, một chữ hoa
+hay một dấu câu khi text trông đã đúng. Mỗi lần sót như vậy làm model được chấp
+nhận có điểm cao hơn thực tế, vì ground truth khi đó chép lại lỗi của nó.
+`evaluate_recognizers.py` in riêng kết quả theo cách verify để thấy mức phụ
+thuộc này, và có thể duyệt lại toàn bộ các dòng đó:
+
+```bash
+python benchmarks/vietnamese/recognizer_bakeoff/annotate.py --recheck vietocr_accepted
+```
+
+Mỗi dòng hiện lại kèm ground truth đang lưu trong ô nhập: sửa rồi nhấn Enter,
+hoặc bấm `v` để xác nhận lại rằng nó khớp.
 
 ## Chỉ số
 
-`evaluate_recognizers.py` chỉ dùng các dòng `verified=true`. Khi chưa có dòng
-nào, nó in `CER/WER: PENDING HUMAN-VERIFIED GROUND TRUTH` và không ghi file kết
-quả.
+`evaluate_recognizers.py` chỉ dùng các dòng `verified=true` có hash khớp. Khi
+chưa có dòng nào, nó in `CER/WER: PENDING HUMAN-VERIFIED GROUND TRUTH` và không
+ghi file kết quả.
 
 | Chỉ số | Cách tính |
 | --- | --- |
@@ -289,14 +347,44 @@ Một lần xuất hiện của ký tự được tính là đúng khi phép gi�
 ground truth và prediction (cả hai ở NFC) ghép nó với đúng ký tự đó. Tập 88 chữ
 lấy từ `../audit_charset.py`, không gõ tay.
 
-File trong `results/`:
+**So sánh theo cặp.** Hai model chạy trên cùng crop và cùng ground truth, nên
+mỗi dòng cho một cặp kết quả: model nào ít lỗi ký tự hơn thì thắng dòng đó.
+Script báo số dòng mỗi bên thắng, số dòng hoà, trung bình và trung vị của hiệu
+CER theo dòng (VietOCR trừ PP-OCRv6, âm là VietOCR tốt hơn), và khoảng tin cậy
+95% của hiệu micro CER, tính bằng bootstrap theo cặp (2000 lần lấy mẫu lại các
+dòng, seed cố định). Một khác biệt chỉ được gọi là rõ khi khoảng này không chứa
+0.
+
+**Theo độ dài dòng.** Dòng được chia theo tỉ lệ rộng/cao của crop, vì đó là thứ
+giới hạn 512 px của VietOCR tác động vào (VietOCR đưa ảnh về cao 32 px, rộng tối
+đa 512 px):
+
+| Nhóm | Tỉ lệ rộng/cao | Với VietOCR |
+| --- | --- | --- |
+| `short` | tới 16:1 | không bị nén |
+| `medium` | trên 16:1 tới 24:1 | bị nén ngang tới 1,5 lần |
+| `long` | trên 24:1 | bị nén hơn 1,5 lần |
+
+**Chèn chữ ở đầu/cuối dòng.** Để đo hiện tượng VietOCR bịa chữ ở hai đầu dòng
+dài, script tìm phần đuôi của prediction nằm sau điểm mà prediction khớp tốt
+nhất với toàn bộ ground truth (và tương tự cho phần đầu). Chỉ báo trường hợp rõ
+ràng: phần thừa có ít nhất 3 ký tự nhìn thấy được, và phần còn lại của
+prediction khác ground truth không quá 50%. Một ký tự cuối bị nhận sai là thay
+thế, không phải chèn. Phép đo này bỏ sót các phần thừa ngắn hơn 3 ký tự, nên con
+số là cận dưới.
+
+File trong `results/` (chỉ nằm trên máy, xem mục "Trong git và ngoài git"):
 
 | File | Nội dung |
 | --- | --- |
+| `summary.json` | Mọi con số của báo cáo, kèm thành phần của tập ground truth |
 | `recognizer_metrics.csv` | Một dòng cho mỗi recognizer |
 | `recognizer_lines.csv` | Số lỗi theo từng dòng và recognizer |
 | `missing_characters.csv` | `char, unicode, occurrences, ppocr_correct, ppocr_accuracy, vietocr_correct, vietocr_accuracy` cho cả 88 chữ |
 | `recognizer_hard_cases.csv` | Đúng/sai của từng hard case |
+| `line_length_groups.csv` | CER/WER theo nhóm độ dài |
+| `edge_insertions.csv` | Các trường hợp chèn chữ ở đầu/cuối dòng |
+| `recognizer_errors.csv` | Ground truth và hai prediction của từng dòng, dòng nhiều lỗi nhất ở trên |
 | `ppocrv6_head_analysis.json`, `ppocrv6_medium_rec_state_dict.csv` | Từ `inspect_rec_checkpoint.py`, không cần ground truth |
 
 ## Quy tắc quyết định
@@ -304,25 +392,76 @@ File trong `results/`:
 Chỉ áp dụng khi có **ít nhất 100 dòng verified**. Ít hơn thì script in
 `WINNER: NOT DECIDED`.
 
-1. Nếu CER của VietOCR thấp hơn đáng kể **và** missing-character accuracy của
-   nó cao hơn rõ rệt: đề xuất PaddleOCR detection + VietOCR recognition, và
-   fine-tune VietOCR trước.
-2. Nếu không, và PP-OCRv6 vẫn cạnh tranh ở các ký tự ngoài nhóm 88: đề xuất dict
-   mở rộng + migrate head + fine-tune PP-OCRv6.
-3. Nếu không điều kiện nào thoả: không đề xuất.
+**Chọn VietOCR** khi cả bốn điều sau đúng:
 
-"Đáng kể" được hiểu là khoảng tin cậy 95% của hiệu số không chứa 0. Khoảng này
-tính bằng bootstrap theo cặp trên các dòng (2000 lần lấy mẫu lại, seed cố định):
-hai model được chấm trên cùng những dòng được lấy lại, nên khoảng tin cậy phản
-ánh khác biệt giữa hai model chứ không phải độ khó của mẫu. "PP-OCRv6 cạnh
-tranh" nghĩa là other-character accuracy của nó không thấp hơn VietOCR một cách
-đáng kể. Script in cả ba hiệu số kèm khoảng tin cậy, để có thể đánh giá lại nếu
-muốn dùng ngưỡng khác.
+1. CER thấp hơn PP-OCRv6 rõ rệt;
+2. WER thấp hơn;
+3. accuracy trên 88 chữ thiếu vượt trội;
+4. VietOCR không tệ hơn PP-OCRv6 một cách rõ rệt trên nhóm dòng `long`.
 
-Lưu ý khi đọc kết quả: điều kiện 1 và điều kiện "PP-OCRv6 cạnh tranh" có thể
-cùng đúng. PP-OCRv6 không thể xuất 88 chữ này nên CER của nó trên tiếng Việt
-gần như chắc chắn cao hơn; câu hỏi thực sự mà other-character accuracy trả lời
-là nó thua *chỉ vì* 88 chữ đó, hay còn vì lý do khác.
+Kiến trúc tiếp theo: `PP-OCRv6_medium_det` → line crop → VietOCR.
+
+**Chọn PP-OCRv6 tuỳ biến** khi cả bốn điều sau đúng:
+
+1. PP-OCRv6 gần VietOCR xét toàn bộ (CER của VietOCR không thấp hơn rõ rệt);
+2. lỗi của PP-OCRv6 tập trung ở 88 chữ thiếu (other-character accuracy của nó
+   không thấp hơn VietOCR rõ rệt);
+3. VietOCR tệ hơn rõ rệt trên nhóm dòng `long`;
+4. việc migrate head đã được chứng minh (`results/ppocrv6_head_analysis.json`).
+
+Kiến trúc tiếp theo: `PP-OCRv6_medium_det` → `PP-OCRv6_medium_rec` với charset mở
+rộng, head đã migrate, và fine-tune.
+
+**Còn lại là chưa ngã ngũ:** không train; verify nốt các dòng còn lại rồi đánh
+giá lại trên toàn bộ.
+
+"Rõ rệt" và "vượt trội" đều được hiểu là khoảng tin cậy 95% của hiệu số (bootstrap
+theo cặp) không chứa 0; riêng WER chỉ so điểm ước lượng. Script in từng điều
+kiện kèm hiệu số và khoảng tin cậy, để có thể đánh giá lại với ngưỡng khác.
+
+## Kết quả trên 100 dòng đã verified
+
+Đánh giá ngày 2026-10-08, trên 100 dòng do người verify (4.853 ký tự, 1.053 từ,
+3 tài liệu, 9 trang, tất cả ở NFC). Số liệu đầy đủ: `results/summary.json`.
+
+| | `PP-OCRv6_medium_rec` | VietOCR `vgg_transformer` |
+| --- | --- | --- |
+| CER (raw = NFC) | 13,06% | **4,51%** |
+| WER (raw = NFC) | 53,47% | **8,83%** |
+| Dòng đúng hoàn toàn | 3% | **57%** |
+| 88 chữ thiếu, đúng / 487 lần xuất hiện | 0 (0%) | **470 (96,51%)** |
+| Ký tự khác, đúng / 4.366 | 96,93% | **98,26%** |
+| CER dòng `short` (38 dòng) | 16,65% | **5,43%** |
+| CER dòng `medium` (21 dòng) | 12,14% | **5,07%** |
+| CER dòng `long` (41 dòng) | 12,36% | **4,07%** |
+| Dòng có chèn chữ rõ ràng ở đầu/cuối | **0** | 9 |
+| Lỗi: thay / xoá / chèn | 172 / 449 / 13 | 76 / 17 / 126 |
+
+So sánh theo cặp: VietOCR ít lỗi hơn ở 81 dòng, PP-OCRv6 ở 14 dòng, hoà 5 dòng.
+Hiệu micro CER (VietOCR trừ PP-OCRv6) là −8,55 điểm phần trăm, khoảng tin cậy
+95% từ −10,47 tới −6,45, không chứa 0.
+
+**Quyết định:** `PP-OCRv6_medium_det` → line crop dùng chung → VietOCR. Cả bốn
+điều kiện chọn VietOCR ở mục trên đều đạt. Không theo hướng train PP-OCRv6 tuỳ
+biến ở giai đoạn này.
+
+Ba điều cần nhớ khi dùng các con số này:
+
+- **Con số của VietOCR có phần lạc quan.** 57 dòng được verify bằng cách chấp
+  nhận nguyên văn text của VietOCR, và trên các dòng đó nó có 0 lỗi theo định
+  nghĩa. Soi ngẫu nhiên 12 trong 57 dòng với ảnh thấy 5 dòng không khớp hẳn
+  (hoa/thường, dấu thanh, dấu câu). Trên riêng 41 dòng gõ tay, CER là 9,69% so
+  với 12,64% của PP-OCRv6 và khoảng tin cậy của hiệu có chứa 0. Chiều của kết
+  luận không đổi: muốn hai model ngang nhau thì mỗi dòng đã chấp nhận phải che
+  hơn 7 lỗi. Có thể soát lại bằng `annotate.py --recheck vietocr_accepted`.
+- **Điểm yếu chính của VietOCR là chèn chữ, không phải đọc sai.** 126 trong 219
+  lỗi ký tự của nó là ký tự chèn, gần như toàn bộ nằm ở hai đầu của dòng `long`
+  và `medium`, tức những dòng bị nén ngang.
+- **PP-OCRv6 thua chủ yếu vì 88 chữ.** 487 trong 634 lỗi của nó nằm đúng ở các
+  chữ đó.
+
+100 dòng này từ nay là **tập test đóng băng**; xem
+`datasets/vietnamese_recognition/README.md`.
 
 ## Quan sát trước khi có ground truth
 

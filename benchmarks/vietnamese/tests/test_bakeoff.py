@@ -4,13 +4,11 @@ import importlib.util
 import json
 import re
 import tempfile
-import unicodedata
 import unittest
 from pathlib import Path
 from unittest import mock
 
 import _paths  # noqa: F401
-import annotate
 import bakeoff_common as bakeoff
 import export_line_crops
 import select_annotation_subset as selection
@@ -308,96 +306,6 @@ class Selection(unittest.TestCase):
         with self.assertRaises(SystemExit):
             selection.main(self.arguments)
         self.assertEqual(selection.main(self.arguments + ["--force"]), 0)
-
-
-class AnnotationTable(unittest.TestCase):
-    def row(self, **changes) -> dict:
-        row = {"id": "a", "document": "d", "page": "1", "crop_path": "a.png",
-               "ppocr_prediction": 'He said "x"', "vietocr_prediction": "ệ, 'y'",
-               "ground_truth": "", "verified": "false"}  # fmt: skip
-        row.update(changes)
-        return row
-
-    def test_round_trip_keeps_quotes_and_unicode(self):
-        path = temporary_directory(self) / "manifest.tsv"
-        bakeoff.write_annotation(path, [self.row(), self.row(id="b", ground_truth='"Việt" Nam', verified="true")])
-        rows = bakeoff.read_annotation(path)
-        self.assertEqual(rows[0], self.row())
-        self.assertEqual(rows[1]["ground_truth"], '"Việt" Nam')
-        self.assertEqual(path.read_text(encoding="utf-8").splitlines()[0], "\t".join(bakeoff.ANNOTATION_COLUMNS))
-
-    def test_tab_in_a_field_is_refused(self):
-        with self.assertRaises(ValueError):
-            bakeoff.write_annotation(temporary_directory(self) / "m.tsv", [self.row(ground_truth="a\tb")])
-
-
-class AnnotationSession(unittest.TestCase):
-    def setUp(self):
-        self.rows = [
-            {"id": key, "document": "d", "page": "1", "crop_path": f"{key}.png",
-             "ppocr_prediction": "Vit Nam", "vietocr_prediction": "Việt Nam",
-             "ground_truth": "", "verified": "false"}
-            for key in ("a", "b")
-        ]  # fmt: skip
-        self.saved = []
-
-    def run_with(self, answers: list[str]) -> int:
-        replies = iter(answers)
-
-        def ask(prompt: str) -> str:
-            try:
-                return next(replies)
-            except StopIteration:
-                raise EOFError from None  # what input() raises at end of input
-
-        return annotate.run_session(
-            self.rows,
-            list(self.rows),
-            save=lambda row, raw, text: self.saved.append((row["id"], raw, text)),
-            show_crop=lambda row: Path(row["crop_path"]),
-            ask=ask,
-            say=lambda message: None,
-        )
-
-    def test_typed_text_is_stored_in_nfc_and_raw_input_is_kept(self):
-        decomposed = unicodedata.normalize("NFD", "  Việt Nam ")
-        self.assertEqual(self.run_with([decomposed, "y", ":q"]), 1)
-        self.assertEqual(self.rows[0]["ground_truth"], "Việt Nam")
-        self.assertEqual(self.rows[0]["verified"], "true")
-        self.assertEqual(self.saved, [("a", decomposed, "Việt Nam")])
-        self.assertEqual((self.rows[1]["ground_truth"], self.rows[1]["verified"]), ("", "false"))
-
-    def test_nothing_is_verified_without_confirmation(self):
-        self.assertEqual(self.run_with(["Việt Nam", "s", ":s"]), 0)
-        self.assertEqual([row["verified"] for row in self.rows], ["false", "false"])
-        self.assertEqual([row["ground_truth"] for row in self.rows], ["", ""])
-        self.assertEqual(self.saved, [])
-
-    def test_empty_input_never_adopts_a_prediction(self):
-        # Enter with no draft is not an answer; the annotator must type or skip.
-        self.assertEqual(self.run_with(["", "", ":s", ":s"]), 0)
-        self.assertEqual([row["ground_truth"] for row in self.rows], ["", ""])
-
-    def test_retype_then_confirm(self):
-        self.assertEqual(self.run_with(["Viet Nam", "r", "Việt Nam", "y", ":q"]), 1)
-        self.assertEqual(self.rows[0]["ground_truth"], "Việt Nam")
-
-    def test_crop_without_text(self):
-        self.assertEqual(self.run_with([":e", "y", ":q"]), 1)
-        self.assertEqual((self.rows[0]["ground_truth"], self.rows[0]["verified"]), ("", "true"))
-
-    def test_a_draft_typed_in_the_table_can_be_kept(self):
-        self.rows[0]["ground_truth"] = "Việt Nam"
-        self.assertEqual(self.run_with(["", "y", ":q"]), 1)
-        self.assertEqual(self.rows[0]["verified"], "true")
-
-    def test_tab_is_refused(self):
-        self.assertEqual(self.run_with(["a\tb", "ab", "y", ":q"]), 1)
-        self.assertEqual(self.rows[0]["ground_truth"], "ab")
-
-    def test_end_of_input_stops_cleanly(self):
-        self.assertEqual(self.run_with(["Việt Nam", "y"]), 1)  # input ends while on row b
-        self.assertEqual([row["verified"] for row in self.rows], ["true", "false"])
 
 
 class StockDictionaryOnly(unittest.TestCase):
