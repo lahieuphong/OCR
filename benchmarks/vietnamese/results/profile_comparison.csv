@@ -1,0 +1,10 @@
+document,page,line_count_A,line_count_B,mean_confidence_A,mean_confidence_B,runtime_A,runtime_B,text_identical
+21-bct.signed,1,36,40,0.955157,0.957514,21.483,22.825,False
+21-bct.signed,2,26,28,0.964473,0.971971,12.867,13.981,False
+216-tb.signed,1,46,49,0.958685,0.965513,29.301,31.438,False
+216-tb.signed,2,44,44,0.975861,0.977992,31.531,32.244,False
+216-tb.signed,3,40,41,0.979486,0.983102,31.632,29.483,False
+216-tb.signed,4,41,41,0.977722,0.981585,27.904,27.599,False
+216-tb.signed,5,44,44,0.903514,0.958300,30.365,31.135,False
+216-tb.signed,6,22,22,0.968841,0.971962,15.59,15.147,False
+738-ttg.signed,1,54,55,0.951978,0.965042,24.267,24.42,False

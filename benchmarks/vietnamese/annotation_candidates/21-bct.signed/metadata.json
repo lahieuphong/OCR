@@ -1,0 +1,23 @@
+{
+  "document": "21-bct.signed",
+  "pages": {
+    "page_0001": {
+      "verified": false,
+      "source_profile": "ppocrv6_vi_unwarp_off",
+      "source_repo_commit": "5428e53296f147fa99d667603d6cede7f32e8c08",
+      "candidate_sha256": "7a1462b2b5ea5ae35d633e1e187ab8b32d3092ea2f1f84873d5e9ab9e4853804",
+      "image": "page_0001.png"
+    },
+    "page_0002": {
+      "verified": false,
+      "source_profile": "ppocrv6_vi_unwarp_off",
+      "source_repo_commit": "5428e53296f147fa99d667603d6cede7f32e8c08",
+      "candidate_sha256": "0c3955660af0b5ed45b0fbbd312a6410cf7804c4508647e2fd87b779ccf7e647",
+      "image": "page_0002.png"
+    }
+  },
+  "input": {
+    "name": "21-bct.signed.pdf",
+    "sha256": "b07cb4ca705c92099b061535d119dd466182a79fb1c6eaf7f5b9f76d6566aef4"
+  }
+}

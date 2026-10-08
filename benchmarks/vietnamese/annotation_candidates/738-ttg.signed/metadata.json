@@ -1,0 +1,16 @@
+{
+  "document": "738-ttg.signed",
+  "pages": {
+    "page_0001": {
+      "verified": false,
+      "source_profile": "ppocrv6_vi_unwarp_off",
+      "source_repo_commit": "5428e53296f147fa99d667603d6cede7f32e8c08",
+      "candidate_sha256": "b2096df62307456415ad3d6a9411ba8b994a8b267b7c7510dddf1746a746cf79",
+      "image": "page_0001.png"
+    }
+  },
+  "input": {
+    "name": "738-ttg.signed.pdf",
+    "sha256": "cea20cd768cf288ae1032d913b028c5c9c6c1f97a9903a2736cb0a78c8cc8133"
+  }
+}
