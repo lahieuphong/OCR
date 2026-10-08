@@ -1,0 +1,1049 @@
+# Vocabulary of Vietnamese administrative documents, used by text_generator.py.
+#
+# General public vocabulary only: names of state bodies, provinces, laws and
+# the stock phrases of official writing. Nothing here is taken from the
+# benchmark documents, and no sentence is stored whole: the generator combines
+# these entries with random numbers, dates and structure.
+#
+# Format: "[section]" starts a list, one entry per line, "#" starts a comment.
+# Every character must be in the recognizer's vocabulary (letters, digits and
+# ASCII punctuation); tests/test_text_generator.py checks this.
+
+[agency]
+Chính phủ nước Cộng hòa xã hội chủ nghĩa Việt Nam
+Quốc hội nước Cộng hòa xã hội chủ nghĩa Việt Nam
+Chủ tịch nước Cộng hòa xã hội chủ nghĩa Việt Nam
+Cổng Dịch vụ công quốc gia
+Chính phủ
+Thủ tướng Chính phủ
+Văn phòng Chính phủ
+Quốc hội
+Ủy ban Thường vụ Quốc hội
+Văn phòng Quốc hội
+Văn phòng Chủ tịch nước
+Văn phòng Trung ương Đảng
+Bộ Công Thương
+Bộ Tài chính
+Bộ Kế hoạch và Đầu tư
+Bộ Giáo dục và Đào tạo
+Bộ Y tế
+Bộ Nội vụ
+Bộ Tư pháp
+Bộ Ngoại giao
+Bộ Quốc phòng
+Bộ Công an
+Bộ Xây dựng
+Bộ Giao thông vận tải
+Bộ Nông nghiệp và Phát triển nông thôn
+Bộ Nông nghiệp và Môi trường
+Bộ Tài nguyên và Môi trường
+Bộ Thông tin và Truyền thông
+Bộ Khoa học và Công nghệ
+Bộ Lao động - Thương binh và Xã hội
+Bộ Văn hóa, Thể thao và Du lịch
+Bộ Dân tộc và Tôn giáo
+Thanh tra Chính phủ
+Ngân hàng Nhà nước Việt Nam
+Ủy ban Dân tộc
+Tòa án nhân dân tối cao
+Viện kiểm sát nhân dân tối cao
+Kiểm toán nhà nước
+Ủy ban Trung ương Mặt trận Tổ quốc Việt Nam
+Tổng Liên đoàn Lao động Việt Nam
+Trung ương Đoàn Thanh niên Cộng sản Hồ Chí Minh
+Trung ương Hội Liên hiệp Phụ nữ Việt Nam
+Hội Nông dân Việt Nam
+Hội Cựu chiến binh Việt Nam
+Bảo hiểm xã hội Việt Nam
+Thông tấn xã Việt Nam
+Đài Truyền hình Việt Nam
+Đài Tiếng nói Việt Nam
+Viện Hàn lâm Khoa học và Công nghệ Việt Nam
+Viện Hàn lâm Khoa học xã hội Việt Nam
+Học viện Chính trị quốc gia Hồ Chí Minh
+Ban Quản lý Lăng Chủ tịch Hồ Chí Minh
+Ủy ban Quản lý vốn nhà nước tại doanh nghiệp
+Hội đồng Dân tộc
+Ủy ban Kinh tế và Tài chính
+Ủy ban Pháp luật và Tư pháp
+Ủy ban Văn hóa và Xã hội
+Ủy ban Khoa học, Công nghệ và Môi trường
+Ủy ban Quốc phòng, An ninh và Đối ngoại
+Tổng cục Thống kê
+Tổng cục Thuế
+Tổng cục Hải quan
+Kho bạc Nhà nước
+Cục Quản lý thị trường
+Cục Kiểm tra văn bản quy phạm pháp luật
+Cục Kiểm soát thủ tục hành chính
+Cổng Thông tin điện tử Chính phủ
+Tập đoàn Điện lực Việt Nam
+Tập đoàn Dầu khí Việt Nam
+Ngân hàng Chính sách xã hội
+Ngân hàng Phát triển Việt Nam
+Liên đoàn Thương mại và Công nghiệp Việt Nam
+Liên minh Hợp tác xã Việt Nam
+
+[issuer]
+CP
+TTg
+VPCP
+QH15
+UBTVQH15
+BCT
+BTC
+BKHĐT
+BGDĐT
+BYT
+BNV
+BTP
+BNG
+BQP
+BCA
+BXD
+BGTVT
+BNNPTNT
+BNNMT
+BTNMT
+BTTTT
+BKHCN
+BLĐTBXH
+BVHTTDL
+BDTTG
+TTCP
+NHNN
+UBDT
+TANDTC
+VKSNDTC
+KTNN
+UBND
+HĐND
+STC
+SNV
+STP
+SXD
+SYT
+SGDĐT
+SCT
+SKHCN
+SNNMT
+SVHTTDL
+VP
+TCCB
+KHTC
+PC
+TH
+
+[province]
+Hà Nội
+Thành phố Hồ Chí Minh
+Hải Phòng
+Đà Nẵng
+Cần Thơ
+Huế
+An Giang
+Bà Rịa - Vũng Tàu
+Bắc Giang
+Bắc Kạn
+Bạc Liêu
+Bắc Ninh
+Bến Tre
+Bình Định
+Bình Dương
+Bình Phước
+Bình Thuận
+Cà Mau
+Cao Bằng
+Đắk Lắk
+Đắk Nông
+Điện Biên
+Đồng Nai
+Đồng Tháp
+Gia Lai
+Hà Giang
+Hà Nam
+Hà Tĩnh
+Hải Dương
+Hậu Giang
+Hòa Bình
+Hưng Yên
+Khánh Hòa
+Kiên Giang
+Kon Tum
+Lai Châu
+Lâm Đồng
+Lạng Sơn
+Lào Cai
+Long An
+Nam Định
+Nghệ An
+Ninh Bình
+Ninh Thuận
+Phú Thọ
+Phú Yên
+Quảng Bình
+Quảng Nam
+Quảng Ngãi
+Quảng Ninh
+Quảng Trị
+Sóc Trăng
+Sơn La
+Tây Ninh
+Thái Bình
+Thái Nguyên
+Thanh Hóa
+Tiền Giang
+Trà Vinh
+Tuyên Quang
+Vĩnh Long
+Vĩnh Phúc
+Yên Bái
+
+[department]
+Sở Tài chính
+Sở Nội vụ
+Sở Tư pháp
+Sở Xây dựng
+Sở Y tế
+Sở Giáo dục và Đào tạo
+Sở Công Thương
+Sở Khoa học và Công nghệ
+Sở Nông nghiệp và Môi trường
+Sở Văn hóa, Thể thao và Du lịch
+Sở Giao thông vận tải
+Sở Kế hoạch và Đầu tư
+Sở Lao động - Thương binh và Xã hội
+Sở Thông tin và Truyền thông
+Sở Tài nguyên và Môi trường
+Sở Ngoại vụ
+Sở Dân tộc và Tôn giáo
+Thanh tra tỉnh
+Văn phòng Ủy ban nhân dân tỉnh
+Ban Quản lý các khu công nghiệp
+Ban Quản lý dự án đầu tư xây dựng
+Công an tỉnh
+Bộ Chỉ huy quân sự tỉnh
+Cục Thuế tỉnh
+Cục Thống kê tỉnh
+Kho bạc Nhà nước khu vực
+Bảo hiểm xã hội tỉnh
+Chi cục Kiểm lâm
+Chi cục Thủy lợi
+Trung tâm Phục vụ hành chính công
+
+[unit]
+Vụ Tổ chức cán bộ
+Vụ Kế hoạch - Tài chính
+Vụ Pháp chế
+Vụ Hợp tác quốc tế
+Vụ Thị trường trong nước
+Vụ Chính sách thương mại đa biên
+Vụ Tiết kiệm năng lượng và Phát triển bền vững
+Vụ Khoa học và Công nghệ
+Vụ Thi đua - Khen thưởng
+Cục Điện lực và Năng lượng tái tạo
+Cục Xuất nhập khẩu
+Cục Phòng vệ thương mại
+Cục Xúc tiến thương mại
+Cục Thương mại điện tử và Kinh tế số
+Cục Kỹ thuật an toàn và Môi trường công nghiệp
+Cục Hóa chất
+Cục Công nghiệp
+Cục Quản lý đấu thầu
+Cục Quản lý công sản
+Cục Quản lý giá
+Cục Quản lý nợ và Tài chính đối ngoại
+Cục Y tế dự phòng
+Cục Quản lý Dược
+Cục An toàn thực phẩm
+Cục Quản lý khám, chữa bệnh
+Cục Nhà giáo và Cán bộ quản lý giáo dục
+Cục Chuyển đổi số quốc gia
+Cục Sở hữu trí tuệ
+Viện Chiến lược và Chính sách
+Văn phòng Bộ
+Thanh tra Bộ
+Trung tâm Thông tin
+Báo Công Thương
+Tạp chí Cộng sản
+
+[law]
+Luật Tổ chức Chính phủ
+Luật Tổ chức chính quyền địa phương
+Luật Ban hành văn bản quy phạm pháp luật
+Luật Ngân sách nhà nước
+Luật Đầu tư công
+Luật Đầu tư
+Luật Đất đai
+Luật Xây dựng
+Luật Nhà ở
+Luật Doanh nghiệp
+Luật Đấu thầu
+Luật Bảo vệ môi trường
+Luật Giáo dục
+Luật Giáo dục đại học
+Luật Khám bệnh, chữa bệnh
+Luật Dược
+Luật Cán bộ, công chức
+Luật Viên chức
+Luật Thanh tra
+Luật Tiếp cận thông tin
+Luật Giao dịch điện tử
+Luật An ninh mạng
+Luật Quản lý thuế
+Luật Thương mại
+Luật Điện lực
+Luật Lưu trữ
+Luật Thi đua, khen thưởng
+Luật Phòng, chống tham nhũng
+Luật Thực hành tiết kiệm, chống lãng phí
+Luật Quy hoạch
+Luật Thủy lợi
+Luật Lâm nghiệp
+Luật Thủy sản
+Luật Trồng trọt
+Luật Chăn nuôi
+Luật Bảo hiểm xã hội
+Luật Việc làm
+Luật Trẻ em
+Luật Người cao tuổi
+Luật Hợp tác xã
+Luật Hỗ trợ doanh nghiệp nhỏ và vừa
+Luật Chuyển giao công nghệ
+Luật Sở hữu trí tuệ
+Luật Di sản văn hóa
+Luật Du lịch
+Luật Báo chí
+Luật Xử lý vi phạm hành chính
+Luật Khiếu nại
+Luật Tố cáo
+Luật Tiếp công dân
+Luật Quốc phòng
+Luật Trật tự, an toàn giao thông đường bộ
+Bộ luật Lao động
+Bộ luật Dân sự
+
+[document_type]
+QUYẾT ĐỊNH|QĐ
+NGHỊ ĐỊNH|NĐ
+NGHỊ QUYẾT|NQ
+THÔNG TƯ|TT
+THÔNG BÁO|TB
+BÁO CÁO|BC
+CHỈ THỊ|CT
+CÔNG VĂN|CV
+TỜ TRÌNH|TTr
+KẾ HOẠCH|KH
+HƯỚNG DẪN|HD
+QUY CHẾ|QC
+QUY ĐỊNH|QyĐ
+BIÊN BẢN|BB
+GIẤY MỜI|GM
+CÔNG ĐIỆN|CĐ
+KẾT LUẬN|KL
+CHƯƠNG TRÌNH|CTr
+PHƯƠNG ÁN|PA
+ĐỀ ÁN|ĐA
+HỢP ĐỒNG|HĐ
+GIẤY PHÉP|GP
+QUY HOẠCH|QH
+
+[subject]
+các bộ, ngành, địa phương
+các bộ, cơ quan ngang bộ, cơ quan thuộc Chính phủ
+Ủy ban nhân dân các tỉnh, thành phố trực thuộc trung ương
+Ủy ban nhân dân các cấp
+các cơ quan, đơn vị có liên quan
+Thủ trưởng các cơ quan, đơn vị
+người đứng đầu cơ quan, tổ chức
+các sở, ban, ngành
+các tổ chức, cá nhân có liên quan
+các doanh nghiệp, hợp tác xã
+cán bộ, công chức, viên chức và người lao động
+các cơ sở giáo dục đại học
+các cơ sở khám bệnh, chữa bệnh
+các tập đoàn, tổng công ty nhà nước
+các hiệp hội ngành hàng
+chính quyền địa phương các cấp
+các cơ quan thông tấn, báo chí
+các đoàn thể chính trị - xã hội
+Ban Chỉ đạo
+Tổ công tác
+Hội đồng thẩm định
+cơ quan chủ trì soạn thảo
+chủ đầu tư
+nhà thầu
+đơn vị sự nghiệp công lập
+lực lượng vũ trang nhân dân
+
+[action]
+chủ trì, phối hợp với các cơ quan liên quan
+khẩn trương hoàn thiện
+tập trung chỉ đạo
+tiếp tục thực hiện nghiêm
+tăng cường kiểm tra, giám sát
+đẩy mạnh
+rà soát, sửa đổi, bổ sung
+nghiên cứu, đề xuất
+xây dựng và ban hành
+tổ chức triển khai thực hiện
+hướng dẫn, đôn đốc
+tổng hợp, báo cáo
+thẩm định, trình cấp có thẩm quyền phê duyệt
+bố trí đủ nguồn lực để thực hiện
+đẩy nhanh tiến độ giải ngân
+kịp thời tháo gỡ khó khăn, vướng mắc trong
+xử lý nghiêm các hành vi vi phạm về
+cắt giảm, đơn giản hóa
+công khai, minh bạch
+bảo đảm
+nâng cao chất lượng
+quán triệt và thực hiện đầy đủ
+chịu trách nhiệm toàn diện về
+theo dõi, đánh giá kết quả
+phối hợp chặt chẽ trong
+huy động mọi nguồn lực cho
+ưu tiên bố trí vốn cho
+hỗ trợ
+giữ vững
+củng cố và phát triển
+sắp xếp, tinh gọn
+kiện toàn
+thống nhất quản lý
+chủ động triển khai
+kiểm điểm, làm rõ trách nhiệm trong
+sơ kết, tổng kết việc thực hiện
+lấy ý kiến rộng rãi về
+giải quyết dứt điểm
+ngăn chặn, đẩy lùi
+khắc phục triệt để những hạn chế, yếu kém trong
+phổ biến, tuyên truyền
+ứng dụng công nghệ thông tin trong
+bãi bỏ những quy định không còn phù hợp về
+phân cấp, phân quyền mạnh mẽ trong
+cụ thể hóa
+thể chế hóa
+tạo điều kiện thuận lợi cho
+duy trì ổn định
+mở rộng
+thẳng thắn chỉ ra những tồn tại trong
+sẵn sàng các phương án ứng phó với
+giảm nhẹ thiệt hại do
+kèm theo hồ sơ, tài liệu về
+vẽ lại bản đồ quy hoạch của
+gỡ bỏ rào cản đối với
+lùi thời hạn hoàn thành
+quy hoạch lại hệ thống
+
+[object]
+Hiến pháp nước Cộng hòa xã hội chủ nghĩa Việt Nam
+quan hệ hợp tác với Cộng hòa Dân chủ Nhân dân Lào
+hiệp định thương mại với Cộng hòa Liên bang Đức
+cổng thông tin điện tử của bộ, ngành, địa phương
+cổng thông tin một cửa quốc gia
+thỏa thuận hợp tác với Cộng hòa Pháp
+các nhiệm vụ, giải pháp phát triển kinh tế - xã hội
+kế hoạch đầu tư công trung hạn
+dự toán ngân sách nhà nước
+thủ tục hành chính
+cơ chế, chính sách đặc thù
+quy định của pháp luật hiện hành
+các chương trình mục tiêu quốc gia
+công tác chuyển đổi số
+công tác cải cách hành chính
+công tác phòng, chống thiên tai và tìm kiếm cứu nạn
+chính sách an sinh xã hội
+nguồn nhân lực chất lượng cao
+kết cấu hạ tầng giao thông
+các dự án trọng điểm quốc gia
+vốn đầu tư công
+an toàn thực phẩm
+công tác bảo vệ môi trường
+khoa học, công nghệ và đổi mới sáng tạo
+sự nghiệp giáo dục và đào tạo
+mạng lưới y tế cơ sở
+lĩnh vực văn hóa, thể thao và du lịch
+nhiệm vụ quốc phòng, an ninh
+hoạt động đối ngoại và hội nhập quốc tế
+trật tự, an toàn xã hội
+kỷ luật, kỷ cương hành chính
+công tác phòng, chống tham nhũng, lãng phí, tiêu cực
+thị trường trong nước
+hoạt động xuất khẩu, nhập khẩu
+chuỗi cung ứng hàng hóa thiết yếu
+nguồn cung điện, xăng dầu
+kinh tế số và thương mại điện tử
+doanh nghiệp nhỏ và vừa
+kinh tế tập thể, hợp tác xã
+vùng đồng bào dân tộc thiểu số và miền núi
+công tác tiếp công dân, giải quyết khiếu nại, tố cáo
+chế độ, chính sách đối với người có công
+quỹ bảo hiểm xã hội, bảo hiểm y tế
+thị trường lao động và việc làm
+công tác quy hoạch, kế hoạch sử dụng đất
+việc sắp xếp đơn vị hành chính cấp huyện, cấp xã
+tổ chức bộ máy của hệ thống chính trị
+đội ngũ cán bộ, công chức, viên chức
+văn bản quy phạm pháp luật
+cơ sở dữ liệu quốc gia về dân cư
+dịch vụ công trực tuyến
+hệ thống thông tin báo cáo
+tài sản công
+nợ đọng xây dựng cơ bản
+tiến độ giải phóng mặt bằng
+chất lượng công trình xây dựng
+nhà ở xã hội
+nước sạch và vệ sinh môi trường nông thôn
+nông nghiệp công nghệ cao
+rừng phòng hộ, rừng đặc dụng
+nguồn lợi thủy sản
+di sản văn hóa vật thể và phi vật thể
+trẻ em có hoàn cảnh đặc biệt
+người cao tuổi, người khuyết tật
+kỹ năng nghề cho người lao động
+mỹ quan đô thị
+tỉnh lỵ và các đô thị vệ tinh
+huyện lỵ, thị trấn
+những vấn đề mới phát sinh
+giá cả các mặt hàng thiết yếu
+lãi suất, tỷ giá
+nguồn thu ngân sách
+quỹ đất dành cho phát triển
+hồ sơ, tài liệu lưu trữ
+bí mật nhà nước
+an ninh mạng và an toàn thông tin
+trụ sở làm việc sau sắp xếp
+mẫu biểu báo cáo thống kê
+
+[tail]
+trên lãnh thổ nước Cộng hòa xã hội chủ nghĩa Việt Nam
+theo đúng quy định của pháp luật
+bảo đảm tiến độ, chất lượng
+kịp thời, hiệu quả
+không để xảy ra chậm trễ, thất thoát, lãng phí
+phù hợp với tình hình thực tiễn
+trên phạm vi cả nước
+theo chức năng, nhiệm vụ được giao
+theo thẩm quyền
+bảo đảm công khai, minh bạch
+gắn với trách nhiệm của người đứng đầu
+đáp ứng yêu cầu phát triển trong giai đoạn mới
+góp phần thúc đẩy tăng trưởng kinh tế
+nhằm nâng cao đời sống vật chất, tinh thần của nhân dân
+tạo sự đồng thuận trong xã hội
+theo hướng tinh gọn, hiệu lực, hiệu quả
+không làm phát sinh thủ tục hành chính
+bằng nguồn ngân sách nhà nước và các nguồn vốn hợp pháp khác
+kể từ ngày ký ban hành
+cho đến khi có quy định mới thay thế
+ở tất cả các cấp, các ngành
+đối với từng trường hợp cụ thể
+trên cơ sở ý kiến của các cơ quan liên quan
+sau khi được cấp có thẩm quyền phê duyệt
+để tổng hợp, báo cáo Thủ tướng Chính phủ
+và chịu trách nhiệm trước pháp luật
+một cách thực chất, tránh hình thức
+ngay trong những tháng đầu năm
+vững chắc trong mọi tình huống
+
+[evaluation]
+đã đạt được nhiều kết quả tích cực
+còn nhiều hạn chế, bất cập
+chưa đáp ứng yêu cầu đề ra
+tiếp tục được duy trì ổn định
+có nhiều chuyển biến rõ nét
+được triển khai đồng bộ, quyết liệt
+còn chậm so với kế hoạch
+cơ bản hoàn thành mục tiêu đề ra
+vượt chỉ tiêu được giao
+chưa thật sự hiệu quả
+ngày càng đi vào nền nếp
+được dư luận xã hội đồng tình, ủng hộ
+gặp nhiều khó khăn do thiếu nguồn lực
+được cải thiện đáng kể so với cùng kỳ
+vẫn tiềm ẩn nhiều rủi ro
+chưa tương xứng với tiềm năng, lợi thế
+đã được khắc phục kịp thời
+còn lúng túng, bị động
+tăng trưởng khá
+giảm mạnh so với năm trước
+
+[connector]
+Đồng thời,
+Bên cạnh đó,
+Tuy nhiên,
+Trên cơ sở đó,
+Theo đó,
+Vì vậy,
+Trong thời gian tới,
+Trước mắt,
+Về lâu dài,
+Để thực hiện mục tiêu trên,
+Căn cứ tình hình thực tế,
+Thực hiện chỉ đạo của Thủ tướng Chính phủ,
+Sau khi nghe báo cáo và ý kiến phát biểu của các đại biểu,
+Nhằm nâng cao hiệu lực, hiệu quả quản lý nhà nước,
+Xét đề nghị của cơ quan chủ trì,
+Qua kiểm tra, rà soát,
+
+[position]
+Thủ tướng Chính phủ
+Phó Thủ tướng Chính phủ
+Bộ trưởng
+Thứ trưởng
+Chủ nhiệm
+Phó Chủ nhiệm
+Chủ tịch
+Phó Chủ tịch
+Tổng Thanh tra
+Thống đốc
+Chánh Văn phòng
+Phó Chánh Văn phòng
+Vụ trưởng
+Phó Vụ trưởng
+Cục trưởng
+Phó Cục trưởng
+Giám đốc
+Phó Giám đốc
+Chánh Thanh tra
+Trưởng phòng
+Phó Trưởng phòng
+Trưởng ban
+Tổng Giám đốc
+Hiệu trưởng
+Viện trưởng
+Bí thư
+Phó Bí thư
+Ủy viên
+Thư ký
+Kế toán trưởng
+
+[signer]
+KT. BỘ TRƯỞNG|THỨ TRƯỞNG
+BỘ TRƯỞNG|
+KT. THỦ TƯỚNG|PHÓ THỦ TƯỚNG
+THỦ TƯỚNG|
+TM. CHÍNH PHỦ|THỦ TƯỚNG
+TM. ỦY BAN NHÂN DÂN|CHỦ TỊCH
+TM. ỦY BAN NHÂN DÂN|KT. CHỦ TỊCH
+KT. CHỦ TỊCH|PHÓ CHỦ TỊCH
+KT. BỘ TRƯỞNG, CHỦ NHIỆM|PHÓ CHỦ NHIỆM
+TL. BỘ TRƯỞNG|CHÁNH VĂN PHÒNG
+TL. BỘ TRƯỞNG|VỤ TRƯỞNG VỤ PHÁP CHẾ
+KT. GIÁM ĐỐC|PHÓ GIÁM ĐỐC
+GIÁM ĐỐC|
+KT. CỤC TRƯỞNG|PHÓ CỤC TRƯỞNG
+TUQ. GIÁM ĐỐC|CHÁNH VĂN PHÒNG
+TM. HỘI ĐỒNG NHÂN DÂN|CHỦ TỊCH
+KT. TỔNG THANH TRA|PHÓ TỔNG THANH TRA
+KT. THỐNG ĐỐC|PHÓ THỐNG ĐỐC
+
+[surname]
+Nguyễn
+Trần
+Lê
+Phạm
+Hoàng
+Huỳnh
+Phan
+Vũ
+Võ
+Đặng
+Bùi
+Đỗ
+Hồ
+Ngô
+Dương
+Lý
+Đinh
+Trịnh
+Đoàn
+Lương
+Mai
+Tô
+Tạ
+Chu
+Cao
+Lưu
+Hà
+Thái
+Quách
+Lã
+Kiều
+Từ
+Âu
+Ông
+Giáp
+Doãn
+Mạc
+Nghiêm
+Khổng
+Tôn
+
+[middle_name]
+Văn
+Thị
+Hữu
+Đức
+Minh
+Quốc
+Ngọc
+Thanh
+Xuân
+Thu
+Hồng
+Anh
+Bá
+Công
+Đình
+Duy
+Gia
+Kim
+Mạnh
+Nhật
+Phúc
+Quang
+Thành
+Trọng
+Tuấn
+Việt
+Thế
+Sỹ
+Bảo
+Diệu
+Mỹ
+Khắc
+Thùy
+Tiến
+
+[given_name]
+An
+Anh
+Bình
+Châu
+Chính
+Cường
+Dũng
+Dương
+Đạt
+Đông
+Giang
+Hà
+Hải
+Hạnh
+Hiền
+Hiếu
+Hòa
+Hồng
+Huệ
+Hùng
+Hương
+Khánh
+Khoa
+Kiên
+Lâm
+Lan
+Linh
+Long
+Mai
+Minh
+Nam
+Nga
+Nghĩa
+Ngọc
+Nhân
+Phong
+Phúc
+Phương
+Quân
+Quang
+Quyết
+Sơn
+Tâm
+Thành
+Thảo
+Thắng
+Thủy
+Tiến
+Toàn
+Trang
+Trung
+Tuấn
+Tùng
+Uyên
+Vân
+Vinh
+Vượng
+Xuân
+Yến
+Lợi
+Lộc
+Thịnh
+Thọ
+Kỳ
+Lễ
+Nhã
+Mỹ
+Vỹ
+Hỷ
+Quỳnh
+Diễm
+Chiến
+Bằng
+Thuận
+Hằng
+Đức
+Trí
+Tú
+Lực
+Duẩn
+Mẫn
+Cẩn
+Nhẫn
+Thưởng
+Giỏi
+Bảy
+Sáu
+Tám
+Mười
+
+[recipient]
+Như trên
+Như Điều {article}
+Thủ tướng, các Phó Thủ tướng Chính phủ
+Các bộ, cơ quan ngang bộ, cơ quan thuộc Chính phủ
+Hội đồng nhân dân, Ủy ban nhân dân các tỉnh, thành phố
+Văn phòng Trung ương và các Ban của Đảng
+Văn phòng Tổng Bí thư
+Văn phòng Chủ tịch nước
+Hội đồng Dân tộc và các Ủy ban của Quốc hội
+Tòa án nhân dân tối cao
+Viện kiểm sát nhân dân tối cao
+Kiểm toán nhà nước
+Cơ quan trung ương của các đoàn thể
+Các đồng chí Thứ trưởng
+Các đơn vị thuộc Bộ
+Thường trực Tỉnh ủy
+Thường trực Hội đồng nhân dân tỉnh
+Chủ tịch, các Phó Chủ tịch Ủy ban nhân dân tỉnh
+Các sở, ban, ngành cấp tỉnh
+Ủy ban nhân dân các huyện, thị xã, thành phố
+Công báo; Cổng Thông tin điện tử
+Website của cơ quan
+Ban Thường vụ
+Đảng ủy, Lãnh đạo cơ quan
+
+[vocabulary]
+# Words kept for letter coverage: each rare accented letter appears in several.
+sẵn sàng
+thẳng thắn
+hẳn hoi
+chẳng hạn
+mẫu biểu
+dẫn chứng
+hướng dẫn
+khẩn trương
+thẩm quyền
+chuẩn bị
+tiêu chuẩn
+chuyển tiếp
+triển vọng
+nguyễn
+huyện
+hưởng
+trưởng
+quyết liệt
+nghị trường
+kèm theo
+xem xét
+trẻ em
+thẻ căn cước
+số lẻ
+sẽ
+bản vẽ
+giảm nhẹ
+hẹn trả kết quả
+bãi bỏ
+làm rõ
+nhỏ lẻ
+hỗ trợ
+chỗ ở
+đỗ xe
+nỗ lực
+tháo gỡ
+đỡ đầu
+lỡ hẹn
+mỡ động vật
+cũ
+cũng như
+vũ trang
+dũng cảm
+lũy kế
+kỳ họp
+định kỳ
+ý kiến
+ý nghĩa
+kỷ luật
+kỷ niệm
+tỷ đồng
+tỷ lệ
+ủy quyền
+kỹ thuật
+kỹ năng
+mỹ thuật
+quỹ đất
+tỉnh lỵ
+huyện lỵ
+kiết lỵ
+tỵ nạn
+lũ quét
+bão lũ
+ngập lụt
+sạt lở
+rủi ro
+phù hợp
+thúc đẩy
+ưu đãi
+ưu tiên
+lưu trữ
+cứu trợ
+thử nghiệm
+giữ gìn
+những
+từng bước
+thực tiễn
+sửa chữa
+ngã ba
+ngõ xóm
+khẽ
+lặng lẽ
+mạnh mẽ
+ghi rõ họ tên
+đóng dấu
+ký tên
+ký thay
+ký nháy
+thừa lệnh
+thừa ủy quyền
+bản sao
+bản chính
+trích lục
+sổ gốc
+hồ sơ gốc
+tờ khai
+giấy tờ tùy thân
+nơi cư trú
+quê quán
+dân tộc
+quốc tịch
+ngày sinh
+giới tính
+số điện thoại
+địa chỉ thư điện tử
+mã số thuế
+mã định danh
+chữ ký số
+dấu giáp lai
+độ mật
+độ khẩn
+hỏa tốc
+thượng khẩn
+
+[measure]
+tỷ đồng
+triệu đồng
+nghìn đồng
+đồng
+ha
+km
+m2
+m3
+tấn
+kWh
+MW
+người
+hộ
+lượt
+dự án
+công trình
+doanh nghiệp
+lao động
+học sinh
+giường bệnh
+
+[article_title]
+Phạm vi điều chỉnh
+Đối tượng áp dụng
+Giải thích từ ngữ
+Nguyên tắc thực hiện
+Hiệu lực thi hành
+Trách nhiệm thi hành
+Tổ chức thực hiện
+Điều khoản chuyển tiếp
+Kinh phí thực hiện
+Chế độ báo cáo
+Xử lý vi phạm
+Quyền và nghĩa vụ của tổ chức, cá nhân
+Trình tự, thủ tục thực hiện
+Hồ sơ đề nghị
+Thẩm quyền quyết định
+Thời hạn giải quyết
+Nội dung quản lý nhà nước
+Sửa đổi, bổ sung một số điều
+Bãi bỏ một số quy định
+Khen thưởng và kỷ luật
+
+[email_domain]
+chinhphu.vn
+moit.gov.vn
+mof.gov.vn
+moh.gov.vn
+moet.gov.vn
+moj.gov.vn
+moha.gov.vn
+mst.gov.vn
+mae.gov.vn
+moc.gov.vn
+mofa.gov.vn
+sbv.gov.vn
+thanhtra.gov.vn
+quochoi.vn
+hanoi.gov.vn
+tphcm.gov.vn
+danang.gov.vn
+haiphong.gov.vn
+cantho.gov.vn
+quangninh.gov.vn
+nghean.gov.vn
+thanhhoa.gov.vn
+gso.gov.vn
+customs.gov.vn
+
+[mailbox]
+vanthu
+vanphong
+thongtin
+tiepnhan
+hotro
+banbientap
+congthongtin
+lienhe
+tonghop
+phapche
+tochuccanbo
+kehoachtaichinh
+motcua
+dichvucong
+phananh
+
+[slogan]
+rõ người, rõ việc, rõ thời gian, rõ trách nhiệm, rõ sản phẩm
+dân biết, dân bàn, dân làm, dân kiểm tra, dân giám sát, dân thụ hưởng
+nói đi đôi với làm
+kỷ cương, trách nhiệm, chủ động kịp thời, tinh gọn hiệu quả
+đoàn kết, kỷ cương, bản lĩnh, linh hoạt, đổi mới sáng tạo
+bốn tại chỗ
+không để ai bị bỏ lại phía sau
+lấy người dân, doanh nghiệp làm trung tâm phục vụ
+một cửa, một cửa liên thông
+tiền kiểm sang hậu kiểm

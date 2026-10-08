@@ -1,0 +1,106 @@
+{
+  "dataset": "pilot-v1",
+  "specification": {
+    "train": {
+      "seed": 20261101,
+      "synthetic": 3000,
+      "long_lines": 1000,
+      "per_hard_case": 12,
+      "min_letter_occurrences": 30
+    },
+    "val": {
+      "seed": 20261102,
+      "synthetic": 300,
+      "long_lines": 100,
+      "per_hard_case": 2,
+      "min_letter_occurrences": 3
+    }
+  },
+  "samples": {
+    "train": {
+      "synthetic/general": 3000,
+      "synthetic/long_line": 1000,
+      "hard_case/general": 564,
+      "synthetic/coverage": 495
+    },
+    "val": {
+      "synthetic/general": 300,
+      "synthetic/long_line": 100,
+      "hard_case/general": 94,
+      "synthetic/coverage": 58
+    },
+    "test": {
+      "real/general": 100
+    }
+  },
+  "real_lines": {
+    "verified": 0,
+    "refused_as_test": 0
+  },
+  "synthetic_may_repeat_test_texts": false,
+  "hard_cases": 47,
+  "fonts_accepted": [
+    "Arial",
+    "Arial Bold",
+    "Arial Bold Italic",
+    "Arial Italic",
+    "Courier New",
+    "Courier New Bold",
+    "Courier New Bold Italic",
+    "Courier New Italic",
+    "Georgia",
+    "Georgia Bold",
+    "Georgia Bold Italic",
+    "Georgia Italic",
+    "Tahoma",
+    "Tahoma Bold",
+    "Times New Roman",
+    "Times New Roman Bold",
+    "Times New Roman Bold Italic",
+    "Times New Roman Italic",
+    "Verdana",
+    "Verdana Bold",
+    "Verdana Bold Italic",
+    "Verdana Italic"
+  ],
+  "fonts_rejected": {
+    "Arial Narrow Bold Italic.ttf": "92 glyph(s) missing, e.g. ảẢạẠằẰẳẲ",
+    "Arial Narrow Bold.ttf": "92 glyph(s) missing, e.g. ảẢạẠằẰẳẲ",
+    "Arial Narrow Italic.ttf": "92 glyph(s) missing, e.g. ảẢạẠằẰẳẲ",
+    "Arial Narrow.ttf": "92 glyph(s) missing, e.g. ảẢạẠằẰẳẲ",
+    "Trebuchet MS Bold Italic.ttf": "92 glyph(s) missing, e.g. ảẢạẠằẰẳẲ",
+    "Trebuchet MS Bold.ttf": "92 glyph(s) missing, e.g. ảẢạẠằẰẳẲ",
+    "Trebuchet MS Italic.ttf": "92 glyph(s) missing, e.g. ảẢạẠằẰẳẲ",
+    "Trebuchet MS.ttf": "92 glyph(s) missing, e.g. ảẢạẠằẰẳẲ"
+  },
+  "fonts_used": {
+    "Times New Roman": 2296,
+    "Arial Bold": 253,
+    "Courier New": 122,
+    "Tahoma": 301,
+    "Georgia Bold": 68,
+    "Arial": 762,
+    "Times New Roman Bold": 678,
+    "Times New Roman Italic": 257,
+    "Verdana": 212,
+    "Georgia": 217,
+    "Tahoma Bold": 88,
+    "Arial Italic": 115,
+    "Verdana Bold Italic": 7,
+    "Verdana Bold": 63,
+    "Times New Roman Bold Italic": 42,
+    "Georgia Italic": 15,
+    "Courier New Bold": 42,
+    "Verdana Italic": 16,
+    "Arial Bold Italic": 21,
+    "Courier New Italic": 25,
+    "Courier New Bold Italic": 5,
+    "Georgia Bold Italic": 6
+  },
+  "libraries": {
+    "pillow": "12.1.0",
+    "opencv": "4.10.0",
+    "numpy": "2.3.5"
+  },
+  "seconds": 42.2
+}

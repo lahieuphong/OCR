@@ -56,3 +56,19 @@ __pycache__/
 !/benchmarks/vietnamese/recognizer_bakeoff/results/line_length_groups.csv
 !/benchmarks/vietnamese/recognizer_bakeoff/results/ground_truth_source_groups.csv
 !/benchmarks/vietnamese/recognizer_bakeoff/results/missing_characters.csv
+
+# Recognition dataset: images are generated (synthetic) or are pieces of the
+# real documents (real crops) and never go into git.
+/datasets/vietnamese_recognition/train/*
+!/datasets/vietnamese_recognition/train/.gitkeep
+/datasets/vietnamese_recognition/val/*
+!/datasets/vietnamese_recognition/val/.gitkeep
+# Manifests and reports are text and are versioned; the VietOCR annotation
+# files are the same splits in another format and are rebuilt.
+/datasets/vietnamese_recognition/manifests/vietocr/
+# Candidate real training lines awaiting human verification: document text.
+/datasets/vietnamese_recognition/real_annotation/
+
+# VietOCR builds its LMDB caches in the directory training is started from.
+/train_vi_admin*/
+/valid_vi_admin*/

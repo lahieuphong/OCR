@@ -1,0 +1,101 @@
+id	document	page	line_index	ground_truth	crop_sha256	split	frozen
+21-bct.signed_p0001_l0001	21-bct.signed	1	1	NGƯỜI KÝ: CÓNG THÔNG TIN ĐIỆN TỬ CHÍNH PHỦ	8f86aa3bb0bf5accaa48c45153de701fb3e6fda02952a0d3ef5377d6aaacf262	test	true
+21-bct.signed_p0001_l0002	21-bct.signed	1	2	Email: thongtinchinhphu@chinhphu.vn	ce79ee1d7aaac60fe4102370369a3041b1edb1eefa2b1bd25d5cee80ea1aa721	test	true
+21-bct.signed_p0001_l0003	21-bct.signed	1	3	Cơ quan: VĂN PHÒNG CHÍNH PHỦ	33527cc1886d0d7b3637ce6a4bc6d9566104430e38dcf0d768abc1bdab6786cf	test	true
+21-bct.signed_p0001_l0004	21-bct.signed	1	4	Thời gian ký: 29.04.2026 16:35:42 +07:00	8f0b29003c21f834ce493c44903d29770bab4fb4d38e2f0aede895cda5476627	test	true
+21-bct.signed_p0001_l0005	21-bct.signed	1	5	BỘ CÔNG THƯƠNG	ca40a0448541ad762120617a1a49a598e56b3e034cd89ceac04037719eb34963	test	true
+21-bct.signed_p0001_l0008	21-bct.signed	1	8	VĂN PHÒNG CHÍNH PHỦ	80157911bd10d22ff1bf1a942ee6ff9ae7555c589e6d445137e86233c25d275e	test	true
+21-bct.signed_p0001_l0009	21-bct.signed	1	9	Số 21/2026/TT-BCT	c5bad1e6ac9b237ef24aa6fd5f62d35dbaf399beaf0f7b6d06dfce60e028aff3	test	true
+21-bct.signed_p0001_l0012	21-bct.signed	1	12	Kính chuyển... TTĐT	5d89e212908ae198ea9fd8ac73ca10d8af90387e61e493ca11b3d1d56afc0a88	test	true
+21-bct.signed_p0001_l0014	21-bct.signed	1	14	Bãi bỏ một phần khoản 2 Điều 1 của Thông tư số 18/2025/TT-BCT ngày 13	ae3e73798675c35ed31b0adad6b2ba4aade48423f5bbb4a5d916755ac6a37df6	test	true
+21-bct.signed_p0001_l0015	21-bct.signed	1	15	20 tháng 3 năm 2025 của Bộ trưởng Bộ Công Thương sửa đổi, bổ sung, bãi bỏ	82a6937e277162b1581dc589f808e3911dda84b3234d1dce29172f4160d75f59	test	true
+21-bct.signed_p0001_l0016	21-bct.signed	1	16	một số quy định tại các Thông tư quy định về kinh doanh xăng dầu	81b71b51c8a08e4e5d9bdd18f99253cb55feedbf5ba9dbd0bcf81ffc0fa43d04	test	true
+21-bct.signed_p0001_l0019	21-bct.signed	1	19	Căn cứ Nghị định số 40/2025/NĐ-CP của Chính phủ quy định chức năng,	237317a207b43f66c4f5e935ba5a939abd42466fb00a4334125ea105cb8632b0	test	true
+21-bct.signed_p0001_l0022	21-bct.signed	1	22	Căn cứ Nghị định số 83/2014/NĐ-CP của Chính phủ về kinh doanh xăng	c82a4a8796be3ab9b6ca0823e9d65b84f14661a01d5eb7a1e2d8f8ce4e00ce6e	test	true
+21-bct.signed_p0001_l0025	21-bct.signed	1	25	Thực hiện Kết luận số 14-KL/TW ngày 20 tháng 3 năm 2026 của Bộ Chính	d0d0064949eea228a861a0491476dc016a85c5cf288409d3a2acac364c72713b	test	true
+21-bct.signed_p0001_l0026	21-bct.signed	1	26	trị về bào đảm nguồn cung, ổn định giá nhiên liệu;	2aa2b03c332215eff6dc8d210bda25ff657702ddf5c5fa33369f9758bca645bb	test	true
+21-bct.signed_p0001_l0032	21-bct.signed	1	32	tư quy định về kinh doanh xăng dầu.	d34c55d95b02ccc8526625afe630de991d80442efb194ea85ace6ae294b6cc5c	test	true
+21-bct.signed_p0001_l0036	21-bct.signed	1	36	xăng dầu	9ca3643c65a8b38f288815339ada48a3051405d14fdf2ac1e4f4c649e5a48928	test	true
+21-bct.signed_p0001_l0039	21-bct.signed	1	39	Điều 2. Điều khoản thi hành	f75d0e5d62380a80fbd5ce1990239b5f2e3f42e78a0c40659f755958d760400e	test	true
+21-bct.signed_p0002_l0002	21-bct.signed	2	2	2. Trong quá trình thực hiên, nếu có khó khăn, vướng mắc, các tổ chức phản	832241ba75945a1be6f7e3ec22249baec92a8d980458b01e36d2d05cc8a0fe75	test	true
+21-bct.signed_p0002_l0003	21-bct.signed	2	3	ánh về Bộ Công Thương (Cục Quản lý và Phát triển thị trường trong nước) để	2ae45af98bf2d53c56151194e002522d6229ed46ec1bdb0edf645d340bb5b8fd	test	true
+21-bct.signed_p0002_l0005	21-bct.signed	2	5	KT. BỘ TRƯỞNG	51040a275b6d7c1857fe6ce7c3d2cfe845aae53b34447955876bea43d3fa32ad	test	true
+21-bct.signed_p0002_l0010	21-bct.signed	2	10	- Văn phòng chính phủ;	19e59dbb59b38ec543acfd4aa328a89413a524da51f39e0fa6666be37f841287	test	true
+21-bct.signed_p0002_l0011	21-bct.signed	2	11	Thủ tướng và các Phó Thủ tướng Chính phủ	95595d7a42eda96b0f68688e5c9916bf50e5b2461997625de5d03b3e14885620	test	true
+21-bct.signed_p0002_l0012	21-bct.signed	2	12	- Các Bộ, cơ quan ngang bộ, cơ quan thuộc Chính phủ;	e32fa1d09887c8d4de2647ba593b400c87ad806cffd88151ab2f6bebd5e79329	test	true
+21-bct.signed_p0002_l0014	21-bct.signed	2	14	Nguyễn Sinh Nhật Tân	182bad27fd3a9dab504aad60ed705db69fe37e50e3ea1b1934ac958c27e6ea92	test	true
+21-bct.signed_p0002_l0016	21-bct.signed	2	16	- Kiểm toán nhà nước;	0595dab5c1e5fb0d20dc04b0b426ccfd14735ead9dacaaf0bdf456bd5e095c6f	test	true
+21-bct.signed_p0002_l0017	21-bct.signed	2	17	- Ủy ban Trung ương Mặt trận Tổ quốc Việt Nam;	9e5c27dc755884555dd23c2b7075f9f030489ff9b9b9e805fa48e5f37de03f26	test	true
+21-bct.signed_p0002_l0018	21-bct.signed	2	18	- UBND, HĐND các tỉnh, thành phố trực thuộc TW;	43990c0d22a714bf4658a7cf35ce18027243880a53cc6fd224341d6904f3ef92	test	true
+21-bct.signed_p0002_l0020	21-bct.signed	2	20	- Cục Kiểm tra văn bản và Tổ chức thi hành pháp	72be8aebc75e0dfe0c540a39aeed929faa66a81afa50150f4bca85553b49ffa9	test	true
+21-bct.signed_p0002_l0021	21-bct.signed	2	21	luật - Bộ tư pháp;	a22f44990ac1e9a6108ba4f9b273b6d68b9f703586c30e2f82713aea2ff1a9cf	test	true
+21-bct.signed_p0002_l0023	21-bct.signed	2	23	- Sở Công Thương các tỉnh, thành phố trực thuộc TW;	d2fe89aec24803af99d903a9892e4dca71e7d178f06c6f3aa1a4bada7d8ef44d	test	true
+21-bct.signed_p0002_l0025	21-bct.signed	2	25	- Cổng Thông tin điện tử Chính phủ;	eb07fc6cfaa456e15664a70ddec76d1b08aaa277409e0ef22fbce6f35f52f448	test	true
+21-bct.signed_p0002_l0026	21-bct.signed	2	26	- Cổng Thông tin điện tử Bộ Công Thương;	3da0dd1f344cb6a2e12dcd1977d0caf43dad8f396d57d7367c71648bd143228f	test	true
+21-bct.signed_p0002_l0028	21-bct.signed	2	28	- Lưu: VT, TTTN.	b4ad312ecb399e0d23fe53f7ddf4c417183d2d6cccfcc738a016be81059c374c	test	true
+216-tb.signed_p0001_l0001	216-tb.signed	1	1	Người ký: CỔNG THÔNG TIN ĐIỆN TỬ CHÍNH PHỦ	5c9e04bd893c802657e66340612796e2c61b30c18e49233750a7dda1f3867de9	test	true
+216-tb.signed_p0001_l0002	216-tb.signed	1	2	Email: thongtinchinhphu@chinhphu.vn	0380562dd6c3137d619e850975d5eeba698df1edb68676c54237713529a92159	test	true
+216-tb.signed_p0001_l0016	216-tb.signed	1	16	kế hoạch nhiệm vụ trọng tâm năm 2026 và rà soát cắt giảm thủ tục hành chính,	594bb7e80890098ebc3375c65df82b17a53d010c9726504446bbefad51a54db5	test	true
+216-tb.signed_p0001_l0023	216-tb.signed	1	23	Ban Chấp hành Trung ương Đảng khóa XIV về kế hoạch phát triển kinh tế - xã hội,	2451b1e6930f9a5fbee5eed052a0110479b3e6d2b8748cc809a28a5d30758a4f	test	true
+216-tb.signed_p0001_l0034	216-tb.signed	1	34	được của Bộ Văn hóa, Thể thao và Du lịch trong thực hiện chương trình công tác	b10d38981959a8c98e54abb8c53f9d949440385caa86166c5c87814d95df38be	test	true
+216-tb.signed_p0001_l0042	216-tb.signed	1	42	ban hành Chương trình hành động thực hiện Nghị quyết số 80-NQ/TW và 03 Nghị	6768a362df2f55f4f19b60d08e7d8e98bdb7acec022bb6b5c782154f41512d40	test	true
+216-tb.signed_p0002_l0006	216-tb.signed	2	6	lĩnh vực còn thiếu hoặc chưa có luật điều chỉnh; các giá trị đạo đức xã hội, văn	9c1ce75a0b4fd6ee65f875ea035233e6127db81cd67b61dcdf6fba4fbf094c60	test	true
+216-tb.signed_p0002_l0009	216-tb.signed	2	9	của Việt Nam còn có khoảng cách khá xa so với châu lục và thế giới; phát triển và	4348d943d9524aa523f1270fb2b04fda972d8470ed6d6a35acb58e4e2d1a2d17	test	true
+216-tb.signed_p0002_l0016	216-tb.signed	2	16	Cơ chế phối hợp liên ngành chưa thật hiệu quả; Kỷ luật, kỷ cương hành chính còn	ca67852cedc1db661ae4277d220c7b7eb22164e0ff199ef45076181a03bfe0a5	test	true
+216-tb.signed_p0002_l0025	216-tb.signed	2	25	chế, đổi mới lề lối làm việc, tạo bước chuyển mạnh mẽ, căn bản về tư duy,	7b40667639d5872394557f76b07f509f5cfe97d8f77fed3f2699883c1f3f0a21	test	true
+216-tb.signed_p0002_l0035	216-tb.signed	2	35	Chính trị, Kết luận số 18-KL/TW, các Chương trình hành động của Chính phủ.	71f96b650cdb637f1396b1a382558d18fe4c0bead564efde41ca767afa08df8a	test	true
+216-tb.signed_p0002_l0036	216-tb.signed	2	36	Kiên quyết không để chậm, muộn ban hành các văn bản quy định chi tiết các	af290ccd197b476fabab2610146ea2e016925afc953dcf106b9e94f4230905dd	test	true
+216-tb.signed_p0003_l0008	216-tb.signed	3	8	trở thành ngành kinh tế mũi nhọn. Phấn đấu năm 2026 đón 25 triệu lượt khách	a0f3c343fe071dac573fc5b1c9f72f3828131a1ccf744e5f386931e41af2103e	test	true
+216-tb.signed_p0003_l0023	216-tb.signed	3	23	NQ/TW, Kết luận số 18-KL/TW, các nghi quyết của Quốc hội, Chính phủ, chỉ	08a7836171afccc4f1083c7e9e30a34a803f55c50ced9d58336ff9139896dad4	test	true
+216-tb.signed_p0003_l0025	216-tb.signed	3	25	đảm chất lượng; trong đó chú trọng một số nhiệm vụ trọng tâm sau:	6379591cfee75328e82ab2be5a96cc519a6f8f4ef09503a62b718d52aaf411e3	test	true
+216-tb.signed_p0003_l0029	216-tb.signed	3	29	Bộ theo trình tự, thủ tục rút gọn, trình Chính phủ chậm nhất trong ngày 27	62843ac8517ea765448e1340e61073e49b73108b6dfbfd084e188007c3b98702	test	true
+216-tb.signed_p0003_l0035	216-tb.signed	3	35	năm 2026; (ii) Nghị định sửa đổi, bổ sung một số điều của Nghi định số	28a7230f253c25c0737eeae4d2c67d6ae0eb6dd2f3d4377c094f8a84b3116e88	test	true
+216-tb.signed_p0003_l0036	216-tb.signed	3	36	72/2015/NĐ-CP về quản lý hoạt động thông tin đối ngoại, trình Chính phủ trong	bebc79c4d2c080b98c8a6e6ac87900e827a31f9137545ad9e5cdc3e23e2cb67f	test	true
+216-tb.signed_p0004_l0001	216-tb.signed	4	1	4	6466007ade3159de9d4c502acc2cfc3caca3cde5c9f96ee837eec3e8e8e51002	test	true
+216-tb.signed_p0004_l0007	216-tb.signed	4	7	- Nghị định sửa đổi, bổ sung một số điều của Nghị đinh số 119/2020/NĐ-CP	f74fc45d4f26e8e9d3e4008beeaeffb02f7bfac6b213245833dbf2467d11964b	test	true
+216-tb.signed_p0004_l0014	216-tb.signed	4	14	năm 2026	164b244654c69ca61f50af4b415e546290f8ce984c6fdbbe52015bc62c91b2d7	test	true
+216-tb.signed_p0004_l0030	216-tb.signed	4	30	xác đinh rõ các nhiêm vụ công việc và phân công nhiệm vụ theo tinh thần "6 rõ";	496290e35b3a51b3c0a5a29153f56caf6206c06d1883a753dd47dfa417984356	test	true
+216-tb.signed_p0004_l0032	216-tb.signed	4	32	- Chuẩn bị chu đáo và tổ chức thành công các sự kiện chính trị - văn hóa	37903867cd955403c0598ccac101847c79d8d6736ced9869db11a8d960345b69	test	true
+216-tb.signed_p0005_l0014	216-tb.signed	5	14	năm 2026.	f2f00cbd2af1f799c36156d36aa26a8ebcb65346858c68d5748a8c9b161aed2d	test	true
+216-tb.signed_p0005_l0020	216-tb.signed	5	20	và các bộ, cơ quan liên quan thống nhất hình thức văn bản của Chính phủ;	eef9828084915af6dffbec751a29bc6d07e1ef4b4115dcff417a5e672f587755	test	true
+216-tb.signed_p0005_l0030	216-tb.signed	5	30	2026 - 2030: Bộ Văn hóa, Thể thao và Du lịch căn cứ thực tiễn phát triển của các	6c2bdae9ab5c498c49e72d4d1c9de0ea4ba7834bb6704654e17e8003225b52dd	test	true
+216-tb.signed_p0005_l0033	216-tb.signed	5	33	đoạn 2026 - 2030, bảo đảm khả thi. Yêu cầu các bộ, ngành, địa phương chủ động	db1be7b4a586accae7e9f5de11e8b381a15ad4792cdede70ab2d6e94ca9cfbaa	test	true
+216-tb.signed_p0005_l0037	216-tb.signed	5	37	quốc gia theo Kết luận số 106/KL-TTCP ngày 11 tháng 5 năm 2021 của Thanh	b1fb33f58a0b09ecded6cd497afbb55bba100aa73b1efe9a6293ebb909c32f85	test	true
+216-tb.signed_p0006_l0009	216-tb.signed	6	9	hiện các nhiệm vụ giao tại Nghị quyết số 80-NQ/TW.	30a8b7f6dc6bc59e772d57cb6cd69eaa419c30432508cfb8970e034b92a35e7e	test	true
+216-tb.signed_p0006_l0010	216-tb.signed	6	10	Văn phòng Chính phủ thông báo để các Bộ, cơ quan liên quan biết, thực hiện./.	2f35f042531e586e92c15c9a951a7ef4d2df8f50bb455f98156ea6962a6959ca	test	true
+216-tb.signed_p0006_l0013	216-tb.signed	6	13	- Thủ tướng chính phủ (để b/c);	9319bae57e00b97d0a3d7f06d83ceace30fd4f8ef4dd8e4a5f5ce4bde6493408	test	true
+216-tb.signed_p0006_l0014	216-tb.signed	6	14	PHÓ CHỦ NHIỆM	432ad48ef72454163555e04ed496730d000b39c804a8e912cd3764096445eb1d	test	true
+216-tb.signed_p0006_l0016	216-tb.signed	6	16	- Các Bộ: VHTTDL, CA, TP, TC, KHCN, NV;	4c839ed063a1ca88b2753d7365cd1d95917ebaf30002c3bcacc689da60330a7b	test	true
+738-ttg.signed_p0001_l0001	738-ttg.signed	1	1	Người ký: CỔNG THÔNG TIN ĐIỆN TỬ CHÍNH PHỦ	a556c490fa7b10200868083a97d15af8a1286a1cf0eab571fe250fd9e830b5fb	test	true
+738-ttg.signed_p0001_l0003	738-ttg.signed	1	3	TTĐT (2)	a2649b6b69835e521457ceda5c672024528e419d06001a86000102910f99cbc4	test	true
+738-ttg.signed_p0001_l0004	738-ttg.signed	1	4	Cơ quan: Văn Phòng Chính Phủ	4b50fda360981e3d01530908de21e7d5565ea77c8cd2670f64a1b87f27540ef8	test	true
+738-ttg.signed_p0001_l0005	738-ttg.signed	1	5	Thời gian ký: 29.04.2026 14:16:25 +07:00	c1b5f1c44a70dedf820bf0b29f5c15e8075a7463a29a64ee74faf33e341f6e31	test	true
+738-ttg.signed_p0001_l0007	738-ttg.signed	1	7	Độc lập - Tự do - Hạnh phúc	9c5ac311b13a6a38953610a6616bd57203cdbcebd05f9c09aaa90243e542b9df	test	true
+738-ttg.signed_p0001_l0010	738-ttg.signed	1	10	QUYẾT ĐỊNH	807c763f36586eb64640c6613e82e260d6dad9090b7ec93f69e3fe4e3c9d88dd	test	true
+738-ttg.signed_p0001_l0011	738-ttg.signed	1	11	Về việc chấm dứt hiệu lực thi hành của Quyết định số 893/QĐ-TTg ngày 26	d0a458c83b5e4b29d14e6b0ccee4d29cc8da246959056ce955892b04353a6822	test	true
+738-ttg.signed_p0001_l0012	738-ttg.signed	1	12	tháng 7 năm 2023 của Thủ tướng Chính phủ về việc phê duyệt Quy hoạch	664684686dab5af5838aa8463488a6f032d0253a60420f98e48a3e97c6769234	test	true
+738-ttg.signed_p0001_l0013	738-ttg.signed	1	13	tổng thể về năng lượng quốc gia thời kỳ 2021 - 2030, tầm nhìn đến năm 2050	baf4cc827d180c03ee5075d51e5b6ad2545a3eea41cb1a99ad0f6c3c06ac560a	test	true
+738-ttg.signed_p0001_l0014	738-ttg.signed	1	14	CỔNG THÔNG TIN ĐIỆN TỬ CHÍNH PHỦ	d7690cfe1f19d4de7d69c81138205bb71e043ea8c1392cea6b0b02b3b24cb831	test	true
+738-ttg.signed_p0001_l0016	738-ttg.signed	1	16	THỦ TƯỚNG CHÍNH PHỦ	c1916b2e9c33f75b1f5e2c4109e9967fa9a9336793600055128cf4a2bf918c03	test	true
+738-ttg.signed_p0001_l0018	738-ttg.signed	1	18	Căn cứ Luật Tổ chức Chính phủ ngày 18 tháng 02 năm 2025;	478ffd79b60898080d990e4cf0c4e5e9a2fbd580c99e983745d28bff12b6d090	test	true
+738-ttg.signed_p0001_l0019	738-ttg.signed	1	19	Căn cứ Nghị định số 39/2022/NĐ-CP ngày 18 tháng 6 năm 2022 của	5ba9f27b5d083e24891c5f0033e240d3fe4982c6d2a745c6f5eae14ab9042759	test	true
+738-ttg.signed_p0001_l0020	738-ttg.signed	1	20	Chính phủ ban hành Quy chế làm việc của Chính phủ;	350b3f57c06d43abdd8c6b28754b4102bbba3db7c2e5cfa16ff244b5e7b4789a	test	true
+738-ttg.signed_p0001_l0021	738-ttg.signed	1	21	Theo đề nghị của Bộ Công Thương tại Văn bản số 2429/BCT-DKT ngày 08 tháng	349d8568ef45815df3aea378e157dad949d76aab32d20537bbb2869bfbab97a3	test	true
+738-ttg.signed_p0001_l0022	738-ttg.signed	1	22	4 năm 2026 về việc chấm dút hiệu lực thi hành của Quyết định số 893/QĐ-TTg	ba1202891b501433c7f69b05a20ee4df373197ca2564c8aaa5aa34ec72eb3280	test	true
+738-ttg.signed_p0001_l0023	738-ttg.signed	1	23	ngày 26 tháng 7 năm 2023 của Thủ tướng Chính phủ.	afad597a98132e706d61d7996a4a9c337c2b6ef85df2f402c845922b992eb205	test	true
+738-ttg.signed_p0001_l0024	738-ttg.signed	1	24	QUYẾT ĐỊNH:	23181b299177e3948efc6916a3d6dc83dad6924e5e79f8076297ca1f8ade4fb0	test	true
+738-ttg.signed_p0001_l0025	738-ttg.signed	1	25	Điều 1.Quyết đinh số 893/QĐ-TTg ngày 26 tháng 7 năm 2023 của Thủ tướng	4bac11ac82c2a836a6b90a70a5aef68a8b157d3fead76d7c67722f266137557b	test	true
+738-ttg.signed_p0001_l0027	738-ttg.signed	1	27	2021 - 2030, tầm nhìn đến năm 2050 hết hiệu lực kể từ ngày 28 tháng 02 năm 2026.	e6a7e14ecf5fb979005215fe8d664518d2026b6d9126c8e2e78e8b907eb7af1c	test	true
+738-ttg.signed_p0001_l0028	738-ttg.signed	1	28	Điều 2. Các Bộ trưởng, Thủ trưởng cơ quan ngang bộ, Chủ tịch Ủy ban nhân	57550677b9d2ca087459ff71aa21f2c8155201a9f15cbd19f6957c753339fde4	test	true
+738-ttg.signed_p0001_l0030	738-ttg.signed	1	30	quan chịu trách nhiệm thi hành Quyết định này.	dc3bf357e4052b84dee30db7bf0091fb5b70cb376f53748b52c2df079a22eb12	test	true
+738-ttg.signed_p0001_l0032	738-ttg.signed	1	32	KT. THỦ TƯỚNG	662351e3067a76458ab800692f13d142cc56a52cc85aa937f5f92dac067dc4a9	test	true
+738-ttg.signed_p0001_l0036	738-ttg.signed	1	36	Các bộ, cơ quan ngang bộ	3c535a5601d8f7088af3332cab9e5ad4cab3ede9f24a357b07dd5e99cc19f9d4	test	true
+738-ttg.signed_p0001_l0037	738-ttg.signed	1	37	- HĐND, UBND các tỉnh, thành phố trực thuộc trung ương	8c808a24c09c12c6537e13b8f9470eb62e03ed87829c874cd28cf0379d6e3306	test	true
+738-ttg.signed_p0001_l0038	738-ttg.signed	1	38	- Văn phòng Trung ương và các Ban của Đảng;	14e87e9c215dca66a907299571f0eef5fd616bd656482acf561a0325af1d13f0	test	true
+738-ttg.signed_p0001_l0039	738-ttg.signed	1	39	- Văn phòng Tổng Bí thư;	0db17352c2b3e52d984a77d11d0fcc0dd63c8a8c74c76a66991c4beacddb16d7	test	true
+738-ttg.signed_p0001_l0040	738-ttg.signed	1	40	- Văn phòng chủ tịch nước;	65bf6876128dcd4c232be67b2efeb48074106b527499c7c867e88f7c57a13e27	test	true
+738-ttg.signed_p0001_l0041	738-ttg.signed	1	41	- Hội đồng Dân tộc và các ủy ban của Quốc hội;	189fb226de2544791b9a7fd9017835d034e50ecd6eee756e52f8875c7a543e46	test	true
+738-ttg.signed_p0001_l0043	738-ttg.signed	1	43	- Tòa án nhân dân tối cao;	905290f0c2c8672624652620d1c52623dd3313ac09c4437e7d37ad3e740c15bb	test	true
+738-ttg.signed_p0001_l0044	738-ttg.signed	1	44	- Viện kiểm sát nhân dân tối cao;	598404c4dea36c14213dd0b221b22310ab00bf22502d9024421f88798d3edd36	test	true
+738-ttg.signed_p0001_l0048	738-ttg.signed	1	48	- Cơ quan trung ương của các tổ chức chính trị - xã hội;	c068edaf6c302c485e0028cfb08c1c09af2753692e612447def6a3ffcc9c40d9	test	true
+738-ttg.signed_p0001_l0049	738-ttg.signed	1	49	- Các Tập đoàn: Điện lực Việt Nam, Công nghiệp - Năng lượng	49cecd75b9d9c94b3c012838329bb401d52bf9ead9aa797bef556984db7bc7d0	test	true

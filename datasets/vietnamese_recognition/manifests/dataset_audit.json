@@ -1,0 +1,247 @@
+{
+  "result": "PASS",
+  "failures": [],
+  "warnings": [],
+  "samples": {
+    "train": 5059,
+    "val": 552,
+    "test": 100
+  },
+  "source_type": {
+    "train": {
+      "synthetic": 4495,
+      "hard_case": 564
+    },
+    "val": {
+      "synthetic": 458,
+      "hard_case": 94
+    },
+    "test": {
+      "real": 100
+    }
+  },
+  "subset": {
+    "train": {
+      "general": 3564,
+      "long_line": 1000,
+      "coverage": 495
+    },
+    "val": {
+      "general": 394,
+      "long_line": 100,
+      "coverage": 58
+    },
+    "test": {
+      "general": 100
+    }
+  },
+  "unique_texts": {
+    "train": 5059,
+    "val": 552,
+    "test": 98
+  },
+  "duplicate_texts": {
+    "train": 0,
+    "val": 0,
+    "test": 2
+  },
+  "texts_shared": {
+    "train_val": 0,
+    "train_test": 0,
+    "val_test": 0
+  },
+  "duplicate_ids": 0,
+  "duplicate_image_hashes": 0,
+  "holdout": {
+    "lines": 100,
+    "train_id_overlap": 0,
+    "val_id_overlap": 0,
+    "train_hash_overlap": 0,
+    "val_hash_overlap": 0
+  },
+  "images_checked": true,
+  "images_missing_or_changed": 0,
+  "vietnamese_letters": {
+    "reference": 178,
+    "covered_in_train": 178,
+    "missing_in_train": [],
+    "rarest_in_train": "ẳ",
+    "minimum_occurrences_in_train": 30,
+    "covered_in_val": 178,
+    "covered_in_test": 115
+  },
+  "lines": {
+    "train": {
+      "by_aspect_ratio": {
+        "up to 16:1": 2154,
+        "16:1 to 24:1": 1573,
+        "24:1 to 32:1": 751,
+        "over 32:1": 581
+      },
+      "by_characters": {
+        "31-60": 2311,
+        "61-90": 1014,
+        "1-30": 993,
+        "91+": 741
+      },
+      "long_line_subset": 1000,
+      "wider_than_pretrained_limit": 2904,
+      "longest_label": 119
+    },
+    "val": {
+      "by_aspect_ratio": {
+        "up to 16:1": 227,
+        "16:1 to 24:1": 177,
+        "24:1 to 32:1": 84,
+        "over 32:1": 64
+      },
+      "by_characters": {
+        "31-60": 268,
+        "1-30": 94,
+        "61-90": 107,
+        "91+": 83
+      },
+      "long_line_subset": 100,
+      "wider_than_pretrained_limit": 325,
+      "longest_label": 118
+    },
+    "test": {
+      "by_aspect_ratio": {
+        "up to 16:1": 38,
+        "24:1 to 32:1": 40,
+        "16:1 to 24:1": 21,
+        "over 32:1": 1
+      },
+      "by_characters": {
+        "31-60": 31,
+        "1-30": 28,
+        "61-90": 41
+      },
+      "long_line_subset": 0,
+      "wider_than_pretrained_limit": 62,
+      "longest_label": 81
+    }
+  },
+  "resize": [
+    {
+      "split": "train",
+      "max_width": 512,
+      "lines": 5059,
+      "squeezed_lines": 2904,
+      "squeezed_share": 0.574,
+      "median_px_per_character": 9.85,
+      "p5_px_per_character": 4.74,
+      "min_px_per_character": 4.3
+    },
+    {
+      "split": "train",
+      "max_width": 768,
+      "lines": 5059,
+      "squeezed_lines": 1331,
+      "squeezed_share": 0.2631,
+      "median_px_per_character": 11.11,
+      "p5_px_per_character": 7.05,
+      "min_px_per_character": 5.54
+    },
+    {
+      "split": "train",
+      "max_width": 1024,
+      "lines": 5059,
+      "squeezed_lines": 580,
+      "squeezed_share": 0.1146,
+      "median_px_per_character": 11.39,
+      "p5_px_per_character": 8.61,
+      "min_px_per_character": 5.54
+    },
+    {
+      "split": "train",
+      "max_width": 1280,
+      "lines": 5059,
+      "squeezed_lines": 120,
+      "squeezed_share": 0.0237,
+      "median_px_per_character": 11.59,
+      "p5_px_per_character": 8.62,
+      "min_px_per_character": 5.54
+    },
+    {
+      "split": "val",
+      "max_width": 512,
+      "lines": 552,
+      "squeezed_lines": 325,
+      "squeezed_share": 0.5888,
+      "median_px_per_character": 9.57,
+      "p5_px_per_character": 4.74,
+      "min_px_per_character": 4.34
+    },
+    {
+      "split": "val",
+      "max_width": 768,
+      "lines": 552,
+      "squeezed_lines": 147,
+      "squeezed_share": 0.2663,
+      "median_px_per_character": 10.95,
+      "p5_px_per_character": 7.11,
+      "min_px_per_character": 6.51
+    },
+    {
+      "split": "val",
+      "max_width": 1024,
+      "lines": 552,
+      "squeezed_lines": 64,
+      "squeezed_share": 0.1159,
+      "median_px_per_character": 11.3,
+      "p5_px_per_character": 8.44,
+      "min_px_per_character": 6.94
+    },
+    {
+      "split": "val",
+      "max_width": 1280,
+      "lines": 552,
+      "squeezed_lines": 13,
+      "squeezed_share": 0.0236,
+      "median_px_per_character": 11.53,
+      "p5_px_per_character": 8.44,
+      "min_px_per_character": 6.94
+    },
+    {
+      "split": "test",
+      "max_width": 512,
+      "lines": 100,
+      "squeezed_lines": 62,
+      "squeezed_share": 0.62,
+      "median_px_per_character": 10.24,
+      "p5_px_per_character": 6.48,
+      "min_px_per_character": 6.32
+    },
+    {
+      "split": "test",
+      "max_width": 768,
+      "lines": 100,
+      "squeezed_lines": 41,
+      "squeezed_share": 0.41,
+      "median_px_per_character": 11.76,
+      "p5_px_per_character": 9.72,
+      "min_px_per_character": 8.44
+    },
+    {
+      "split": "test",
+      "max_width": 1024,
+      "lines": 100,
+      "squeezed_lines": 1,
+      "squeezed_share": 0.01,
+      "median_px_per_character": 12.66,
+      "p5_px_per_character": 10.97,
+      "min_px_per_character": 8.44
+    },
+    {
+      "split": "test",
+      "max_width": 1280,
+      "lines": 100,
+      "squeezed_lines": 0,
+      "squeezed_share": 0.0,
+      "median_px_per_character": 12.66,
+      "p5_px_per_character": 10.97,
+      "min_px_per_character": 8.44
+    }
+  ]
+}

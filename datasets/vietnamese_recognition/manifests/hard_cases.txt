@@ -1,0 +1,67 @@
+# Words and tokens a Vietnamese recognizer gets wrong on administrative text.
+#
+# These are targets: lines containing them are generated for training and
+# counted in evaluation. They are never used to replace or "correct" what a
+# model outputs.
+#
+# One entry per line; "#" starts a comment. Matching ignores case, so an entry
+# also stands for its capitalised and upper-case forms.
+
+# Tracked since the first baseline (benchmarks/vietnamese/hard_cases.txt).
+chuẩn
+triển
+chuyển
+quyết
+nghị
+nguyễn
+huyện
+hướng
+trưởng
+chính phủ
+ủy ban
+cộng hòa
+xã hội
+
+# Tone or vowel mark lost or changed by VietOCR on the verified test lines
+# (for example CỔNG read as CÔNG, Nghị as Nghi, định as đinh, hội as hôi).
+cổng
+nghị quyết
+nghị định
+quyết định
+định
+hội
+tinh gọn
+đào tạo
+bảo đảm
+ủy
+phủ
+tổng
+khoản
+điều
+
+# Capitalisation changed by VietOCR: proper nouns lower-cased, or a heading
+# returned in the wrong case.
+bộ
+người ký
+cơ quan
+văn phòng
+trung ương
+bí thư
+thủ tướng
+phó
+mặt trận
+tổ chức
+công thương
+việt nam
+
+# Symbols and punctuation dropped or misread: a leading dash, a closing
+# semicolon or full stop, the document terminator, quotes, the time zone of a
+# signature stamp, e-mail addresses, bracketed numerals.
+- 
+;
+./.
+"
++07:00
+@
+.vn
+(ii)

@@ -57,7 +57,8 @@ class NothingSensitiveCanBeCommitted(unittest.TestCase):
         self.assertEqual([path for path in self.candidates if path.startswith(LOCAL_ONLY)], [])
 
     def test_no_large_file(self):
-        large = [path for path in self.candidates if (_paths.REPO_ROOT / path).stat().st_size > 1_000_000]
+        # The largest legitimate text file is the synthetic training manifest (1.5 MB).
+        large = [path for path in self.candidates if (_paths.REPO_ROOT / path).stat().st_size > 2_000_000]
         self.assertEqual(large, [])
 
     def test_crops_and_candidates_are_ignored(self):
@@ -84,6 +85,34 @@ class NothingSensitiveCanBeCommitted(unittest.TestCase):
         ]
         self.assertEqual(len(git("check-ignore", *paths).splitlines()), len(paths))
         self.assertEqual([path for path in self.candidates if path in paths], [])
+
+
+class RecognitionDataset(unittest.TestCase):
+    ROOT = "datasets/vietnamese_recognition"
+
+    def test_generated_images_and_manifests_are_ignored(self):
+        paths = [
+            f"{self.ROOT}/train/images/syn_train_000001.png",
+            f"{self.ROOT}/train/clean/syn_train_000001.png",
+            f"{self.ROOT}/val/images/syn_val_000001.png",
+            f"{self.ROOT}/manifests/vietocr/train_annotation.txt",
+            f"{self.ROOT}/real_annotation/manifest.tsv",
+            "train_vi_admin_pilot_v1/data.mdb",
+        ]
+        self.assertEqual(len(git("check-ignore", *paths).splitlines()), len(paths))
+
+    def test_holdout_hard_cases_and_sources_are_not_ignored(self):
+        for path in (
+            f"{self.ROOT}/test_holdout/test_holdout.tsv",
+            f"{self.ROOT}/test_holdout/test_holdout.sha256",
+            f"{self.ROOT}/manifests/hard_cases.txt",
+            f"{self.ROOT}/manifests/train.tsv",
+            f"{self.ROOT}/lexicon/administrative.txt",
+            f"{self.ROOT}/build_dataset.py",
+            "configs/vietnamese/vietocr/vgg_transformer_vi_admin.yml",
+        ):
+            ignored = subprocess.run(["git", "check-ignore", "-q", path], cwd=_paths.REPO_ROOT).returncode == 0
+            self.assertFalse(ignored, path)
 
 
 class PinnedVietOCR(unittest.TestCase):
