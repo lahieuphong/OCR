@@ -107,7 +107,6 @@ import json
 import math
 import os
 import random
-import resource
 import shutil
 import sys
 import time
@@ -536,10 +535,43 @@ def write_report(directory: Path, record: dict) -> None:
 
 
 def peak_memory_mb(device: str) -> dict:
+    """Peak process RSS plus CUDA allocator peaks, using only stdlib + torch.
+
+    The resource module is POSIX-only, so Windows uses GetProcessMemoryInfo via ctypes.
+    """
     import torch
 
-    rss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-    memory = {"process_peak_rss_mb": round(rss / (1024**2 if sys.platform == "darwin" else 1024), 1)}
+    if os.name == "nt":
+        import ctypes
+        from ctypes import wintypes
+
+        class PROCESS_MEMORY_COUNTERS(ctypes.Structure):
+            _fields_ = [
+                ("cb", wintypes.DWORD),
+                ("PageFaultCount", wintypes.DWORD),
+                ("PeakWorkingSetSize", ctypes.c_size_t),
+                ("WorkingSetSize", ctypes.c_size_t),
+                ("QuotaPeakPagedPoolUsage", ctypes.c_size_t),
+                ("QuotaPagedPoolUsage", ctypes.c_size_t),
+                ("QuotaPeakNonPagedPoolUsage", ctypes.c_size_t),
+                ("QuotaNonPagedPoolUsage", ctypes.c_size_t),
+                ("PagefileUsage", ctypes.c_size_t),
+                ("PeakPagefileUsage", ctypes.c_size_t),
+            ]
+
+        counters = PROCESS_MEMORY_COUNTERS()
+        counters.cb = ctypes.sizeof(counters)
+        process = ctypes.windll.kernel32.GetCurrentProcess()
+        if not ctypes.windll.psapi.GetProcessMemoryInfo(process, ctypes.byref(counters), counters.cb):
+            raise OSError("GetProcessMemoryInfo failed")
+        process_peak_rss_mb = round(counters.PeakWorkingSetSize / 1024**2, 1)
+    else:
+        import resource
+
+        rss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+        process_peak_rss_mb = round(rss / (1024**2 if sys.platform == "darwin" else 1024), 1)
+
+    memory = {"process_peak_rss_mb": process_peak_rss_mb}
     if device.startswith("cuda"):
         memory["cuda_peak_allocated_mb"] = round(torch.cuda.max_memory_allocated() / 1024**2, 1)
         memory["cuda_peak_reserved_mb"] = round(torch.cuda.max_memory_reserved() / 1024**2, 1)
