@@ -91,6 +91,7 @@ def compare(continuous: dict, resumed: dict, steps: int, tolerance: float = 0.0)
         f"losses_of_steps_{half + 1}_to_{steps}": (continuous["record"]["step_losses"][half:steps], resumed["record"]["step_losses"][half:steps]),
         "losses_of_all_steps": (continuous["record"]["step_losses"], resumed["record"]["step_losses"]),
         "random_state": (continuous["torch_rng"], resumed["torch_rng"]),
+        "cuda_random_states": (continuous["cuda_rng"], resumed["cuda_rng"]),
     }
     report = {}
     for name, (first, second) in parts.items():
