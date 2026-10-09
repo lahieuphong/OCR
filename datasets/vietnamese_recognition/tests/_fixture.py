@@ -148,10 +148,10 @@ class Workspace:
     def build(self, *extra: str) -> int:
         return build_dataset.main(["--skip-synthetic", *self.arguments(), *extra])
 
-    def audit(self) -> dict:
+    def audit(self, **options) -> dict:
         import audit_dataset
 
-        return audit_dataset.audit(self.root, VOCABULARY, self.documents_path, self.work_dir, self.legacy_dir)
+        return audit_dataset.audit(self.root, VOCABULARY, self.documents_path, self.work_dir, self.legacy_dir, **options)
 
     def splits(self) -> dict[str, list[dict]]:
         return dataset.read_splits(self.root)

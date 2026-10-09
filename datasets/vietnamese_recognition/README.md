@@ -245,6 +245,7 @@ file đóng băng ghi; dòng verify thêm sau đó không lọt vào.
 ```bash
 python datasets/vietnamese_recognition/evaluate_splits.py inputs --output <inputs.jsonl>
 .venv-vietocr/bin/python benchmarks/vietnamese/recognizer_bakeoff/run_vietocr.py \
+  --config configs/vietnamese/vietocr/exp_a_width512.yml \
   --manifest <inputs.jsonl> --output <predictions.jsonl>
 python datasets/vietnamese_recognition/evaluate_splits.py score \
   --predictions <predictions.jsonl> --label <tên model>
@@ -369,7 +370,8 @@ Bảo đảm của bộ sinh, đều có test:
 - **Chỉ dùng ký tự model mã hoá được.** Vocab của VietOCR pretrained được giữ
   nguyên, nên nhãn chỉ gồm 229 ký tự của nó.
 - **Không cắt cụt.** Nhãn dài nhất 120 ký tự, do cách ngắt dòng chứ không phải
-  do cắt; VietOCR chỉ decode tối đa 128 token.
+  do cắt. Decoder chạy tối đa 128 bước, theo `decoder_max_seq_length` của
+  config (xem "Giới hạn decode" trong README của config).
 - **Không lặp text của tập regression.** Mặc định bộ sinh bỏ qua mọi dòng trùng
   nguyên văn với một dòng `bakeoff_regression`. Ba dòng mẫu quen thuộc
   (`QUYẾT ĐỊNH`, `QUYẾT ĐỊNH:`, `Độc lập - Tự do - Hạnh phúc`) nằm trong tập đó
@@ -538,8 +540,10 @@ Audit **FAIL** (mã thoát 1) khi:
   khác bản đóng băng;
 - một dòng thật chưa được người verify nằm trong bất kỳ tập nào;
 - một dòng `legacy_candidate` nằm trong bất kỳ tập nào;
-- nhãn rỗng, không ở NFC, dài hơn giới hạn decode, hoặc có ký tự ngoài vocab mà
-  không được đánh dấu; ảnh thiếu hoặc khác với hash đã ghi;
+- nhãn rỗng, không ở NFC, hoặc có ký tự ngoài vocab mà không được đánh dấu;
+  nhãn dài hơn mức config hỗ trợ (hiện là 128 ký tự: `decoder_max_seq_length`
+  128, `transformer.max_seq_length` 1024; audit in rõ giới hạn nào bị vượt);
+  ảnh thiếu hoặc khác với hash đã ghi;
 - một chữ cái tiếng Việt không xuất hiện trong train.
 
 **Chỉ cảnh báo, không FAIL:** text giống nhau ở hai tập. Văn bản hành chính lặp

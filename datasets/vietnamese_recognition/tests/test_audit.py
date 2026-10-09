@@ -240,9 +240,67 @@ class SixSets(unittest.TestCase):
         self.assertEqual(report["result"], "PASS")
         self.assertTrue(any("hold a character the recognizer cannot output" in warning for warning in report["warnings"]))
 
-    def test_a_label_longer_than_the_decoder_can_produce_fails(self):
-        failures = self.failures(SYNTHETIC_VAL, lambda rows: rows[0].update(text="a" * 127))
-        self.assertIn("exceeds the decoder limit", failures)
+    @staticmethod
+    def limit(characters: int) -> dict:
+        return {"characters": characters, "decoder_max_seq_length": characters, "transformer_max_seq_length": 1024, "config": "x.yml"}
+
+    def test_the_configured_limit_is_128_characters(self):
+        limit = self.workspace.audit()["label_limit"]
+        self.assertEqual((limit["characters"], limit["decoder_max_seq_length"], limit["transformer_max_seq_length"]), (128, 128, 1024))
+        self.assertNotIn(BLIND_TEST, limit["longest_label"])
+
+    def test_a_label_at_the_configured_limit_is_valid(self):
+        report = self.broken(REAL_VAL, lambda rows: rows[0].update(text="a" * 128))
+        self.assertEqual((report["result"], report["failures"]), ("PASS", []))
+        self.assertEqual(report["label_limit"]["longest_label"][REAL_VAL], 128)
+        self.assertEqual(report["readiness"]["conditions"]["real_val_verified"]["found"], 4)
+
+    def test_a_label_beyond_the_configured_limit_fails_and_says_which_limit(self):
+        failures = self.failures(SYNTHETIC_VAL, lambda rows: rows[0].update(text="a" * 129))
+        self.assertIn(
+            "syn_val_000001: label of 129 characters exceeds the configured limit of 128 "
+            "(decoder_max_seq_length 128, transformer.max_seq_length 1024 in exp_a_width512.yml)",
+            failures,
+        )
+
+    def test_a_longer_label_is_valid_once_the_configuration_allows_it(self):
+        # 129 characters: beyond VietOCR's default of 128 steps, fine under a config that says 160.
+        self.workspace.rewrite(REAL_VAL, lambda rows: rows[0].update(text="a" * 129))
+        report = self.workspace.audit(label_limit=self.limit(160))
+        self.assertEqual((report["result"], report["failures"]), ("PASS", []))
+        self.assertEqual(report["label_limit"]["longest_label"][REAL_VAL], 129)
+        self.assertEqual(report["label_limit"]["labels_beyond_the_stock_decoder"][REAL_VAL], 1)
+        self.assertEqual(report["label_limit"]["labels_beyond_the_stock_decoder"][REAL_TRAIN], 0)
+        self.assertEqual(report["readiness"]["conditions"]["real_val_verified"]["found"], 4)  # still counted
+
+    def test_the_limit_is_what_the_configuration_says_not_a_constant(self):
+        self.workspace.rewrite(SYNTHETIC_VAL, lambda rows: rows[0].update(text="a" * 161))
+        self.assertEqual(self.workspace.audit(label_limit=self.limit(200))["result"], "PASS")
+        report = self.workspace.audit(label_limit=self.limit(160))
+        self.assertTrue(any("label of 161 characters exceeds the configured limit of 160" in failure for failure in report["failures"]))
+        self.workspace.rewrite(SYNTHETIC_VAL, lambda rows: rows[0].update(text="a" * 127))
+        self.assertEqual(self.workspace.audit()["result"], "PASS")  # the old constant of 126 is gone
+        report = self.workspace.audit(label_limit=self.limit(100))
+        self.assertTrue(any("exceeds the configured limit of 100" in failure for failure in report["failures"]))
+
+    def test_a_line_marked_unencodable_is_not_measured(self):
+        def change(rows):
+            rows[0].update(text="–" * 200, subset=audit_dataset.OUT_OF_VOCABULARY)
+
+        self.assertEqual(self.broken(REAL_TRAIN, change)["result"], "PASS")
+
+    def test_the_command_prints_the_limit(self):
+        arguments = [*self.workspace.arguments(), "--legacy-dir", str(self.workspace.legacy_dir)]
+        self.workspace.rewrite(REAL_VAL, lambda rows: rows[0].update(text="a" * 128))
+        status, output = quiet(audit_dataset.main, arguments)
+        self.assertEqual(status, 0)
+        self.assertIn("label limit: 128 characters (decoder_max_seq_length 128, transformer.max_seq_length 1024)", output)
+        self.assertIn("labels beyond VietOCR's default of 128 steps", output)
+        self.workspace.rewrite(REAL_VAL, lambda rows: rows[0].update(text="a" * 129))
+        status, output = quiet(audit_dataset.main, arguments)
+        self.assertEqual(status, 1)
+        self.assertIn("FAIL: ", output)
+        self.assertIn("label of 129 characters exceeds the configured limit of 128", output)
 
     def test_a_missing_image_fails(self):
         report = self.broken(SYNTHETIC_TRAIN, lambda rows: rows[0].update(image_path="train/images/nope.png"))

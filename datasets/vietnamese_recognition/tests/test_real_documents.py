@@ -280,6 +280,141 @@ class DocumentLeakage(unittest.TestCase):
         self.assertEqual(pairs[0]["shared_share"], 1.0)
 
 
+class CropThatIsAlsoAFrozenLine(unittest.TestCase):
+    """A validation crop with the very bytes of a bake-off crop: refused, until a person sets it aside."""
+
+    REASON = "duplicate_frozen_image"
+
+    def setUp(self):
+        self.workspace = Workspace(self, {"t1": ("train", 6), "v1": ("val", 6), "b1": ("blind", 6)})
+        self.frozen = dataset.FrozenLines.load(BAKEOFF_REGRESSION).rows[0]
+        # The same signature block or header, cut from a new document: another id, the same file.
+        self.duplicate = next(line for line in self.workspace.lines if line["document_id"] == document_id("v1"))
+        self.duplicate["crop_sha256"] = self.frozen["crop_sha256"]
+        self.workspace.save_lines()
+        self.workspace.annotate(REAL_TRAIN, ["t1"], 4)
+        self.workspace.annotate(REAL_VAL, ["v1"], 4)
+        self.workspace.annotate(BLIND_TEST, ["b1"], 4)
+        self.table = self.workspace.work_dir / "annotation" / REAL_VAL / "manifest.tsv"
+
+    def set_aside(self) -> AnnotationStore:
+        store = AnnotationStore(self.table, self.table.with_name("log.jsonl"), "tester", only_ids=[self.duplicate["id"]])
+        self.assertEqual(store.current()["id"], self.duplicate["id"])  # shown again although verified
+        store.skip(self.duplicate["id"], self.REASON)
+        return store
+
+    def test_the_build_refuses_it_and_touches_no_annotation(self):
+        before = self.table.read_bytes()
+        with self.assertRaises(SystemExit) as refusal:
+            quiet(self.workspace.build)
+        self.assertIn(f"{self.duplicate['id']}: image of a bakeoff_regression line (same SHA-256)", str(refusal.exception))
+        # Refusing is all the build does: the row is neither removed nor set aside for the annotator.
+        self.assertEqual(self.table.read_bytes(), before)
+        row = {r["id"]: r for r in bakeoff.read_annotation(self.table)}[self.duplicate["id"]]
+        self.assertEqual((row["verified"], row["excluded_reason"]), ("true", ""))
+        self.assertFalse(dataset.manifest_path(REAL_VAL, self.workspace.root).exists())
+
+    def test_set_aside_by_a_person_it_no_longer_blocks_the_build(self):
+        self.set_aside()
+        status, _ = quiet(self.workspace.build)
+        self.assertEqual(status, 0)
+        validation = self.workspace.splits()[REAL_VAL]
+        self.assertEqual(len(validation), 3)
+        self.assertNotIn(self.duplicate["id"], {row["id"] for row in validation})
+        self.assertNotIn(self.frozen["crop_sha256"], {row["crop_sha256"] for row in validation})
+        report = self.workspace.audit()
+        self.assertEqual((report["result"], report["leak_failures"], report["images_in_two_sets"]), ("PASS", 0, 0))
+        self.assertEqual(report["annotation"][REAL_VAL], {"selected": 6, "verified": 3, "skipped": 1, "pending": 2})
+        self.assertEqual(report["readiness"]["conditions"]["real_val_verified"]["found"], 3)
+
+    def test_the_other_sets_and_the_frozen_line_are_left_alone(self):
+        others = {split: (self.workspace.work_dir / "annotation" / split / "manifest.tsv").read_bytes() for split in (REAL_TRAIN, BLIND_TEST)}
+        self.set_aside()
+        quiet(self.workspace.build)
+        for split, before in others.items():
+            self.assertEqual((self.workspace.work_dir / "annotation" / split / "manifest.tsv").read_bytes(), before, split)
+        splits = self.workspace.splits()
+        self.assertEqual((len(splits[REAL_TRAIN]), len(splits[BLIND_TEST]), len(splits[BAKEOFF_REGRESSION])), (4, 4, 100))
+        kept = {row["id"]: row for row in splits[BAKEOFF_REGRESSION]}[self.frozen["id"]]
+        self.assertEqual((kept["text"], kept["crop_sha256"]), (self.frozen["ground_truth"], self.frozen["crop_sha256"]))
+
+    def test_replacements_bring_validation_back_to_its_target(self):
+        self.set_aside()
+        session = AnnotationStore(self.table, self.table.with_name("log.jsonl"), "tester", target=4)
+        self.assertEqual(session.progress()["verified"], 3)
+        replaced = []
+        while (row := session.current()) is not None:
+            replaced.append(row["id"])
+            session.enter(row["id"], f"dòng thay thế {len(replaced)}")
+        self.assertEqual(len(replaced), 1)
+        self.assertNotIn(self.duplicate["id"], replaced)
+        quiet(self.workspace.build)
+        self.assertEqual(len(self.workspace.splits()[REAL_VAL]), 4)
+        self.assertEqual(self.workspace.audit()["result"], "PASS")
+
+
+class LineLongerThanTheStockDecoder(unittest.TestCase):
+    """A verified validation line of 129 characters: never dropped, valid when the configuration covers it."""
+
+    LIMIT_160 = {"characters": 160, "decoder_max_seq_length": 160, "transformer_max_seq_length": 1024, "config": "x.yml"}
+
+    SENTENCE = "Căn cứ Nghị định số 15/2024/NĐ-CP ngày 05 tháng 02 năm 2025 của Chính phủ quy định chức năng, nhiệm vụ; "
+
+    def workspace(self, characters: int) -> tuple[Workspace, str, str]:
+        workspace = Workspace(self, {"t1": ("train", 6), "v1": ("val", 6), "b1": ("blind", 6)})
+        text = (self.SENTENCE * 2)[: characters - 1] + "."
+        self.assertEqual(len(text), characters)
+        self.assertEqual(set(text) - set(VOCABULARY), set())
+        workspace.annotate(REAL_TRAIN, ["t1"], 4)
+        workspace.annotate(REAL_VAL, ["v1"], 4, text=lambda line: text if line["line_index"] == 1 else line["true_text"])
+        workspace.annotate(BLIND_TEST, ["b1"], 4)
+        key = next(line["id"] for line in workspace.lines if line["document_id"] == document_id("v1"))
+        return workspace, key, text
+
+    def test_it_stays_in_real_val_and_in_the_file_validation_reads(self):
+        workspace, key, text = self.workspace(129)
+        self.assertEqual(quiet(workspace.build)[0], 0)
+        row = {row["id"]: row for row in workspace.splits()[REAL_VAL]}[key]
+        self.assertEqual((row["text"], row["split"], row["verified"]), (text, REAL_VAL, "true"))
+        self.assertEqual(row["subset"], "")  # in particular not out_of_vocabulary
+        annotation = (workspace.root / "manifests" / "vietocr" / "real_val_annotation.txt").read_text(encoding="utf-8").splitlines()
+        self.assertEqual(len(annotation), 4)
+        self.assertIn(f"{row['image_path']}\t{text}", annotation)
+        # Nobody set it aside along the way.
+        table = {r["id"]: r for r in bakeoff.read_annotation(workspace.work_dir / "annotation" / REAL_VAL / "manifest.tsv")}
+        self.assertEqual((table[key]["verified"], table[key]["excluded_reason"]), ("true", ""))
+
+    def test_under_a_configuration_of_160_steps_the_audit_passes_and_counts_it(self):
+        workspace, _, _ = self.workspace(129)
+        quiet(workspace.build)
+        report = workspace.audit(label_limit=self.LIMIT_160)
+        self.assertEqual((report["result"], report["failures"]), ("PASS", []))
+        self.assertEqual(report["readiness"]["conditions"]["real_val_verified"]["found"], 4)
+        self.assertEqual(report["label_limit"]["longest_label"][REAL_VAL], 129)
+        self.assertEqual(report["label_limit"]["labels_beyond_the_stock_decoder"][REAL_VAL], 1)
+
+    def test_under_the_configured_128_steps_it_is_reported_not_dropped(self):
+        workspace, key, _ = self.workspace(129)
+        quiet(workspace.build)
+        self.assertIn(key, {row["id"] for row in workspace.splits()[REAL_VAL]})
+        report = workspace.audit()
+        self.assertEqual(report["result"], "FAIL")
+        self.assertFalse(report["readiness"]["ready"])
+        self.assertIn(
+            f"{key}: label of 129 characters exceeds the configured limit of 128 "
+            "(decoder_max_seq_length 128, transformer.max_seq_length 1024 in exp_a_width512.yml)",
+            report["failures"],
+        )
+
+    def test_a_line_of_exactly_128_characters_is_an_ordinary_validation_line(self):
+        workspace, key, _ = self.workspace(128)
+        quiet(workspace.build)
+        report = workspace.audit()
+        self.assertEqual((report["result"], report["failures"]), ("PASS", []))
+        self.assertEqual(report["readiness"]["conditions"]["real_val_verified"]["found"], 4)
+        self.assertIn(key, {row["id"] for row in workspace.splits()[REAL_VAL]})
+
+
 class Selection(unittest.TestCase):
     def test_training_shares_keep_a_quarter_random(self):
         self.assertAlmostEqual(sum(selection.TRAIN_SHARES.values()), 1.0)

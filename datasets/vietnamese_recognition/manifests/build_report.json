@@ -59,8 +59,13 @@
     "numpy": "2.3.5"
   },
   "samples": {
-    "real_train": {},
-    "real_val": {},
+    "real_train": {
+      "real/general": 400,
+      "real/out_of_vocabulary": 2
+    },
+    "real_val": {
+      "real/general": 100
+    },
     "synthetic_train": {
       "synthetic/general": 3000,
       "synthetic/long_line": 1000,
@@ -76,7 +81,9 @@
     "bakeoff_regression": {
       "real/general": 100
     },
-    "blind_test": {}
+    "blind_test": {
+      "real/general": 100
+    }
   },
   "fonts_used": {
     "Times New Roman": 2296,
@@ -103,20 +110,20 @@
     "Georgia Bold Italic": 6
   },
   "synthetic_may_repeat_regression_texts": false,
-  "blind_test_frozen": false,
+  "blind_test_frozen": true,
   "real_lines_outside_the_vocabulary": {
-    "real_train": 0,
+    "real_train": 2,
     "real_val": 0
   },
   "training_mix": {
     "method": "oversample_real",
     "wanted_real_to_synthetic": "1:2",
-    "real_lines": 0,
-    "real_repeats": 1,
-    "real_samples": 0,
+    "real_lines": 400,
+    "real_repeats": 6,
+    "real_samples": 2400,
     "synthetic_samples": 5059,
-    "samples_per_pass": 5059,
-    "real_share": 0.0
+    "samples_per_pass": 7459,
+    "real_share": 0.3218
   },
-  "seconds": 0.1
+  "seconds": 0.2
 }

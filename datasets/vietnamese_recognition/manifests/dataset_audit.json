@@ -2,47 +2,99 @@
   "result": "PASS",
   "failures": [],
   "leak_failures": 0,
-  "warnings": [],
+  "warnings": [
+    "2 real_train line(s) hold a character the recognizer cannot output",
+    "identical text in two sets (lines): {'real_train/real_val': 19, 'real_train/synthetic_train': 13, 'real_train/bakeoff_regression': 13, 'real_train/blind_test': 12, 'real_val/synthetic_train': 8, 'real_val/bakeoff_regression': 8, 'real_val/blind_test': 5, 'synthetic_train/blind_test': 4, 'bakeoff_regression/blind_test': 3}"
+  ],
   "samples": {
-    "real_train": 0,
-    "real_val": 0,
+    "real_train": 402,
+    "real_val": 100,
     "synthetic_train": 5059,
     "synthetic_val": 552,
     "bakeoff_regression": 100,
-    "blind_test": 0
+    "blind_test": 100
   },
   "sets": {
     "real_train": {
-      "samples": 0,
-      "characters": 0,
-      "words": 0,
-      "unique_texts": 0,
-      "duplicate_texts": 0,
-      "source_type": {},
-      "subset": {},
-      "documents": {},
+      "samples": 402,
+      "characters": 17585,
+      "words": 3903,
+      "unique_texts": 358,
+      "duplicate_texts": 29,
+      "source_type": {
+        "real": 402
+      },
+      "subset": {
+        "general": 400,
+        "out_of_vocabulary": 2
+      },
+      "documents": {
+        "doc_0ca4c9a484e2": 29,
+        "doc_1154a8bb6f77": 32,
+        "doc_195f39a2b960": 32,
+        "doc_30cdc3f3c286": 28,
+        "doc_362659c783f7": 30,
+        "doc_3bec1219f87f": 29,
+        "doc_3fe6c1807a6a": 29,
+        "doc_486d102efc92": 26,
+        "doc_80aae32b0d52": 31,
+        "doc_917f882813e1": 25,
+        "doc_94169caa17ff": 32,
+        "doc_ad3024b79f90": 31,
+        "doc_f591cf1ce514": 25,
+        "doc_fde99fa254fe": 23
+      },
       "fonts": {},
-      "by_characters": {},
-      "by_aspect_ratio": {},
+      "by_characters": {
+        "31-60": 92,
+        "1-30": 151,
+        "61-90": 157,
+        "91+": 2
+      },
+      "by_aspect_ratio": {
+        "16:1 to 24:1": 59,
+        "up to 16:1": 190,
+        "24:1 to 32:1": 149,
+        "over 32:1": 4
+      },
       "long_line_subset": 0,
-      "wider_than_pretrained_limit": 0,
-      "longest_label": 0
+      "wider_than_pretrained_limit": 212,
+      "longest_label": 92
     },
     "real_val": {
-      "samples": 0,
-      "characters": 0,
-      "words": 0,
-      "unique_texts": 0,
-      "duplicate_texts": 0,
-      "source_type": {},
-      "subset": {},
-      "documents": {},
+      "samples": 100,
+      "characters": 4573,
+      "words": 1024,
+      "unique_texts": 94,
+      "duplicate_texts": 5,
+      "source_type": {
+        "real": 100
+      },
+      "subset": {
+        "general": 100
+      },
+      "documents": {
+        "doc_1ba244538921": 15,
+        "doc_319fe42aad73": 21,
+        "doc_b36969b89754": 21,
+        "doc_e752ce31cbed": 21,
+        "doc_f6ce51930f94": 22
+      },
       "fonts": {},
-      "by_characters": {},
-      "by_aspect_ratio": {},
+      "by_characters": {
+        "31-60": 25,
+        "61-90": 41,
+        "1-30": 34
+      },
+      "by_aspect_ratio": {
+        "up to 16:1": 43,
+        "16:1 to 24:1": 19,
+        "24:1 to 32:1": 36,
+        "over 32:1": 2
+      },
       "long_line_subset": 0,
-      "wider_than_pretrained_limit": 0,
-      "longest_label": 0
+      "wider_than_pretrained_limit": 57,
+      "longest_label": 83
     },
     "synthetic_train": {
       "samples": 5059,
@@ -187,39 +239,43 @@
     }
   },
   "blind_test": {
-    "samples": 0,
-    "documents": 0,
-    "frozen": false,
+    "samples": 100,
+    "documents": 5,
+    "frozen": true,
     "content": "not reported: the blind test must not steer any decision",
     "results_viewed": 0
   },
   "documents": {
-    "registered": 0,
-    "by_split": {},
+    "registered": 24,
+    "by_split": {
+      "blind": 5,
+      "train": 14,
+      "val": 5
+    },
     "with_verified_lines": {
-      "real_train": 0,
-      "real_val": 0,
-      "blind_test": 0
+      "real_train": 14,
+      "real_val": 5,
+      "blind_test": 5
     }
   },
   "annotation": {
     "real_train": {
-      "selected": 0,
-      "verified": 0,
-      "skipped": 0,
-      "pending": 0
+      "selected": 520,
+      "verified": 402,
+      "skipped": 2,
+      "pending": 116
     },
     "real_val": {
-      "selected": 0,
-      "verified": 0,
-      "skipped": 0,
-      "pending": 0
+      "selected": 140,
+      "verified": 100,
+      "skipped": 4,
+      "pending": 36
     },
     "blind_test": {
-      "selected": 0,
-      "verified": 0,
-      "skipped": 0,
-      "pending": 0
+      "selected": 140,
+      "verified": 100,
+      "skipped": 1,
+      "pending": 39
     }
   },
   "legacy_candidates": {
@@ -229,7 +285,17 @@
   "duplicate_ids": 0,
   "images_in_two_sets": 0,
   "images_repeated_within_a_set": 0,
-  "texts_shared_between_sets": {},
+  "texts_shared_between_sets": {
+    "real_train/real_val": 19,
+    "real_train/synthetic_train": 13,
+    "real_train/bakeoff_regression": 13,
+    "real_train/blind_test": 12,
+    "real_val/synthetic_train": 8,
+    "real_val/bakeoff_regression": 8,
+    "real_val/blind_test": 5,
+    "synthetic_train/blind_test": 4,
+    "bakeoff_regression/blind_test": 3
+  },
   "images_checked": true,
   "images_missing_or_changed": 0,
   "vietnamese_letters": {
@@ -239,93 +305,113 @@
     "rarest_in_training": "ẳ",
     "minimum_occurrences_in_training": 30,
     "covered": {
-      "real_train": 0,
-      "real_val": 0,
+      "real_train": 134,
+      "real_val": 107,
       "synthetic_train": 178,
       "synthetic_val": 178,
       "bakeoff_regression": 115
+    }
+  },
+  "label_limit": {
+    "characters": 128,
+    "decoder_max_seq_length": 128,
+    "transformer_max_seq_length": 1024,
+    "config": "exp_a_width512.yml",
+    "longest_label": {
+      "real_train": 92,
+      "real_val": 83,
+      "synthetic_train": 119,
+      "synthetic_val": 118,
+      "bakeoff_regression": 81
+    },
+    "labels_beyond_the_stock_decoder": {
+      "real_train": 0,
+      "real_val": 0,
+      "synthetic_train": 0,
+      "synthetic_val": 0,
+      "bakeoff_regression": 0
     }
   },
   "resize": [
     {
       "split": "real_train",
       "max_width": 512,
-      "lines": 0,
-      "squeezed_lines": 0,
-      "squeezed_share": "",
-      "median_px_per_character": "",
-      "p5_px_per_character": "",
-      "min_px_per_character": ""
+      "lines": 402,
+      "squeezed_lines": 212,
+      "squeezed_share": 0.5274,
+      "median_px_per_character": 11.13,
+      "p5_px_per_character": 6.65,
+      "min_px_per_character": 5.57
     },
     {
       "split": "real_train",
       "max_width": 768,
-      "lines": 0,
-      "squeezed_lines": 0,
-      "squeezed_share": "",
-      "median_px_per_character": "",
-      "p5_px_per_character": "",
-      "min_px_per_character": ""
+      "lines": 402,
+      "squeezed_lines": 152,
+      "squeezed_share": 0.3781,
+      "median_px_per_character": 12.19,
+      "p5_px_per_character": 9.85,
+      "min_px_per_character": 8.35
     },
     {
       "split": "real_train",
       "max_width": 1024,
-      "lines": 0,
-      "squeezed_lines": 0,
-      "squeezed_share": "",
-      "median_px_per_character": "",
-      "p5_px_per_character": "",
-      "min_px_per_character": ""
+      "lines": 402,
+      "squeezed_lines": 4,
+      "squeezed_share": 0.01,
+      "median_px_per_character": 13.07,
+      "p5_px_per_character": 11.02,
+      "min_px_per_character": 8.75
     },
     {
       "split": "real_train",
       "max_width": 1280,
-      "lines": 0,
+      "lines": 402,
       "squeezed_lines": 0,
-      "squeezed_share": "",
-      "median_px_per_character": "",
-      "p5_px_per_character": "",
-      "min_px_per_character": ""
+      "squeezed_share": 0.0,
+      "median_px_per_character": 13.07,
+      "p5_px_per_character": 11.02,
+      "min_px_per_character": 8.75
     },
     {
       "split": "real_val",
       "max_width": 512,
-      "lines": 0,
-      "squeezed_lines": 0,
-      "squeezed_share": "",
-      "median_px_per_character": "",
-      "p5_px_per_character": "",
-      "min_px_per_character": ""
+      "lines": 100,
+      "squeezed_lines": 57,
+      "squeezed_share": 0.57,
+      "median_px_per_character": 11.05,
+      "p5_px_per_character": 6.65,
+      "min_px_per_character": 6.17
     },
     {
       "split": "real_val",
       "max_width": 768,
-      "lines": 0,
-      "squeezed_lines": 0,
-      "squeezed_share": "",
-      "median_px_per_character": "",
-      "p5_px_per_character": "",
-      "min_px_per_character": ""
+      "lines": 100,
+      "squeezed_lines": 38,
+      "squeezed_share": 0.38,
+      "median_px_per_character": 12.32,
+      "p5_px_per_character": 9.97,
+      "min_px_per_character": 9.25
     },
     {
       "split": "real_val",
       "max_width": 1024,
-      "lines": 0,
-      "squeezed_lines": 0,
-      "squeezed_share": "",
-      "median_px_per_character": "",
-      "p5_px_per_character": "",
-      "min_px_per_character": ""
+      "lines": 100,
+      "squeezed_lines": 2,
+      "squeezed_share": 0.02,
+      "median_px_per_character": 12.8,
+      "p5_px_per_character": 11.06,
+      "min_px_per_character": 10.36
     },
     {
       "split": "real_val",
       "max_width": 1280,
-      "lines": 0,
+      "lines": 100,
       "squeezed_lines": 0,
-      "squeezed_share": "",
-      "median_px_per_character": "",
-      "p5_px_per_character": "",
-      "min_px_per_character": ""
+      "squeezed_share": 0.0,
+      "median_px_per_character": 12.8,
+      "p5_px_per_character": 11.06,
+      "min_px_per_character": 10.36
     },
     {
       "split": "synthetic_train",
@@ -449,37 +535,37 @@
     }
   ],
   "readiness": {
-    "ready": false,
+    "ready": true,
     "conditions": {
       "real_train_verified": {
         "required": 400,
-        "found": 0,
-        "met": false
+        "found": 400,
+        "met": true
       },
       "real_val_verified": {
         "required": 100,
-        "found": 0,
-        "met": false
+        "found": 100,
+        "met": true
       },
       "blind_test_verified": {
         "required": 100,
-        "found": 0,
-        "met": false
+        "found": 100,
+        "met": true
       },
       "train_documents": {
         "required": 6,
-        "found": 0,
-        "met": false
+        "found": 14,
+        "met": true
       },
       "val_documents": {
         "required": 2,
-        "found": 0,
-        "met": false
+        "found": 5,
+        "met": true
       },
       "blind_documents": {
         "required": 2,
-        "found": 0,
-        "met": false
+        "found": 5,
+        "met": true
       },
       "no_document_or_image_leak": {
         "required": 0,

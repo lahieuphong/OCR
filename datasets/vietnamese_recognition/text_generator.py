@@ -23,7 +23,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 LEXICON_FILE = Path(__file__).resolve().parent / "lexicon" / "administrative.txt"
-# VietOCR decodes at most 128 tokens; a longer label could never be reproduced.
+# Room below the 128 decoding steps the experiment configs allow
+# (decoder_max_seq_length), which is also VietOCR's default.
 MAX_CHARACTERS = 120
 NORMAL_WIDTHS = (34, 74)  # characters per line when wrapping ordinary text
 LONG_WIDTHS = (84, 118)

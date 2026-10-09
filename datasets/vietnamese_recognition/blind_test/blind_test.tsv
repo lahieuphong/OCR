@@ -1,0 +1,101 @@
+id	document	page	line_index	ground_truth	crop_sha256	split	frozen	blind
+doc_052f3924a49a_p0002_l0006	doc_052f3924a49a	2	6	b) Quy mô lập quy hoạch di tích: Có diện tích khoảng 58,42 ha, trên địa	6475e5d1545086daa70dd2dbd649f4ed10b644e1c06779ed2e1781338af14ce7	blind_test	true	true
+doc_052f3924a49a_p0002_l0016	doc_052f3924a49a	2	16	Hát; phía Tây giáp ranh giới xã Hát Môn, xã Phúc Thọ; phía Nam giáp đất sản	2cc1b71cfea87c17b1dad602077732a1ae518820d9c3dd915db7ff302980d57c	blind_test	true	true
+doc_052f3924a49a_p0002_l0030	doc_052f3924a49a	2	30	b) Khai thác, phát huy hiệu quả giá trị của di tích, thực sự trở thành điểm	a4aaa3c715f30680a1607d7f5762ce25d1edf614c2fdb050b6aae7fb0ae8c3fb	blind_test	true	true
+doc_052f3924a49a_p0002_l0037	doc_052f3924a49a	2	37	di sản văn hoá dân tộc thuộc Chương trình mục tiêu quốc gia về phát triển	8d4ed333dafb53c78762621d7596efff0a3c28be1798102345878a01a0af259b	blind_test	true	true
+doc_052f3924a49a_p0002_l0038	doc_052f3924a49a	2	38	văn hoá giai đoạn 2025 - 2035.	f43445c071539a926d308fd7d53695041eeb69a9af36a805614ea8626ef24187	blind_test	true	true
+doc_052f3924a49a_p0003_l0002	doc_052f3924a49a	3	2	d) Tổ chức không gian và bố trí, nâng cấp hệ thống hạ tầng giao thông,	b6e16de1b77143cc2d459169a2438330e29e506d7b52bafca6d0b5ad2bc23b08	blind_test	true	true
+doc_052f3924a49a_p0003_l0015	doc_052f3924a49a	3	15	b) Các yếu tố về kinh tế - xã hội, dân cư, môi trường liên quan tại khu	e89c883ca25adfe92ca0c42b1138d42b45dc16249ea0d99d0b747da47606945e	blind_test	true	true
+doc_052f3924a49a_p0004_l0019	doc_052f3924a49a	4	19	quan, hệ thống hạ tầng kỹ thuật, đánh giá quỹ đất xây dựng thuộc các đồ án quy	12f21205d4500286f4fae84325025393baf3d5a18d9f8e6097aec0e6013fa60c	blind_test	true	true
+doc_052f3924a49a_p0004_l0024	doc_052f3924a49a	4	24	đúng quy định hiện hành về bản đồ địa hình; bảo đảm đầy đủ thông tin và xác	b42e8f48cc5ab1bdcfaf5124f0f1aca71aa78209a7446832a90ce542998835f7	blind_test	true	true
+doc_052f3924a49a_p0005_l0002	doc_052f3924a49a	5	2	báo phát triển về dân số, khách du lịch, nhu cầu du lịch và các dịch vụ du lịch;	126f9660bceed7ecf770788c3e7ffe798e84789618d4861ebd4c118c7b1d0455	blind_test	true	true
+doc_052f3924a49a_p0005_l0009	doc_052f3924a49a	5	9	án cụ thể với Nhà Ngự dội	2b5d7adf6519d8b82bcd016f119de511e8ada1aabaecb393170dc2e1943abf23	blind_test	true	true
+doc_052f3924a49a_p0005_l0023	doc_052f3924a49a	5	23	cứu, trưng bày, giới thiệu di tích; nội dung nghiên cứu khảo cổ học nhằm tìm	19113e3201d2338e4b2a3c38e64ed1e20f2b8a57d8dd66364d26be2ee58fb8a4	blind_test	true	true
+doc_052f3924a49a_p0005_l0032	doc_052f3924a49a	5	32	liên quan:	8b3a2d27b7670e5717aa5c19cc0ae17164af7c690adce561e1a814357551bd0b	blind_test	true	true
+doc_052f3924a49a_p0005_l0037	doc_052f3924a49a	5	37	của công trình xây dựng mới trên cơ sở để xuất giải pháp quản lý, xây dựng	2265b56dd293c0edf9b918a8f856454a468997996f3f649c12ec6a39171b2005	blind_test	true	true
+doc_052f3924a49a_p0006_l0006	doc_052f3924a49a	6	6	và thành phố Hà Nội.	6a364820a7c36592026931be2686f3a997762559c1a28a93b11df03f2f5ee6b9	blind_test	true	true
+doc_052f3924a49a_p0006_l0009	doc_052f3924a49a	6	9	h) Đề xuất nhóm dự án thành phần, phân kỳ đầu tư, thứ tự ưu tiên và	0797688eefaff8cb57cde0de341f7c942c56f9ae99b5aefc4fce9d52e84ceb9f	blind_test	true	true
+doc_052f3924a49a_p0006_l0021	doc_052f3924a49a	6	21	ngân sách địa phương và ngân sách trung ương cho từng giai đoạn. Làm rõ cơ	a59f73a9e3c03d2b40c94f97043a56ef81b6bab4331506338370ce2e4aa9208d	blind_test	true	true
+doc_052f3924a49a_p0006_l0022	doc_052f3924a49a	6	22	sở đề xuất vốn ngân sách trung ương để thực hiện nội dung quy hoạch.	fe87e6997488eb5a7c0ae238083ed110bbf056474d52b8f4dad3914c611ab11e	blind_test	true	true
+doc_052f3924a49a_p0006_l0027	doc_052f3924a49a	6	27	b) Cơ chế, chính sách và giải pháp thực hiện quy hoạch: Đề xuất cơ chế,	4be1f0b7ba8388262c8796fa531266d2affd0467df9eba0e51ef04abe64e6945	blind_test	true	true
+doc_052f3924a49a_p0007_l0006	doc_052f3924a49a	7	6	Quyết định phê duyệt Quy hoạch;	38798f20632281cfefc336feff0a9667acec46442f4b2662bd996a2068aa6759	blind_test	true	true
+doc_052f3924a49a_p0007_l0008	doc_052f3924a49a	7	8	Báo cáo tổng hợp, tiếp thu, giải trình ý kiến các bộ, ngành, cơ quan và ý kiến	851c9505a66a8a528a4373dc42fed1afac74ce93fb14c22fc83700a7aea3f773	blind_test	true	true
+doc_052f3924a49a_p0007_l0016	doc_052f3924a49a	7	16	- Bản đồ vị trí di tích và mối liên hệ với di tích khác trong khu vực nghiên	7fa6240979708dfa48fb78502a135da9db9731ac17204d316959561f2a51111f	blind_test	true	true
+doc_052f3924a49a_p0007_l0017	doc_052f3924a49a	7	17	cứu quy hoạch tỷ lệ 1:5.000 - 1:15.000 hoặc tỷ lệ phù hợp.	08fbcca009edaabb3dddf39ba1d78dcfd293e3211126edee407a3ec606c12722	blind_test	true	true
+doc_052f3924a49a_p0008_l0021	doc_052f3924a49a	8	21	thông tin báo cáo, bản đồ tại Hồ sơ trình thẩm định, phê duyệt Nhiệm vụ lập	ea053b1721a6943c3dfc856213c06dfe86da59ce4458ee6cb94237a3a8556293	blind_test	true	true
+doc_052f3924a49a_p0008_l0023	doc_052f3924a49a	8	23	hướng, đề xuất trong quy hoạch tuân thủ đúng quy định của pháp luật, không	b70e830a94b1a542515ce10c7b2af1e2ad9335c42f5d275f45dc3edc90844b20	blind_test	true	true
+doc_052f3924a49a_p0008_l0026	doc_052f3924a49a	8	26	hoạch có liên quan, bảo đảm tuân thủ đúng quy định của pháp luật về đất đai.	65bf16e91dd687e11f3c0aac10c7d650858e03c766a07c1fa7a5efb25b6f1843	blind_test	true	true
+doc_052f3924a49a_p0009_l0001	doc_052f3924a49a	9	1	9	9e60e6b405ec66a84dfd529981f0f75437d9efaaa343521b0b2ae9b73a31fd17	blind_test	true	true
+doc_052f3924a49a_p0009_l0016	doc_052f3924a49a	9	16	Thư ký PTTg Phạm Thị Thanh Trà, TGĐ Cổng TTĐT,	1be2b3d25f0909424901caeef477d72d837c85c4f43e63e3dcd92422a5125f38	blind_test	true	true
+doc_29b5b4b6dc82_p0001_l0014	doc_29b5b4b6dc82	1	14	(Mã thông tin quy hoạch: 562611079462)	d24a5b5c3634e05bd46ef7b4bd44753496f05e9c17d5e25f8950ae62baaf10a8	blind_test	true	true
+doc_29b5b4b6dc82_p0001_l0016	doc_29b5b4b6dc82	1	16	Căn cứ Luật Tổ chức Chính phủ ngày 18 tháng 02 năm 2025;	365b9c6902f721d7ffbffaed6cc388d41cd322dc6ce5da55c8e31c2d7c526609	blind_test	true	true
+doc_29b5b4b6dc82_p0001_l0030	doc_29b5b4b6dc82	1	30	số 108/BC-BXD ngày 15 tháng 4 năm 2026, Văn bản số 5999 /BXD-QHKT	a6250b7e03398da949d30ff4dd1d8cae7708d77aad51d1b75e64e52effacb502	blind_test	true	true
+doc_29b5b4b6dc82_p0002_l0007	doc_29b5b4b6dc82	2	7	Khánh Hoà.	fdb5f153313ce828509fd27bc396cf1e7fed4f9662e713be39ef47716bcd0424	blind_test	true	true
+doc_29b5b4b6dc82_p0002_l0010	doc_29b5b4b6dc82	2	10	định số 456/QĐ-BTNMT ngày 03 tháng 02 năm 2026 về việc phê duyệt và	5c4781d382e6913b2cce75315253ffcafbe39e5966bf541959434e9471b36bbe	blind_test	true	true
+doc_29b5b4b6dc82_p0003_l0016	doc_29b5b4b6dc82	3	16	bảo tồn cảnh quan, môi trường và thích ứng với biến đổi khí hậu.	2492c07e9bbcbadc2fd4dfa392cc325d2ae0bfd735e980669360eb21d945ae8a	blind_test	true	true
+doc_29b5b4b6dc82_p0003_l0030	doc_29b5b4b6dc82	3	30	đầu mối quy mô lớn):	2e8f1f7f2694678c465cdf9e695ac1929b80e2ef6db30ad4db44b2778c4e0f06	blind_test	true	true
+doc_29b5b4b6dc82_p0003_l0032	doc_29b5b4b6dc82	3	32	- Đất xây dựng toàn đô thị đến năm 2045 là khoảng 150.000 - 160.000 ha.	b38e358b31ded3526a4ba991d769774a464033129bf050017b1cd4c66f52b13d	blind_test	true	true
+doc_29b5b4b6dc82_p0004_l0027	doc_29b5b4b6dc82	4	27	không gian, các khu chức năng, nhà ở, hạ tầng xã hội, hạ tầng kỹ thuật, cảnh	760503fa7dad30af66d08436e7145f10dc4bb116e457eb4711d80180a5956c92	blind_test	true	true
+doc_29b5b4b6dc82_p0004_l0035	doc_29b5b4b6dc82	4	35	Đánh giá các chương trình, dự án lớn đang triển khai; nghiên cứu để kế	400cb1b0b433e1b06f9d9f80e3e67a2696117ed996e2f3e32970498dce783a9a	blind_test	true	true
+doc_29b5b4b6dc82_p0005_l0001	doc_29b5b4b6dc82	5	1	5	104a749900f1da8db7e7039fc2e6050c39a871a10ddb5cf441f9c5fe432867ef	blind_test	true	true
+doc_29b5b4b6dc82_p0005_l0003	doc_29b5b4b6dc82	5	3	Xác định đầy đủ các yêu cầu phải tuân thủ và cụ thể hoá từ quy hoạch tổng	7431d05a4a308bd75cd124cabd871a3a90307db59498aef429c76caaf1f390db	blind_test	true	true
+doc_29b5b4b6dc82_p0005_l0010	doc_29b5b4b6dc82	5	10	Nghiên cứu, tổng hợp và chọn lọc các mô hình, king nghiệm tiêu biểu	4a41489d57f718c7f5887a520addbee337c7a052eb062d2130f552d184f5208e	blind_test	true	true
+doc_29b5b4b6dc82_p0006_l0001	doc_29b5b4b6dc82	6	1	6	cdd3f0255c227cf6b1505ed49a18c89b9d1e20fedb1805f45543be16151237ac	blind_test	true	true
+doc_29b5b4b6dc82_p0006_l0006	doc_29b5b4b6dc82	6	6	triển mới; bảo đảm tương thích với đơn vị hành chính và thuận lợi trong quản	37885de39f9d71efda50c3de6c4968ba34276211002e65d77bddc757006e6820	blind_test	true	true
+doc_29b5b4b6dc82_p0007_l0003	doc_29b5b4b6dc82	7	3	năng lượng, thông tin truyền thông, xử lý nước thải, chất thải rắn, nghĩa trang	d43485cd0c6f4650503293083c023c00078d4da361c15cd121ff387c189b6083	blind_test	true	true
+doc_29b5b4b6dc82_p0007_l0034	doc_29b5b4b6dc82	7	34	hoạch ngành quốc gia có liên quan. Việc tích hợp này phải được cụ thể hoá	5ff6a76687f35f7a424ae017d3781b16032a4133572b54adbb89e75ea693823c	blind_test	true	true
+doc_29b5b4b6dc82_p0008_l0032	doc_29b5b4b6dc82	8	32	Dinh .v.v. Xác định các giải pháp gia tăng giá trị không gian mặt trước, khai	41eea76eb2998751602a239be9b229a9d347c12f2440e13e49dc7c11fa73a2d9	blind_test	true	true
+doc_29b5b4b6dc82_p0008_l0037	doc_29b5b4b6dc82	8	37	xanh. mặt nước, trục không gian chính, cửa ngõ và điểm nhấn đô thị gắn với	2b82d76ca1728d0f367b488df6ec879a8d6d965e0323f0a2fe1cee118fc5fac8	blind_test	true	true
+doc_29b5b4b6dc82_p0009_l0002	doc_29b5b4b6dc82	9	2	Định hướng bảo tồn, tôn tạo và phát huy giá trị cảnh quan thiên nhiên tại	7fc2430e7d8df26353f9c9016cedc239d3f18c71c303d8f4d6dd4aef4c3aeee2	blind_test	true	true
+doc_29b5b4b6dc82_p0009_l0013	doc_29b5b4b6dc82	9	13	cấp vùng và các khu vực đổi mới sáng tạo, công nghệ cao gắn kết chặt chẽ với	35a60968bcedaee93739dd7b8e4b80876463a1a81597c8dbdd5bfc11009d527d	blind_test	true	true
+doc_29b5b4b6dc82_p0010_l0001	doc_29b5b4b6dc82	10	1	10	f3a57df967edcbe21d8f92affb6b8e30ea0bc04cfa3d761b7251a973a1c11b36	blind_test	true	true
+doc_29b5b4b6dc82_p0010_l0006	doc_29b5b4b6dc82	10	6	thành phố, phát huy giá trị động lực nổi trội và rõ các giải pháp tạo lập hệ sinh	d80c7769e9f897d815f62245518b418de556a4649e08e0171aa91afde0233c19	blind_test	true	true
+doc_29b5b4b6dc82_p0011_l0037	doc_29b5b4b6dc82	11	37	16/2025/TT-BXD ngày 30 tháng 6 năm 2025 và Thông tư 43/2025/TT-BXD	6436c753d2ab33a28d0cc670e4e13bb802769904a6aa98e7ce18291498d1c409	blind_test	true	true
+doc_29b5b4b6dc82_p0012_l0011	doc_29b5b4b6dc82	12	11	Điều 2. Tổ chức thực hiện	8e0388b7d921a1eac5e64a7ec1ad13a5edb15a268978efa4c76909e8aaa20133	blind_test	true	true
+doc_29b5b4b6dc82_p0012_l0019	doc_29b5b4b6dc82	12	19	liên quan.	efd1e013b465b4dae55755136e0c85c65aaa096191b09eba20c7bd30f408c572	blind_test	true	true
+doc_29b5b4b6dc82_p0013_l0018	doc_29b5b4b6dc82	13	18	QHQT, QHĐP;	915ffde9242150cd851e61b25b7868fd47ea6ad4c682baf9573e95043ebef9aa	blind_test	true	true
+doc_972bb53563ac_p0001_l0002	doc_972bb53563ac	1	2	Email: thongtinchinhphu@chinhphu.vn	ea8d36b7ea009b35757891afd1da0d206a51e4f523c193beec6f14041c1b4ef4	blind_test	true	true
+doc_972bb53563ac_p0001_l0008	doc_972bb53563ac	1	8	Số: 217/TB-VPCP	eca1f2441dc88c8edf1808887a780c927a38a80062b5644b2f15f57a1fa2faa2	blind_test	true	true
+doc_972bb53563ac_p0001_l0013	doc_972bb53563ac	1	13	CỔNG THÔNG TIN ĐIỆN TỬ CHÍNH PHỦ	188f0bfd7fcba5609557cfe4a6df74027e74a2c208a87aa09698477ef96b3e3b	blind_test	true	true
+doc_972bb53563ac_p0001_l0033	doc_972bb53563ac	1	33	Việc triển khai các dự án phải đánh giá tổng thể về kinh tế, chính trị, đối ngoại,	b06a7b50ae5f2faabd11404d4063123d686e0b8e198af8249be3e263e5b63475	blind_test	true	true
+doc_972bb53563ac_p0002_l0010	doc_972bb53563ac	2	10	hợp với điều kiện Việt Nam nhưng tiệm cận được thông lệ quốc tế để áp dụng	2839a7e3fb66876255c9565ee1d310843eb0e2f1dcf094263b7d759e150b7c64	blind_test	true	true
+doc_972bb53563ac_p0002_l0020	doc_972bb53563ac	2	20	viện trợ không hoàn lại) để đào tạo cho các cơ quan thuộc Bộ và cần bố trí chi phí	66171f4ec59f97baddceeb859e5e2c3db740eeed9883e66015e3fbd851c321af	blind_test	true	true
+doc_972bb53563ac_p0002_l0024	doc_972bb53563ac	2	24	thống định mức, đơn giá để xây dựng, ban hành bảo đảm đầy đủ phù hợp với điều	a307a5e81a90957caf06850fd44df8984d277a66878e64d400236f039dd2c171	blind_test	true	true
+doc_972bb53563ac_p0002_l0026	doc_972bb53563ac	2	26	Đối với các hạng mục công việc Việt Nam chưa có máy móc, thiết bị hoặc công	31a85d07f7201e8968694c03c4a84e616e5c5941594611924720e6e59fe91d52	blind_test	true	true
+doc_972bb53563ac_p0002_l0041	doc_972bb53563ac	2	41	tầm nhìn dài hạn, kết nối các trung tâm kinh tế và đồng bộ các phương thức vận	1ab3fd7e0324495fdf3900da2f78a028bdf5944e6fc9ffbd860b456e9f95798b	blind_test	true	true
+doc_972bb53563ac_p0003_l0001	doc_972bb53563ac	3	1	3	3b090cb5a25df230b14dc93983bc23355cf059cc70df1c12030846f84ba320d7	blind_test	true	true
+doc_972bb53563ac_p0003_l0007	doc_972bb53563ac	3	7	trương triển khai các thủ tục đàm phán Hiệp định vay vốn cho dự án.	10ad68ddd501f83973d57db03dbd728e02e2b58cdf81737587342d109e2544b1	blind_test	true	true
+doc_972bb53563ac_p0003_l0015	doc_972bb53563ac	3	15	phố Hồ Chí Minh phối hợp với Bộ Xây dựng và các bộ ngành liên quan, khẩn	89200c93ae67426475daeaaf62c140c9cb4272a94549b275bd88aaa616c6a025	blind_test	true	true
+doc_972bb53563ac_p0003_l0023	doc_972bb53563ac	3	23	- Uỷ ban nhân dân thành phố Hà Nội và Uỷ ban nhân dân Thành phố Hồ	122d69225e22d37f646849f8dadd47f02db90bca3be3e0f32c3560e3fb97d29b	blind_test	true	true
+doc_972bb53563ac_p0003_l0027	doc_972bb53563ac	3	27	số 98/TB-VPCP ngày 05 tháng 3 năm 2026.	acf1c485199583e50a384bb18cc74e3e3152c006509657baefe6ccdae46a2534	blind_test	true	true
+doc_972bb53563ac_p0003_l0030	doc_972bb53563ac	3	30	Nơi nhận:	f9fc525ea045d49319d1478250eb61b22539a97c7fdb9b7a9c1a448442c812ce	blind_test	true	true
+doc_ad8fae1697fb_p0001_l0007	doc_ad8fae1697fb	1	7	CỘNG HOÀ XÃ HỘI CHỦ NGHĨA VIỆT NAM	e314b27ae29ae5e50540e86bf37eea46481b126f3ad8ac872446d56f3696f780	blind_test	true	true
+doc_ad8fae1697fb_p0001_l0012	doc_ad8fae1697fb	1	12	NGHỊ ĐỊNH	c633cd0512ef7c249a3db2a490325df8583bae74172a017d545c14c2fea9b0b1	blind_test	true	true
+doc_ad8fae1697fb_p0001_l0018	doc_ad8fae1697fb	1	18	Căn cứ Luật Tổ chức Chính phủ số 63/2025/QH15;	57b42e1de854299a409d335715317e9ab0f099bb920bb0d2cc0f6a5bb3e2c9df	blind_test	true	true
+doc_ad8fae1697fb_p0001_l0033	doc_ad8fae1697fb	1	33	Điều 2. Nhiệm vụ và quyền hạn	0fec492d71db1897436da46e2d5b125cd892fe5dcbd2fb011802ee4847bb57aa	blind_test	true	true
+doc_ad8fae1697fb_p0002_l0001	doc_ad8fae1697fb	2	1	2	242b93739421dc90003402d1d2e14b3d474a4711682f75a95f01f4df20fe8ad9	blind_test	true	true
+doc_ad8fae1697fb_p0002_l0006	doc_ad8fae1697fb	2	6	c) Chủ trì rà soát, có ý kiến về quy trình, thủ tục, thẩm quyền, nội dung	74c0abdb34b123c234b237d35f8f1f6db6697fcc0bd6bca8e27f735f1f2e785a	blind_test	true	true
+doc_ad8fae1697fb_p0002_l0008	doc_ad8fae1697fb	2	8	ngành, cơ quan liên quan; tham mưu tổng hợp, có ý kiến độc lập đối với các đề	53221578bec17956f779ce70e064d1f3315ec30d8801137e79278930858af098	blind_test	true	true
+doc_ad8fae1697fb_p0003_l0005	doc_ad8fae1697fb	3	5	e) Giúp Thủ tướng Chính phủ điều phối thực hiện chương trình công tác	204d6058afe1b25e1c5b94165ba239f64b90a2c3c03520ecd454e5606a594e44	blind_test	true	true
+doc_ad8fae1697fb_p0003_l0014	doc_ad8fae1697fb	3	14	nhân dân cấp tỉnh, các cơ quan, tổ chức liên quan xây dựng cơ chế, chính sách,	fe352b063b051ec484a28c99b578cf2e1bbc429d5d36e1f921603b910f132f1e	blind_test	true	true
+doc_ad8fae1697fb_p0003_l0018	doc_ad8fae1697fb	3	18	k) Trong trường hợp các bộ, cơ quan liên quan đã trao đổi nhưng vấn đề	37359eeb412e10c3cbfbd726e1710ccfc2fd87ffef70c7f17771b96bc7351f83	blind_test	true	true
+doc_ad8fae1697fb_p0004_l0003	doc_ad8fae1697fb	4	3	và Chủ tịch Uỷ ban nhân dân cấp tỉnh trong việc thực hiện nhiệm vụ được	36d8c849b30b526c63e622996a32de096157a99f521e2f2719d8ec42a72b3f52	blind_test	true	true
+doc_ad8fae1697fb_p0004_l0006	doc_ad8fae1697fb	4	6	p) Đầu mối phối hợp với các bộ, ngành, Uỷ ban nhân dân cấp tỉnh, các cơ	e8dc046e8005b5be3c262a79d2c50172267838c25d0e3418acb87498bfb33548	blind_test	true	true
+doc_ad8fae1697fb_p0004_l0015	doc_ad8fae1697fb	4	15	Uỷ ban nhân dân cấp tỉnh, các cơ quan, tổ chức để nắm tình hình phục vụ công	ccd5304a3f186820c1084ffe2d622f1c60cab173236b940339f9a046df1b3a80	blind_test	true	true
+doc_ad8fae1697fb_p0005_l0010	doc_ad8fae1697fb	5	10	đ) Tổ chức theo dõi, tổng hợp và xây dựng báo cáo dư luận xã hội định kỳ,	f06fdae8a13d333c32b0ebfb917e029bb108f5438c1dfe7b6bbe2608396d3c92	blind_test	true	true
+doc_ad8fae1697fb_p0005_l0024	doc_ad8fae1697fb	5	24	4. Về cung cấp thông tin cho công chúng	455ae5e57ddcbce0a57a2b18f854a892079dfd8c0e8bc62ce727f30c177f2e98	blind_test	true	true
+doc_ad8fae1697fb_p0005_l0029	doc_ad8fae1697fb	5	29	b) Tổ chức truyền thông, định hướng truyền thông chính sách về công tác	263fdc9e5bde5530cee76e1fcb00e992c811f3a306bac5251c07651b264bcff7	blind_test	true	true
+doc_ad8fae1697fb_p0006_l0011	doc_ad8fae1697fb	6	11	động chỉ đạo, điều hành của Chính phủ, Thủ tướng Chính phủ; cung cấp thông	9ee9320874790da26832123729840eeefc00f0d1eee1329b35c3fd119b110c9b	blind_test	true	true
+doc_ad8fae1697fb_p0006_l0030	doc_ad8fae1697fb	6	30	khác thuộc thẩm quyền của Văn phòng Chính phủ theo quy định của pháp luật.	4fce5740906f58fd49a6ac11059fe765fe5569d19589c956d8c05b0c731eab8b	blind_test	true	true
+doc_ad8fae1697fb_p0006_l0032	doc_ad8fae1697fb	6	32	văn bản và xử lý đối với các văn bản trái pháp luật theo thẩm quyền, quy định	141e5966c66798daa741840c547f0b7e6e476f222302ec39869300181987741f	blind_test	true	true
+doc_ad8fae1697fb_p0007_l0004	doc_ad8fae1697fb	7	4	chống lãng phí theo quy định của pháp luật.	14bf55a53fbfe31e40d81db6a0c6b7316f5f5773e877be17c8eb16e71b1e1254	blind_test	true	true
+doc_ad8fae1697fb_p0007_l0008	doc_ad8fae1697fb	7	8	a) Công chức Văn phòng Chính phủ phải có bản lĩnh chính trị vững vàng,	ccac87e81dddcb15b3278bc51ab2d688e0ab02f5ebc1906f118e8139a7be8646	blind_test	true	true
+doc_ad8fae1697fb_p0007_l0017	doc_ad8fae1697fb	7	17	địa phương. Các bộ, ngành, cơ quan, địa phương có trách nhiệm ưu tiên bố trí,	c81df0b28b99b8a330835265e1ea9caab046040ad6c65f0d39cd53392913d2a7	blind_test	true	true
+doc_ad8fae1697fb_p0008_l0004	doc_ad8fae1697fb	8	4	5. Vụ Nông nghiệp.	1d32de85ece028e8bd6a26ee960de01bbee8a758324204bf3244cad49d4f8351	blind_test	true	true
+doc_ad8fae1697fb_p0008_l0006	doc_ad8fae1697fb	8	6	7. Vụ Quan hệ quốc tế.	e14f855630167bbdba2aed2efc1789899ff84675ded680af13772933cab3a88e	blind_test	true	true
+doc_ad8fae1697fb_p0008_l0022	doc_ad8fae1697fb	8	22	Vụ Hành chính có 03 phòng.	410ac12f228b419c2f74bd46bfdbbe938db15db69e0146f2b6de818e47ba8297	blind_test	true	true
+doc_ad8fae1697fb_p0009_l0004	doc_ad8fae1697fb	9	4	2. Nghị định này thay thế: Nghị định số 36/2025/NĐ-CP ngày 25 tháng 02	fda05f0d741af0f1192708a9df315f4f810ea47e7e64a76096878368dfeef551	blind_test	true	true
+doc_ad8fae1697fb_p0009_l0019	doc_ad8fae1697fb	9	19	- HĐND, UBND các tỉnh, thành phố trực thuộc trung ương;	4cd0ef07bee4943bb541f9e2b23fd18b613a0df7c3ff216d050511ba33d0241f	blind_test	true	true
+doc_ad8fae1697fb_p0009_l0022	doc_ad8fae1697fb	9	22	- Văn phòng Chủ tịch nước;	f2ec3bb05c7b52c6d292d68cdfd31e4be02ce91f734c9bf878b88e37bbf11e3d	blind_test	true	true
+doc_cd3bf1ca0d1b_p0001_l0010	doc_cd3bf1ca0d1b	1	10	Hà Nội, ngày 28 tháng 4 năm 2026	eea5705b949796596396dbd65eb73926010c99dfaac00585b70495a9e7b4fcc5	blind_test	true	true
+doc_cd3bf1ca0d1b_p0001_l0043	doc_cd3bf1ca0d1b	1	43	- VPCP: BTCN, PCN Phạm Mạnh Cường,	f752d0f389d79c7b17a380cb92619726ec4e293d2a0e99c8d687dda530d4b450	blind_test	true	true

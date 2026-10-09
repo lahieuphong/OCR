@@ -31,6 +31,7 @@ import time
 from pathlib import Path
 
 import dataset_common as dataset
+from build_vietocr_config import supported_label_characters
 
 from run_vietocr import VIETOCR_COMMIT, check_pinned_checkout  # noqa: E402  (path set up by dataset_common)
 
@@ -117,8 +118,12 @@ def check(path: Path, device: str) -> bool:
     problems += dataset.training_data_problems(
         data_root / config["dataset"]["train_annotation"], data_root / config["dataset"]["valid_annotation"], data_root
     )
+    limit = supported_label_characters(config)
+    if longest > limit:
+        problems.append(f"longest label has {longest} characters; this config supports {limit} "
+                        f"(decoder_max_seq_length {config['decoder_max_seq_length']})")
     print(f"2. annotations: {counts['train_annotation']} training and {counts['valid_annotation']} validation lines; "
-          f"longest label {longest} characters; problems: {len(problems)}")
+          f"longest label {longest} characters (supported: {limit}); problems: {len(problems)}")
     for problem in problems[:10]:
         print(f"   {problem}")
 

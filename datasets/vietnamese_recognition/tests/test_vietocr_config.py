@@ -106,6 +106,45 @@ class Configs(unittest.TestCase):
         check = (dataset.DATASET_DIR / "check_vietocr_config.py").read_text(encoding="utf-8")
         self.assertIn("dataset.training_data_problems(", check)  # the readiness check applies the same rule
 
+    def test_the_decoder_runs_128_steps_in_both_experiments(self):
+        for name, config in self.configs.items():
+            self.assertEqual(config["decoder_max_seq_length"], 128, name)
+            # A project key at the top level; the blocks VietOCR reads carry no such setting.
+            self.assertNotIn("decoder_max_seq_length", config["predictor"])
+            self.assertNotIn("decoder_max_seq_length", config["transformer"])
+            # One position per token the decoder is shown: the start token and each step but the last.
+            self.assertLessEqual(config["decoder_max_seq_length"] + 1, config["transformer"]["max_seq_length"])
+        self.assertNotIn("decoder_max_seq_length", self.pretrained)
+        self.assertEqual(self.pretrained["transformer"]["max_seq_length"], 1024)
+
+    def test_supported_label_length_follows_both_capacities(self):
+        def supported(decoder: int, transformer: int) -> int:
+            return builder.supported_label_characters({"decoder_max_seq_length": decoder, "transformer": {"max_seq_length": transformer}})
+
+        self.assertEqual(supported(160, 1024), 160)  # the decoder is what binds
+        self.assertEqual(supported(128, 1024), 128)
+        self.assertEqual(supported(2000, 1024), 1022)  # then the transformer: start token + label + end token
+        for name, config in self.configs.items():
+            self.assertEqual(builder.supported_label_characters(config), 128, name)
+            self.assertEqual(builder.supported_label_characters({**config, "decoder_max_seq_length": 160}), 160, name)
+
+    def test_every_label_a_run_would_read_fits(self):
+        limit = builder.label_limit()["characters"]
+        for config in self.configs.values():
+            data = config["dataset"]
+            root = dataset.REPO_ROOT / data["data_root"]
+            for key in ("train_annotation", "valid_annotation"):
+                path = root / data[key]
+                if not path.is_file():
+                    continue  # built on the machine that holds the images
+                longest = max((len(line.split("\t")[1]) for line in path.read_text(encoding="utf-8").splitlines()), default=0)
+                self.assertLessEqual(longest, limit, key)
+
+    def test_the_limit_the_audit_uses_is_read_from_the_files(self):
+        limit = builder.label_limit()
+        self.assertEqual((limit["characters"], limit["decoder_max_seq_length"], limit["transformer_max_seq_length"]), (128, 128, 1024))
+        self.assertIn(limit["config"], {f"{name}.yml" for name in builder.EXPERIMENTS})
+
     def test_image_width_fits_the_positional_encoding(self):
         for config in self.configs.values():
             data = config["dataset"]

@@ -3,6 +3,9 @@
 
 Usage (VietOCR environment, ``.venv-vietocr``):
     python benchmarks/vietnamese/recognizer_bakeoff/run_vietocr.py
+    python benchmarks/vietnamese/recognizer_bakeoff/run_vietocr.py \
+        --config configs/vietnamese/vietocr/exp_a_width512.yml \
+        --manifest <inputs.jsonl> --output <predictions.jsonl>
 
 Recognition only: this script contains no text detection and VietOCR has none.
 The input is the crop files listed in ``manifest.jsonl``, the same files
@@ -19,6 +22,20 @@ none of which changes what the model computes:
     cnn.pretrained   false, as in VietOCR's own getting-started notebook: the
                      ImageNet weights it would fetch are overwritten by the
                      checkpoint anyway
+
+How long a line the decoder may write is not left to VietOCR's default. Its
+``translate`` stops after ``max_seq_length`` steps, 128 unless told otherwise,
+and ``Predictor.predict`` never tells it. This script calls ``translate``
+itself and always passes the number:
+
+    without --config   128, VietOCR's default, which is what the bake-off ran
+                       with; the stock predictions stay reproducible
+    with --config      ``decoder_max_seq_length`` of that project config, and
+                       its image widths
+
+Each prediction records whether the decoder ran out of steps before writing
+its end token (``hit_decoder_limit``): such a text may be cut short. Nothing in
+``third_party/vietocr`` is edited or patched.
 """
 
 from __future__ import annotations
@@ -42,6 +59,11 @@ CONFIG_NAME = "vgg_transformer"
 CONFIG_FILES = ("base.yml", "vgg-transformer.yml")
 WEIGHTS_PATH = bakeoff.MODELS_DIR / "vietocr" / "vgg_transformer.pth"
 WEIGHTS_SHA256 = "380512193a8b6cbf6fad80deacdc9b6939d10d473d199892fc6408d13775ea59"
+# Key of a project config (configs/vietnamese/vietocr/exp_*.yml). VietOCR does
+# not read it; this script does.
+DECODER_KEY = "decoder_max_seq_length"
+# What `vietocr.tool.translate.translate` uses when it is not given a number.
+STOCK_DECODER_MAX_SEQ_LENGTH = 128
 
 
 def check_pinned_checkout() -> None:
@@ -58,7 +80,25 @@ def check_pinned_checkout() -> None:
         )
 
 
-def load_config(weights: Path, device: str):
+def decoder_limit(config: dict, override: int | None = None) -> tuple[int, str]:
+    """Decoding steps to allow, and where that number comes from."""
+    if override is not None:
+        return override, "command line"
+    if DECODER_KEY in config:
+        return int(config[DECODER_KEY]), "config"
+    return STOCK_DECODER_MAX_SEQ_LENGTH, "VietOCR default"
+
+
+def decodable_characters(max_seq_length: int) -> int:
+    """Longest text ``translate`` can write and still close with its end token.
+
+    Its loop runs while ``steps <= max_seq_length``: ``max_seq_length + 1``
+    tokens, the last of which has to be the end token.
+    """
+    return max_seq_length
+
+
+def load_config(weights: Path, device: str, project_config: Path | None = None):
     import yaml
     from vietocr.tool.config import Cfg
 
@@ -66,8 +106,14 @@ def load_config(weights: Path, device: str):
     for name in CONFIG_FILES:
         with (VIETOCR_DIR / "config" / name).open(encoding="utf-8") as stream:
             merged.update(yaml.safe_load(stream))
+    weights_url = merged["weights"]
+    if project_config is not None:
+        # A project config is the stock one with overrides applied: it stands alone.
+        with project_config.open(encoding="utf-8") as stream:
+            merged = yaml.safe_load(stream)
+        if DECODER_KEY not in merged:
+            raise SystemExit(f"{project_config} sets no {DECODER_KEY}.")
     config = Cfg(merged)
-    weights_url = config["weights"]
     config["weights"] = str(weights)
     config["device"] = device
     config["cnn"]["pretrained"] = False
@@ -82,16 +128,34 @@ def check_weights(path: Path, url: str) -> None:
         raise SystemExit(f"{path} has SHA-256 {digest}, expected {WEIGHTS_SHA256}.")
 
 
-def recognise(predictor, image) -> tuple[str, float | None, float]:
-    """Text, VietOCR's own score (or None) and elapsed milliseconds for one crop."""
+def recognise(predictor, image, max_seq_length: int) -> tuple[str, float | None, float, bool | None]:
+    """Text, VietOCR's own score (or None), elapsed milliseconds, and whether decoding ran out of steps.
+
+    The steps of ``Predictor.predict``, with the one thing it leaves to a
+    default passed explicitly: how many tokens the decoder may write.
+    """
+    from vietocr.tool.translate import process_input, translate, translate_beam_search
+
+    config = predictor.config
+    sizes = config["dataset"]
     started = time.perf_counter()
-    text, probability = predictor.predict(image, return_prob=True)
+    tensor = process_input(image, sizes["image_height"], sizes["image_min_width"], sizes["image_max_width"])
+    tensor = tensor.to(config["device"])
+    if config["predictor"]["beamsearch"]:
+        tokens = translate_beam_search(tensor, predictor.model, max_seq_length=max_seq_length)
+        probability, hit_limit = None, None  # beam search reports neither
+    else:
+        sentences, probabilities = translate(tensor, predictor.model, max_seq_length=max_seq_length)
+        tokens, probability = sentences[0].tolist(), probabilities[0]
+        # No end token: the decoder stopped because it ran out of steps.
+        hit_limit = predictor.vocab.eos not in tokens
+    text = predictor.vocab.decode(tokens)
     elapsed_ms = (time.perf_counter() - started) * 1000
     # The score is the mean probability of the decoded characters. With beam
     # search VietOCR returns none, and for an empty prediction it is 0/0.
     if probability is None or not math.isfinite(float(probability)):
-        return text, None, elapsed_ms
-    return text, float(probability), elapsed_ms
+        return text, None, elapsed_ms, hit_limit
+    return text, float(probability), elapsed_ms, hit_limit
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -107,6 +171,19 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Diagnostic only: override the configuration's image_max_width. "
         "Requires --output, so the stock predictions are never replaced by it.",
     )
+    parser.add_argument(
+        "--config",
+        type=Path,
+        default=None,
+        help="A project config (configs/vietnamese/vietocr/exp_*.yml): its image widths and its "
+        f"{DECODER_KEY} are used instead of the stock ones. Requires --output.",
+    )
+    parser.add_argument(
+        "--decoder-max-seq-length",
+        type=int,
+        default=None,
+        help="Diagnostic only: decoding steps to allow, whatever the configuration says. Requires --output.",
+    )
     return parser.parse_args(argv)
 
 
@@ -115,6 +192,10 @@ def main(argv: list[str] | None = None) -> int:
     default_output = bakeoff.PREDICTION_FILES[bakeoff.VIETOCR]
     if args.image_max_width is not None and args.output == default_output:
         raise SystemExit("--image-max-width is a diagnostic: give it its own --output.")
+    if (args.config is not None or args.decoder_max_seq_length is not None) and args.output == default_output:
+        raise SystemExit("--config and --decoder-max-seq-length need their own --output: the stock predictions stay as they are.")
+    if args.decoder_max_seq_length is not None and args.decoder_max_seq_length < 1:
+        raise SystemExit("--decoder-max-seq-length must be at least 1.")
 
     check_pinned_checkout()
     # Keep the pinned checkout free of bytecode files.
@@ -124,27 +205,34 @@ def main(argv: list[str] | None = None) -> int:
     from PIL import Image
     from vietocr.tool.predictor import Predictor
 
-    config, weights_url = load_config(args.weights, args.device)
+    config, weights_url = load_config(args.weights, args.device, args.config)
     check_weights(args.weights, weights_url)
     if args.image_max_width is not None:
         config["dataset"]["image_max_width"] = args.image_max_width
+    max_seq_length, limit_source = decoder_limit(config, args.decoder_max_seq_length)
+    if max_seq_length + 1 > config["transformer"]["max_seq_length"]:
+        raise SystemExit(
+            f"{max_seq_length} decoding steps need {max_seq_length + 1} positions; the model has "
+            f"{config['transformer']['max_seq_length']} (transformer.max_seq_length)."
+        )
 
     manifest = bakeoff.load_manifest(args.manifest)
     base_dir = args.manifest.parent
     predictor = Predictor(config)
     # The first call pays for one-off initialisation; keep it out of the timings.
-    recognise(predictor, Image.new("RGB", (320, 32), "white"))
+    recognise(predictor, Image.new("RGB", (320, 32), "white"), max_seq_length)
 
     rows = []
     for row in manifest:
         with Image.open(bakeoff.verified_crop_path(row, base_dir)) as image:
-            text, confidence, elapsed_ms = recognise(predictor, image)
+            text, confidence, elapsed_ms, hit_limit = recognise(predictor, image, max_seq_length)
         rows.append(
             {
                 "id": row["id"],
                 "prediction": text,
                 "confidence": confidence,
                 "runtime_ms": round(elapsed_ms, 1),
+                "hit_decoder_limit": hit_limit,
             }
         )
 
@@ -153,11 +241,17 @@ def main(argv: list[str] | None = None) -> int:
     widest_ratio = dataset["image_max_width"] / dataset["image_height"]
     squeezed = sum(row["crop_width"] / row["crop_height"] > widest_ratio for row in manifest)
     total_ms = sum(row["runtime_ms"] for row in rows)
+    at_limit = sum(row["hit_decoder_limit"] is True for row in rows)
     metadata = {
         "recognizer": f"VietOCR {CONFIG_NAME}",
         "repository": "https://github.com/pbcquoc/vietocr",
         "repository_commit": VIETOCR_COMMIT,
         "config_files": [f"third_party/vietocr/config/{name}" for name in CONFIG_FILES],
+        "project_config": args.config.name if args.config is not None else None,
+        "decoder_max_seq_length": max_seq_length,
+        "decoder_max_seq_length_source": limit_source,
+        "longest_text_with_end_token": decodable_characters(max_seq_length),
+        "predictions_at_decoder_limit": at_limit,
         "backbone": config["backbone"],
         "seq_modeling": config["seq_modeling"],
         "beamsearch": config["predictor"]["beamsearch"],
@@ -168,9 +262,9 @@ def main(argv: list[str] | None = None) -> int:
         "crops_squeezed_to_max_width": squeezed,
         "weights_url": weights_url,
         "weights_sha256": WEIGHTS_SHA256,
-        "confidence": "mean softmax probability of the decoded characters, from "
-        "Predictor.predict(return_prob=True); not calibrated and not comparable "
-        "with the PP-OCRv6 score",
+        "confidence": "mean softmax probability of the decoded characters, as "
+        "Predictor.predict(return_prob=True) computes it; not calibrated and not "
+        "comparable with the PP-OCRv6 score",
         "device": args.device,
         "batch_size": 1,
         "torch_version": torch.__version__,
@@ -190,6 +284,7 @@ def main(argv: list[str] | None = None) -> int:
         f"crops squeezed to {dataset['image_max_width']} px by VietOCR's resize: "
         f"{squeezed}/{len(rows)}"
     )
+    print(f"decoder steps:   {max_seq_length} ({limit_source}); predictions that ran out of steps: {at_limit}/{len(rows)}")
     print(f"wrote {args.output}")
     return 0
 

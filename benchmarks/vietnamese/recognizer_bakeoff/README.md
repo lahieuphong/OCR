@@ -291,6 +291,13 @@ sổ).
 dấu che chữ, dòng không đọc được chắc chắn, crop lỗi nặng. Dòng bị bỏ qua giữ
 `verified=false`, được ghi `excluded_reason` và không bao giờ vào CER/WER.
 
+Một lý do không liên quan tới việc đọc được hay không: `duplicate_frozen_image`,
+*ảnh crop trùng byte với một dòng trong tập đánh giá đã đóng băng* (cùng một
+khối chữ ký số hay tiêu đề xuất hiện ở nhiều văn bản). Dòng như vậy không được
+nằm trong train hay validation, nên `build_dataset.py` từ chối build và nêu id
+của nó. Không script nào tự bỏ qua nó: người làm mở lại đúng dòng đó bằng
+`--id <id>`, nhìn ảnh, rồi bấm `s` và chọn lý do này.
+
 **Thứ tự và điểm dừng.** Các dòng được đưa ra theo thứ tự luân phiên giữa tài
 liệu, giữa các trang và giữa các tầng lấy mẫu, nên dừng ở bất kỳ đâu thì tập đã
 verified vẫn trải đều. Phiên tự kết thúc khi đủ 100 dòng verified (`--target`),

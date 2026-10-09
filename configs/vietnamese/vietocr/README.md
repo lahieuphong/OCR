@@ -45,6 +45,7 @@ Hai config **giống hệt nhau** trừ chiều rộng và nơi ghi kết quả.
 | Batch size | 16 |
 | Số bước gradient | 9.500 vòng lặp, validation mỗi 320 vòng |
 | Augmentation của VietOCR | tắt |
+| `decoder_max_seq_length` | 128 (khoá của project, VietOCR không đọc) |
 
 Cùng batch size và cùng số vòng lặp nghĩa là hai experiment thực hiện cùng số
 bước gradient trên cùng số mẫu. Nếu batch 16 không vừa bộ nhớ ở 1024 px thì giảm
@@ -116,6 +117,72 @@ scan, theo cách tái lập được từ seed, và ảnh thật thì đã là �
 đổi có sẵn của VietOCR còn đảo màu 20% số ảnh và vẽ các đường kẻ màu ngẫu nhiên,
 những thứ không có trên văn bản hành chính.
 
+## Giới hạn decode: `decoder_max_seq_length`
+
+VietOCR không có giới hạn độ dài nhãn nào trong kiến trúc ngoài 1024 vị trí của
+transformer: `Vocab.encode` và collator nhận nhãn dài bất kỳ. Giới hạn thực tế
+nằm ở lúc đọc: `translate()` dừng sau `max_seq_length` bước, mặc định 128, và
+`Predictor.predict` không bao giờ truyền số nào khác.
+
+Runner của project (`run_vietocr.py`) vì vậy tự gọi `translate()` và luôn truyền
+con số đó. Không có gì trong `third_party/vietocr` bị sửa hay patch.
+
+| Cách chạy | Số bước decode |
+| --- | --- |
+| không có `--config` (chạy lại bake-off) | 128, mặc định của VietOCR, để prediction gốc tái lập được |
+| `--config exp_*.yml` | `decoder_max_seq_length` của config: **128** |
+| `--decoder-max-seq-length N` | N (chỉ để chẩn đoán, phải có `--output` riêng) |
+
+Với N bước, decoder viết tối đa N + 1 token, nên một dòng N ký tự còn chỗ cho
+token kết thúc. Nhãn dùng được dài tối đa
+`min(decoder_max_seq_length, transformer.max_seq_length − 2)` = **128 ký tự**;
+audit lấy con số này từ file config, không còn hằng số 126. Một nhãn dài hơn
+làm audit FAIL và nêu rõ giới hạn nào bị vượt.
+
+Giá trị trong config trùng với mặc định của VietOCR, nhưng nó là một cấu hình
+được ghi ra và truyền đi, không phải thứ ngầm định: đổi một dòng trong
+`OVERRIDES` của `build_vietocr_config.py` rồi sinh lại config là runner, audit
+và bước kiểm config cùng theo.
+
+Mỗi prediction ghi `hit_decoder_limit`: decoder hết bước mà chưa viết token kết
+thúc. Text như vậy có thể bị cắt, hoặc là model viết mãi không dừng.
+
+**Vì sao 128 chứ không phải 160.** So sánh hai mức trên model pretrained (chỉ
+inference, 100 dòng `bakeoff_regression` và 100 dòng `real_val` đã verify lúc
+đo; không đụng `blind_test`):
+
+| Tập | Bước | CER | WER | Dòng đúng hoàn toàn | Hết bước |
+| --- | --- | --- | --- | --- | --- |
+| `bakeoff_regression` | 128 | 4,51% | 8,83% | 57% | 0 |
+| `bakeoff_regression` | 160 | 4,51% | 8,83% | 57% | 0 |
+| `real_val` | 128 | 4,54% | 11,21% | 55% | 1 |
+| `real_val` | 160 | 5,22% | 11,31% | 54% | 1 |
+
+199 trên 200 prediction giống hệt nhau; lần chạy 128 bước trùng 100/100 với
+prediction đã lưu của bake-off. Dòng duy nhất khác là một dòng chấm dẫn có chữ
+viết tay, crop rộng 85 px: model viết dấu chấm mãi không dừng ở cả hai mức (129
+ký tự ở 128 bước, 161 ký tự ở 160 bước). Nhãn 129 ký tự của dòng đó chính là
+output bị chặn ở 128 bước đã được chấp nhận làm ground truth, nên 160 bước bị
+tính thêm 32 lỗi. Bỏ dòng đó ra, hai mức cho đúng cùng một kết quả (CER 4,67%,
+WER 11,22% trên 99 dòng).
+
+Vì vậy config dùng **128**:
+
+- Không nhãn thật nào đã verify cần hơn 128 bước (dài nhất 92 ký tự), và nhãn
+  tổng hợp dài nhất là 119.
+- Trên các dòng model tự kết thúc, 128 và 160 không khác nhau. Khác biệt chỉ
+  xuất hiện khi model không dừng, và khi đó giới hạn dài hơn chỉ cho thêm ký tự
+  thừa.
+- Một prediction có `hit_decoder_limit` không được chấp nhận làm ground truth
+  mà không đếm lại trên ảnh. Nhãn 129 ký tự nói trên là một ground truth sai
+  theo đúng cách đó.
+
+Khi có nhãn thật dài hơn 128 ký tự thì nâng giá trị này lên, cho cả hai config.
+
+**Việc của Phase 4.** `Trainer` của VietOCR tự chấm validation bằng `translate()`
+mặc định 128 bước. Script train bọc ngoài phải chấm `real_val` bằng runner của
+project, với số bước lấy từ config.
+
 ## Trộn dữ liệu: `data_mix.yml`
 
 ```yaml
@@ -146,7 +213,7 @@ Kết quả hiện tại, giống nhau ở cả hai config:
 
 - 0 tensor pretrained bị thiếu, 0 tensor lệch shape;
 - 5.059 nhãn train đều mã hoá được, ảnh đều có mặt, nhãn dài nhất 119 ký tự
-  (giới hạn decode là 126);
+  (config hỗ trợ tới 128);
 - forward ở rộng 512 và 1024 đều chạy, output `(1, 100, 233)`;
 - **`READY TO TRAIN FROM: NO`**: `real_val_annotation.txt` chưa có dòng nào.
 

@@ -83,6 +83,14 @@ OVERRIDES = {
     },
     "dataloader": {"num_workers": 4, "pin_memory": True},
     "predictor": {"beamsearch": False},
+    # Not read by VietOCR. Decoding steps the project's own runner allows
+    # (run_vietocr.py --config). 128 is also what VietOCR's `translate` does
+    # when left alone, but here it is a setting, stated and passed explicitly.
+    # No verified real label is longer than 92 characters and no synthetic one
+    # longer than 119; with 128 and with 160 steps the pretrained model read
+    # every line that ends by itself identically, and more steps only made a
+    # line it never ends longer. Raise it when a real label needs it.
+    "decoder_max_seq_length": 128,
     # Not read by VietOCR: how the run is to be seeded, judged and compared.
     "experiment": {
         "seed": 20261201,
@@ -149,6 +157,48 @@ def pretrained_config() -> dict:
 
 def fine_tuning_config(name: str) -> dict:
     return deep_update(deep_update(pretrained_config(), OVERRIDES), experiment_overrides(name))
+
+
+def supported_label_characters(config: dict) -> int:
+    """Longest label a run from this config can be trained on and can read back whole.
+
+    Two capacities bound it:
+
+        decoder       ``translate`` writes at most ``decoder_max_seq_length + 1``
+                      tokens, and the last one has to be the end token;
+        transformer   it has ``transformer.max_seq_length`` positions, and a
+                      training target is the label between a start and an end
+                      token.
+
+    VietOCR has no shorter limit of its own: ``Vocab.encode`` and the training
+    collator take a label of any length.
+    """
+    return min(config["decoder_max_seq_length"], config["transformer"]["max_seq_length"] - 2)
+
+
+def label_limit() -> dict:
+    """The label length the experiment configs on disk support, and what sets it.
+
+    With several configs the shortest limit counts: a line is usable only if
+    every experiment can train on it and read it.
+    """
+    limits = []
+    for name in EXPERIMENTS:
+        path = config_path(name)
+        if not path.is_file():
+            raise SystemExit(f"{path} does not exist: run build_vietocr_config.py.")
+        config = yaml.safe_load(path.read_text(encoding="utf-8"))
+        if "decoder_max_seq_length" not in config:
+            raise SystemExit(f"{path} sets no decoder_max_seq_length: run build_vietocr_config.py.")
+        limits.append(
+            {
+                "characters": supported_label_characters(config),
+                "decoder_max_seq_length": config["decoder_max_seq_length"],
+                "transformer_max_seq_length": config["transformer"]["max_seq_length"],
+                "config": path.name,
+            }
+        )
+    return min(limits, key=lambda limit: limit["characters"])
 
 
 def render_config(name: str) -> str:

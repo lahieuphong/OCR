@@ -28,6 +28,10 @@ SKIP_REASONS = {
     "unreadable": "không đọc được chắc chắn",
     "bad_crop": "crop lỗi nặng hoặc không có chữ",
     "unsure": "không xác định được ground truth đáng tin",
+    # The crop is readable, but its file is byte for byte the crop of a line in
+    # a frozen evaluation set (a header or a signature block that every signed
+    # document carries). A person sets it aside; no script does it for them.
+    "duplicate_frozen_image": "ảnh crop trùng byte với một dòng trong tập đánh giá đã đóng băng",
 }
 # Kinds of line the verified set must contain before a session may stop, where
 # the table has any. Judged from the predictions, like the sampling strata.

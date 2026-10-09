@@ -13,7 +13,7 @@ import _paths  # noqa: F401
 import annotate
 import annotation_server
 import bakeoff_common as bakeoff
-from annotation_store import ActionError, AnnotationStore, annotation_order, normalise
+from annotation_store import SKIP_REASONS, ActionError, AnnotationStore, annotation_order, normalise
 
 
 def blank_row(key: str, document: str = "d", page: int = 1, **changes) -> dict:
@@ -323,6 +323,117 @@ class TargetAndCoverage(TableFile):
         store = self.store(rows)
         store.stop()
         self.assertIsNone(store.current())
+
+
+class DuplicateOfAFrozenImage(TableFile):
+    """A readable crop whose file is also a frozen evaluation line: set aside by a person, with its own reason."""
+
+    REASON = "duplicate_frozen_image"
+
+    def rows(self) -> list[dict]:
+        done = {"ground_truth": "Việt Nam", "verified": "true", "ground_truth_source": "typed", "annotator": "tester",
+                "verified_at": "2026-01-01T00:00:00+00:00", "ground_truth_sha256": bakeoff.text_sha256("Việt Nam")}  # fmt: skip
+        return [blank_row(key, **done) for key in "ab"] + [blank_row(key) for key in "cdef"]
+
+    def test_it_is_an_official_reason_with_its_label(self):
+        self.assertEqual(SKIP_REASONS[self.REASON], "ảnh crop trùng byte với một dòng trong tập đánh giá đã đóng băng")
+        # Appended after the others: the numbers of the older reasons in the menu keep their meaning.
+        self.assertEqual(list(SKIP_REASONS), ["handwriting", "stamp", "unreadable", "bad_crop", "unsure", self.REASON])
+
+    def test_skipping_with_it_sets_the_row_aside(self):
+        store = self.store([blank_row("a"), blank_row("b")])
+        store.skip("a", self.REASON)
+        saved = self.saved()["a"]
+        self.assertEqual((saved["verified"], saved["excluded_reason"], saved["ground_truth"]), ("false", self.REASON, ""))
+        self.assertEqual(saved["annotator"], "tester")
+        self.assertTrue(bakeoff.is_excluded(saved))
+        self.assertFalse(bakeoff.is_verified(saved) or bakeoff.is_pending(saved))
+        entry = self.log_entries()[-1]
+        self.assertEqual((entry["id"], entry["action"], entry["excluded_reason"]), ("a", "skip", self.REASON))
+        self.assertEqual(store.current()["id"], "b")
+        self.assertEqual(store.progress()["skipped"], 1)
+
+    def test_a_misspelt_reason_is_refused_and_saves_nothing(self):
+        store = self.store([blank_row("a")])
+        for wrong in ("duplicate", "duplicate_frozen", "DUPLICATE_FROZEN_IMAGE", ""):
+            with self.assertRaises(ActionError):
+                store.skip("a", wrong)
+        self.assertEqual(self.saved()["a"], blank_row("a"))
+        self.assertFalse(self.log.exists())
+
+    def test_no_row_is_set_aside_unless_a_person_does_it(self):
+        self.store(self.rows())
+        before = self.table.read_bytes()
+        # Opening a session, ordinary or by name, and looking at its state changes nothing.
+        for options in ({}, {"target": 2}, {"only_ids": ["a", "b"]}, {"show_predictions": False}):
+            store = self.store(**options)
+            store.current(), store.progress(), store.stop_reason()
+        self.assertEqual(self.table.read_bytes(), before)
+        self.assertFalse(self.log.exists())
+        # And the reason applies to the one row on screen, never to another row or to several.
+        store = self.store()
+        self.assertEqual(store.current()["id"], "c")
+        with self.assertRaises(ActionError):
+            store.skip("a", self.REASON)
+        self.assertEqual(self.table.read_bytes(), before)
+
+    def test_a_verified_row_reopened_by_name_can_be_set_aside(self):
+        store = self.store(self.rows(), only_ids=["a", "b"], target=2)
+        self.assertEqual(store.progress()["verified"], 2)
+        self.assertEqual(store.current()["id"], "a")
+        store.skip("a", self.REASON)
+        self.assertEqual(store.current()["id"], "b")
+        store.skip("b", self.REASON)
+        self.assertIsNone(store.current())
+        self.assertEqual(store.stop_reason(), "the requested rows are done")
+        progress = store.progress()
+        self.assertEqual((progress["verified"], progress["skipped"], progress["pending"]), (0, 2, 4))
+        saved = self.saved()
+        for key in "ab":
+            self.assertEqual((saved[key]["verified"], saved[key]["excluded_reason"], saved[key]["ground_truth"],
+                              saved[key]["ground_truth_sha256"]), ("false", self.REASON, "", ""))  # fmt: skip
+        self.assertEqual({key: saved[key] for key in "cdef"}, {key: blank_row(key) for key in "cdef"})
+
+    def test_undo_brings_the_verified_label_back(self):
+        store = self.store(self.rows(), only_ids=["a"])
+        before = dict(self.saved()["a"])
+        store.skip("a", self.REASON)
+        self.assertEqual(self.saved()["a"]["excluded_reason"], self.REASON)
+        store.undo()
+        self.assertEqual(self.saved()["a"], before)
+        self.assertEqual(store.current()["id"], "a")
+
+    def test_an_ordinary_session_then_verifies_replacements_up_to_the_target(self):
+        reopened = self.store(self.rows(), only_ids=["a", "b"], target=2)
+        reopened.skip("a", self.REASON)
+        reopened.skip("b", self.REASON)
+        session = self.store(target=2)
+        shown = []
+        while (row := session.current()) is not None:
+            shown.append(row["id"])
+            session.enter(row["id"], "Việt Nam")
+        self.assertEqual(len(shown), 2)  # exactly as many as were set aside
+        self.assertEqual(set(shown) & {"a", "b"}, set())  # a row set aside is not offered again
+        progress = session.progress()
+        self.assertEqual((progress["verified"], progress["skipped"], progress["pending"]), (2, 2, 2))
+        self.assertEqual(session.stop_reason(), "2 verified readable lines reached")
+
+    def test_the_terminal_menu_offers_it(self):
+        store = self.store([blank_row("a"), blank_row("b")])
+        replies, shown = iter(["s", str(len(SKIP_REASONS)), "q"]), []
+        annotate.run_cli(store, lambda row: Path("crops") / row["crop_path"], ask=lambda prompt: next(replies),
+                         say=shown.append, opener=lambda path: None)  # fmt: skip
+        self.assertIn(f"  [{len(SKIP_REASONS)}] {SKIP_REASONS[self.REASON]}", shown)
+        self.assertEqual((self.saved()["a"]["verified"], self.saved()["a"]["excluded_reason"]), ("false", self.REASON))
+        self.assertEqual(self.saved()["b"], blank_row("b"))
+
+    def test_the_browser_page_offers_it(self):
+        (self.root / "a.png").write_bytes(b"crop")
+        app = annotation_server.AnnotationApp(self.store([blank_row("a"), blank_row("b")]), lambda row: self.root / row["crop_path"])
+        self.assertEqual(app.state()["skip_reasons"][self.REASON], SKIP_REASONS[self.REASON])
+        state = app.act({"id": "a", "action": "skip", "reason": self.REASON})
+        self.assertEqual((state["item"]["id"], state["progress"]["skipped"]), ("b", 1))
+        self.assertEqual(self.saved()["a"]["excluded_reason"], self.REASON)
 
 
 class TerminalFrontEnd(TableFile):

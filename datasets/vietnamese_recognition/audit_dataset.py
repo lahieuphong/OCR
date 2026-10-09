@@ -22,7 +22,10 @@ The audit FAILS (exit status 1) on a leak or a broken set:
     - a real line that no person verified in any set;
     - a legacy candidate line in any set;
     - a label that is empty, not NFC, or that the recognizer cannot encode
-      without being marked as such; a missing or changed image;
+      without being marked as such; a label longer than the experiment configs
+      support (``decoder_max_seq_length`` and the transformer's
+      ``max_seq_length``, see ``build_vietocr_config.supported_label_characters``);
+      a missing or changed image;
     - a Vietnamese letter that never occurs in the training lines.
 
 Identical text in two sets is reported as a warning only: administrative
@@ -67,8 +70,9 @@ from dataset_common import (
 import bakeoff_common as bakeoff  # noqa: E402  (path set up by dataset_common)
 from audit_charset import vietnamese_letters  # noqa: E402
 
-# VietOCR's greedy decoder stops after 128 steps, start and end tokens included.
-MAX_LABEL_CHARACTERS = 126
+# Decoding steps of VietOCR's `translate` when nobody passes a number. A label
+# longer than this is readable only because the configs raise the limit.
+STOCK_DECODER_MAX_SEQ_LENGTH = 128
 RECOGNIZER_HEIGHT = 32
 PRETRAINED_MAX_WIDTH = 512
 CANDIDATE_MAX_WIDTHS = (512, 768, 1024, 1280)
@@ -211,7 +215,12 @@ def audit(
     work_dir: Path = dataset.REAL_WORK_DIR,
     legacy_dir: Path = dataset.LEGACY_DIR,
     check_images: bool = True,
+    label_limit: dict | None = None,
 ) -> dict:
+    if label_limit is None:
+        from build_vietocr_config import label_limit as configured_limit
+
+        label_limit = configured_limit()
     regression = dataset.FrozenLines.load(BAKEOFF_REGRESSION)
     splits = dataset.read_splits(root)
     documents = dataset.read_documents(documents_path)
@@ -309,8 +318,12 @@ def audit(
         elif not unicodedata.is_normalized("NFC", text):
             failures.append(f"{row['id']}: label is not NFC")
         elif row["split"] in LEARNING_SPLITS and row["subset"] != OUT_OF_VOCABULARY:
-            if len(text) > MAX_LABEL_CHARACTERS:
-                failures.append(f"{row['id']}: label of {len(text)} characters exceeds the decoder limit")
+            if len(text) > label_limit["characters"]:
+                failures.append(
+                    f"{row['id']}: label of {len(text)} characters exceeds the configured limit of "
+                    f"{label_limit['characters']} (decoder_max_seq_length {label_limit['decoder_max_seq_length']}, "
+                    f"transformer.max_seq_length {label_limit['transformer_max_seq_length']} in {label_limit['config']})"
+                )
             if outside:
                 failures.append(f"{row['id']}: characters outside the recognizer vocabulary: {''.join(sorted(outside))}")
         if outside:
@@ -389,6 +402,15 @@ def audit(
             "minimum_occurrences_in_training": training[rarest] if rarest else 0,
             "covered": {split: sum(counts[split][letter] > 0 for letter in letters) for split in OPEN_SPLITS},
         },
+        "label_limit": {
+            **label_limit,
+            "longest_label": {split: max((len(row["text"]) for row in splits[split]), default=0) for split in OPEN_SPLITS},
+            # Lines only the raised limit makes readable: VietOCR's default stops before their end.
+            "labels_beyond_the_stock_decoder": {
+                split: sum(len(row["text"]) > STOCK_DECODER_MAX_SEQ_LENGTH for row in splits[split])
+                for split in OPEN_SPLITS
+            },
+        },
         "resize": resize_rows(splits),
         "readiness": gate,
         "letter_counts": {letter: {split: counts[split][letter] for split in OPEN_SPLITS} for letter in letters},
@@ -459,6 +481,12 @@ def main(argv: list[str] | None = None) -> int:
     print(
         f"Vietnamese letters in training: {letters['covered_in_training']}/{letters['reference']}, rarest "
         f"{letters['rarest_in_training']!r} x{letters['minimum_occurrences_in_training']}; covered per set: {letters['covered']}"
+    )
+    limit = report["label_limit"]
+    print(
+        f"label limit: {limit['characters']} characters (decoder_max_seq_length {limit['decoder_max_seq_length']}, "
+        f"transformer.max_seq_length {limit['transformer_max_seq_length']}); longest label per set: {limit['longest_label']}; "
+        f"labels beyond VietOCR's default of {STOCK_DECODER_MAX_SEQ_LENGTH} steps: {limit['labels_beyond_the_stock_decoder']}"
     )
     print("resize to height 32: set, max width -> squeezed lines, median / 5th percentile px per character")
     for row in report["resize"]:

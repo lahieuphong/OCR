@@ -75,6 +75,7 @@ cnn:
   - - 1
     - 1
   hidden: 256
+decoder_max_seq_length: 128
 experiment:
   seed: 20261201
   data_mix: configs/vietnamese/vietocr/data_mix.yml

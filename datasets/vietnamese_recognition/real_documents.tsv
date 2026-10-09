@@ -1,0 +1,25 @@
+document_id	filename	sha256	page_count	file_type	source_note	split	blind
+doc_052f3924a49a	756ttg.signed.pdf	052f3924a49ac00d57b187a1124216f899efaa897a39b6778e4d6e995fe4627f	9	pdf	Vietnamese administrative documents - independent real dataset	blind	true
+doc_0ca4c9a484e2	979-ttg.signed.pdf	0ca4c9a484e2ecdfa2f98449172b3ddc8b8e44d37d5b3bba608d10197f310b93	1	pdf	Vietnamese administrative documents - independent real dataset	train	false
+doc_1154a8bb6f77	28-bct.signed.pdf	1154a8bb6f7727d40a00c452cb7c6c483c20f0f8bfde1c50fa217f6f9bc1f411	28	pdf	Vietnamese administrative documents - independent real dataset	train	false
+doc_195f39a2b960	971qd.signed.pdf	195f39a2b9600c52fa2affd215ed9af30163da37fa70e72f06174d0e2da47dbd	2	pdf	Vietnamese administrative documents - independent real dataset	train	false
+doc_1ba244538921	737-ttg.signed.pdf	1ba244538921ec0ef009ad1d8cc0b5e1738a55518eb0a3de6a2e72305b665001	1	pdf	Vietnamese administrative documents - independent real dataset	val	false
+doc_29b5b4b6dc82	757-ttg.signed.pdf	29b5b4b6dc82eb25e86333b8a626dcf7df5a96debbb8b9d8a14849da2ab894b8	13	pdf	Vietnamese administrative documents - independent real dataset	blind	true
+doc_30cdc3f3c286	749-ttg.signed.pdf	30cdc3f3c2869f73332aea6b0eca7e4417376247015e19b81a100b764d643793	1	pdf	Vietnamese administrative documents - independent real dataset	train	false
+doc_319fe42aad73	977-ttg.signed.pdf	319fe42aad739c47810b13192a4fe6882bdb83a0ad3967c3c08d2dee879d8784	3	pdf	Vietnamese administrative documents - independent real dataset	val	false
+doc_362659c783f7	141-nq-cp.signed.pdf	362659c783f7e89d73accda47db4aad8f469abc468dba27537144c0881110166	3	pdf	Vietnamese administrative documents - independent real dataset	train	false
+doc_3bec1219f87f	115-nqcp.signed.pdf	3bec1219f87f8a3db0f0824fd38eb687d1592d9177663649845db9fc2de0abb3	2	pdf	Vietnamese administrative documents - independent real dataset	train	false
+doc_3fe6c1807a6a	986-ttg.signed.pdf	3fe6c1807a6a115bc2824f2ae3be52a965844c2f73e205bab6874ebc604b7724	2	pdf	Vietnamese administrative documents - independent real dataset	train	false
+doc_486d102efc92	976qd.signed.pdf	486d102efc9205bc19175c49c2e6bcf5be3c6f11e33f27115f0edd9d8f1d9d94	1	pdf	Vietnamese administrative documents - independent real dataset	train	false
+doc_80aae32b0d52	982-ttg.signed.pdf	80aae32b0d525d85450d2158cf71db85a2476027fb89557dd6c252c9784cc629	23	pdf	Vietnamese administrative documents - independent real dataset	train	false
+doc_917f882813e1	5133-cn.signed.pdf	917f882813e13ed987edc6849c56af2617a4df2eba7ba4c55e37041f04c9344b	1	pdf	Vietnamese administrative documents - independent real dataset	train	false
+doc_94169caa17ff	193-ndcp.signed.pdf	94169caa17ff46c33cfb95a8283d9ecadfc2974d268a7a4c3f023f14e581d05a	31	pdf	Vietnamese administrative documents - independent real dataset	train	false
+doc_972bb53563ac	217-tb.signed.pdf	972bb53563ac8e525cfb8e22353f9f64c15638a02437084334a0137c5ea87e21	3	pdf	Vietnamese administrative documents - independent real dataset	blind	true
+doc_ad3024b79f90	973-qdtt.signed.pdf	ad3024b79f906a11aef5e8d4bf50c0bd9a7ef0b44a59557cb1662bd7e11aee3f	15	pdf	Vietnamese administrative documents - independent real dataset	train	false
+doc_ad8fae1697fb	196-ndcp.signed.pdf	ad8fae1697fb8b49c2fae6a45243cc581c9ca15915da685688d93be480dd62cc	9	pdf	Vietnamese administrative documents - independent real dataset	blind	true
+doc_b36969b89754	972qd.signed.pdf	b36969b897548a0624aa4555423252bfb9f3d1cca02e829e3a8f42d85f90566b	2	pdf	Vietnamese administrative documents - independent real dataset	val	false
+doc_cd3bf1ca0d1b	3722-cn.signed.pdf	cd3bf1ca0d1b6b29c61d6c942103cc80156ba4ea445beed714b59ac376f8b409	1	pdf	Vietnamese administrative documents - independent real dataset	blind	true
+doc_e752ce31cbed	143-nqcp.signed.pdf	e752ce31cbede618ec852d3513005bb20cf3f5bab02816ca08c8d699e46fb9d3	2	pdf	Vietnamese administrative documents - independent real dataset	val	false
+doc_f591cf1ce514	978-ttg.signed.pdf	f591cf1ce514ace09376ff544fb6c1dd8f319627c67dfbf1ec421ce6da822ee8	4	pdf	Vietnamese administrative documents - independent real dataset	train	false
+doc_f6ce51930f94	596-cds.signed.pdf	f6ce51930f94afa817368f6bedde3fd07f17463f655d88aef28577fe3bc25ec7	2	pdf	Vietnamese administrative documents - independent real dataset	val	false
+doc_fde99fa254fe	198-ndcp.signed.pdf	fde99fa254fe2e98f16c9b75ce2e17b916d46540207a093bda8d3af5d027a633	3	pdf	Vietnamese administrative documents - independent real dataset	train	false
