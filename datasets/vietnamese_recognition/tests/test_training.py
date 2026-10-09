@@ -80,6 +80,26 @@ class Schedule(unittest.TestCase):
 
 
 class Settings(unittest.TestCase):
+    @unittest.skipUnless(HAS_TORCH, NEEDS_TORCH)
+    def test_seed_enforces_strict_determinism_for_cuda_gate(self):
+        import torch
+
+        previous = (torch.are_deterministic_algorithms_enabled(), torch.backends.cudnn.deterministic,
+                    torch.backends.cudnn.benchmark, torch.backends.cudnn.allow_tf32, torch.backends.cuda.matmul.allow_tf32)
+        try:
+            training.seed_everything(20261201)
+            self.assertTrue(torch.are_deterministic_algorithms_enabled())
+            self.assertTrue(torch.backends.cudnn.deterministic)
+            self.assertFalse(torch.backends.cudnn.benchmark)
+            self.assertFalse(torch.backends.cudnn.allow_tf32)
+            if torch.cuda.is_available():
+                self.assertFalse(torch.backends.cuda.matmul.allow_tf32)
+        finally:
+            torch.use_deterministic_algorithms(previous[0])
+            torch.backends.cudnn.deterministic = previous[1]
+            torch.backends.cudnn.benchmark = previous[2]
+            torch.backends.cudnn.allow_tf32 = previous[3]
+            torch.backends.cuda.matmul.allow_tf32 = previous[4]
     def test_a_full_run_follows_the_config(self):
         for name, width in zip(EXPERIMENTS, (512, 1024)):
             settings = training.resolve_settings(experiment(name), arguments())
