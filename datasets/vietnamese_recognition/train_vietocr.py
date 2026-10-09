@@ -525,9 +525,12 @@ def restore_state(state: dict, model, optimizer, scheduler, scaler) -> None:
     scheduler.load_state_dict(state["scheduler"])
     if scaler is not None and state["scaler"] is not None:
         scaler.load_state_dict(state["scaler"])
-    torch.set_rng_state(state["torch_rng"])
+    # map_location=cuda:0 can move saved CPU RNG tensors onto CUDA.
+    # PyTorch's RNG setters require CPU ByteTensors regardless of where
+    # model/optimizer state was loaded.
+    torch.set_rng_state(state["torch_rng"].cpu())
     if state["cuda_rng"] is not None and torch.cuda.is_available():
-        torch.cuda.set_rng_state_all(state["cuda_rng"])
+        torch.cuda.set_rng_state_all([rng.cpu() for rng in state["cuda_rng"]])
 
 
 def write_report(directory: Path, record: dict) -> None:
