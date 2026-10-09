@@ -419,6 +419,34 @@ LABELS = ("Số: 15/2024/NĐ-CP", "Căn cứ Luật Tổ chức Chính phủ ng�
 
 
 @unittest.skipUnless(HAS_TORCH, NEEDS_TORCH)
+class CheckpointRngRestore(unittest.TestCase):
+    def test_cuda_mapped_rng_tensors_are_moved_back_to_cpu(self):
+        """A CUDA map_location cannot change the required RNG setter input device."""
+        import torch
+        from unittest.mock import Mock, patch
+
+        class PretendCudaTensor:
+            def __init__(self, original):
+                self.original = original
+
+            def cpu(self):
+                return self.original
+
+        original_cpu_rng = torch.get_rng_state().clone()
+        state = {
+            "model": {}, "optimizer": {}, "scheduler": {}, "scaler": None,
+            "torch_rng": PretendCudaTensor(original_cpu_rng),
+            "cuda_rng": [PretendCudaTensor(original_cpu_rng)],
+        }
+        with patch.object(torch.cuda, "is_available", return_value=True), \
+                patch.object(torch.cuda, "set_rng_state_all") as set_cuda:
+            training.restore_state(state, Mock(), Mock(), Mock(), None)
+        self.assertTrue(torch.equal(torch.get_rng_state(), original_cpu_rng))
+        set_cuda.assert_called_once()
+        self.assertTrue(torch.equal(set_cuda.call_args.args[0][0], original_cpu_rng))
+
+
+@unittest.skipUnless(HAS_TORCH, NEEDS_TORCH)
 class LikeThePinnedTrainer(unittest.TestCase):
     """The parts that mirror VietOCR's code give what VietOCR's code gives."""
 
