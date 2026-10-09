@@ -110,6 +110,10 @@ import random
 import shutil
 import sys
 import time
+
+# Required by deterministic CUDA cuBLAS kernels; configure before CUDA is initialized.
+# Use a fixed workspace for all training/gate subprocesses on the same GPU.
+os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
 from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
@@ -150,10 +154,16 @@ def seed_everything(seed: int) -> None:
     random.seed(seed)
     numpy.random.seed(seed)
     torch.manual_seed(seed)
+    # cuDNN deterministic=True alone does not cover every CUDA kernel.
+    # Fail visibly on nondeterministic operations instead of silently
+    # treating two drifting runs as resume-equivalent.
+    torch.use_deterministic_algorithms(True)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    torch.backends.cudnn.allow_tf32 = False
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
-        torch.backends.cudnn.deterministic = True
-        torch.backends.cudnn.benchmark = False
+        torch.backends.cuda.matmul.allow_tf32 = False
 
 
 def seed_worker(worker_id: int) -> None:
