@@ -90,6 +90,7 @@ class ResumeGateComparison(unittest.TestCase):
                           "param_groups": [{"lr": lr, "betas": (0.9, 0.98), "eps": 1e-09, "weight_decay": 0.01}]},
             "scheduler": {"last_epoch": steps, "_last_lr": [lr], "total_steps": 4670},
             "torch_rng": torch.arange(8),
+            "cuda_rng": [torch.arange(8)],
             "record": {"step_losses": [1.0 + 0.01 * i + (loss_shift if i >= 20 else 0.0) for i in range(steps)]},
         }  # fmt: skip
 
@@ -97,9 +98,15 @@ class ResumeGateComparison(unittest.TestCase):
         verdict = gate.compare(self.state(), self.state(), 40)
         self.assertEqual((verdict["result"], verdict["identical"]), ("PASS", True))
         self.assertEqual(set(verdict["parts"]), {"model_state_dict", "optimizer_state", "scheduler_state", "learning_rate", "optimizer_steps",
-                                                 "losses_of_steps_21_to_40", "losses_of_all_steps", "random_state"})  # fmt: skip
+                                                 "losses_of_steps_21_to_40", "losses_of_all_steps", "random_state", "cuda_random_states"})  # fmt: skip
         self.assertTrue(all(part["identical"] and part["largest_absolute_difference"] == 0.0 for part in verdict["parts"].values()))
 
+    def test_cuda_rng_state_difference_is_reported(self):
+        first, second = self.state(), self.state()
+        second["cuda_rng"][0][0] += 1
+        verdict = gate.compare(first, second, 40)
+        self.assertEqual(verdict["result"], "FAIL")
+        self.assertFalse(verdict["parts"]["cuda_random_states"]["identical"])
     def test_a_difference_fails_and_its_size_is_reported(self):
         verdict = gate.compare(self.state(), self.state(shift=1e-5), 40)
         self.assertEqual(verdict["result"], "FAIL")
