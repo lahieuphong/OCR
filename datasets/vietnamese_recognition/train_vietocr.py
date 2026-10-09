@@ -559,11 +559,18 @@ def peak_memory_mb(device: str) -> dict:
                 ("PeakPagefileUsage", ctypes.c_size_t),
             ]
 
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        psapi = ctypes.WinDLL("psapi", use_last_error=True)
+        kernel32.GetCurrentProcess.argtypes = []
+        kernel32.GetCurrentProcess.restype = wintypes.HANDLE
+        psapi.GetProcessMemoryInfo.argtypes = [wintypes.HANDLE, ctypes.POINTER(PROCESS_MEMORY_COUNTERS), wintypes.DWORD]
+        psapi.GetProcessMemoryInfo.restype = wintypes.BOOL
+
         counters = PROCESS_MEMORY_COUNTERS()
         counters.cb = ctypes.sizeof(counters)
-        process = ctypes.windll.kernel32.GetCurrentProcess()
-        if not ctypes.windll.psapi.GetProcessMemoryInfo(process, ctypes.byref(counters), counters.cb):
-            raise OSError("GetProcessMemoryInfo failed")
+        process = kernel32.GetCurrentProcess()
+        if not psapi.GetProcessMemoryInfo(process, ctypes.byref(counters), counters.cb):
+            raise ctypes.WinError(ctypes.get_last_error())
         process_peak_rss_mb = round(counters.PeakWorkingSetSize / 1024**2, 1)
     else:
         import resource
