@@ -16,6 +16,11 @@ and number of iterations are the same in both; only the width and the place
 each run writes its outputs differ. Which width wins is decided on real
 validation lines, never on the blind test.
 
+The number of optimizer steps is not a constant: it is derived from the size
+of one training pass, as ``build_dataset.py`` recorded it in
+``manifests/build_report.json``. When the training mix changes, ``--check``
+reports the configs as out of date.
+
 Each config is the pretrained ``vgg_transformer`` configuration of the pinned
 VietOCR checkout (``config/base.yml`` merged with ``config/vgg-transformer.yml``,
 the way ``Cfg.load_config_from_name`` merges them) with the overrides listed in
@@ -32,6 +37,8 @@ from __future__ import annotations
 
 import argparse
 import copy
+import json
+import math
 import sys
 from pathlib import Path
 
@@ -44,6 +51,31 @@ DATASET_NAME = "vi_admin_pilot_v1"
 OUTPUT_DIR = "models/vietocr/finetuned"
 # The one setting the two experiments differ in.
 EXPERIMENTS = {"exp_a_width512": 512, "exp_b_width1024": 1024}
+# Samples behind one optimizer step: the batch size times the accumulation steps.
+EFFECTIVE_BATCH_SIZE = 16
+# Passes over the training mix. A first, conservative budget: every real line is
+# already repeated within a pass, and the weights kept are the best on real
+# validation lines, not the last ones.
+EPOCHS = 10
+VALIDATIONS_PER_EPOCH = 2
+
+
+def schedule() -> dict:
+    """Optimizer steps of a run, from the training pass the dataset build recorded."""
+    report = json.loads((dataset.MANIFESTS_DIR / "build_report.json").read_text(encoding="utf-8"))
+    samples = report["training_mix"]["samples_per_pass"]
+    steps_per_epoch = math.ceil(samples / EFFECTIVE_BATCH_SIZE)
+    return {
+        "samples_per_pass": samples,
+        "effective_batch_size": EFFECTIVE_BATCH_SIZE,
+        "steps_per_epoch": steps_per_epoch,
+        "epochs": EPOCHS,
+        "total_steps": EPOCHS * steps_per_epoch,
+        "validate_every": steps_per_epoch // VALIDATIONS_PER_EPOCH,
+    }
+
+
+SCHEDULE = schedule()
 
 # Paths are relative to the repository root, where training is started from.
 OVERRIDES = {
@@ -64,13 +96,15 @@ OVERRIDES = {
         "image_min_width": 32,
     },
     "trainer": {
-        "batch_size": 16,
+        # Lines per forward pass. With `experiment.accumulation_steps` it makes
+        # the effective batch; a machine short of memory lowers this and raises
+        # the other, in both experiments alike.
+        "batch_size": EFFECTIVE_BATCH_SIZE,
         "print_every": 50,
-        "valid_every": 320,
-        # About 30 passes over the 5,059 synthetic training lines at batch size
-        # 16. Recompute once real lines are mixed in: passes x ceil(samples / 16).
-        "iters": 9500,
-        # Validation lines used to compute accuracy: more than there will be.
+        # Optimizer steps, from `schedule()`: see `experiment.schedule`.
+        "valid_every": SCHEDULE["validate_every"],
+        "iters": SCHEDULE["total_steps"],
+        # Read by VietOCR's own trainer only, which these runs do not use.
         "metrics": 10000,
     },
     # A third of the pretrained peak rate: adapt the model, do not retrain it.
@@ -92,8 +126,20 @@ OVERRIDES = {
     # line it never ends longer. Raise it when a real label needs it.
     "decoder_max_seq_length": 128,
     # Not read by VietOCR: how the run is to be seeded, judged and compared.
+    # train_vietocr.py reads this block.
     "experiment": {
         "seed": 20261201,
+        # Forward passes whose gradients are summed before one optimizer step.
+        "accumulation_steps": 1,
+        # The batch-norm layers of the backbone keep the running mean and
+        # variance of the pretrained checkpoint: they normalise with them and do
+        # not re-estimate them from the training batches. Their scale and shift
+        # (gamma, beta) are trained like every other weight, and nothing else in
+        # the backbone is frozen. The pinned trainer would update the statistics
+        # ("updated"); with few lines per forward pass that alone cost a third
+        # of the line accuracy within 20 steps.
+        "batch_norm_statistics": "frozen",
+        "schedule": SCHEDULE,
         "data_mix": "configs/vietnamese/vietocr/data_mix.yml",
         "selection_split": dataset.REAL_VAL,
         "selection_metric": "cer_nfc",

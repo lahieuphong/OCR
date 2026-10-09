@@ -225,21 +225,34 @@ def annotation_images(path: Path) -> list[str]:
     return [line.split("\t")[0] for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
 
 
-def training_data_problems(train_annotation: Path, valid_annotation: Path, root: Path = DATASET_DIR) -> list[str]:
+def training_data_problems(
+    train_annotation: Path, valid_annotation: Path, root: Path = DATASET_DIR, known_splits: tuple[str, ...] = SPLITS
+) -> list[str]:
     """Reasons why a training run must not start from these two annotation files.
 
     Training may read ``real_train`` and ``synthetic_train``; validation may
     read ``real_val`` only, because the weights to keep are chosen on real
     lines. A line of the blind test or of the bake-off regression in either
     file is a leak, and so is an image no manifest knows.
+
+    ``known_splits`` are the manifests opened to find out where an image
+    belongs. With all six, a foreign line is named by its set. The training
+    script passes the four training and validation sets only: it then refuses
+    every other image just the same, without ever opening the manifest of an
+    evaluation set.
     """
-    owner = {row["image_path"]: split for split, rows in read_splits(root).items() for row in rows}
+    unknown = "no set" if set(known_splits) == set(SPLITS) else "no training or validation set"
+    owner = {}
+    for split in known_splits:
+        path = manifest_path(split, root)
+        for row in read_manifest(path) if path.is_file() else []:
+            owner[row["image_path"]] = split
     problems = []
     for role, path, allowed in (
         ("training", train_annotation, TRAINING_SPLITS),
         ("validation", valid_annotation, (REAL_VAL,)),
     ):
-        found = Counter(owner.get(image, "no set") for image in annotation_images(path))
+        found = Counter(owner.get(image, unknown) for image in annotation_images(path))
         problems += [
             f"{role} file {path.name}: {count} line(s) of {split}"
             for split, count in sorted(found.items())

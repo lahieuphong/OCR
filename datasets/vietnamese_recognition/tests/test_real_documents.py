@@ -712,6 +712,28 @@ class BlindTestLock(unittest.TestCase):
         self.assertIn(SYNTHETIC_VAL, results)
         self.assertRegex(output, r"real_val: 4/4 lines \| CER raw=0\.\d+")
 
+    def test_decoder_limit_hits_and_runtime_are_reported_per_set(self):
+        rows = bakeoff.read_jsonl(self.predictions)
+        validation = {row["id"] for row in self.workspace.splits()[REAL_VAL]}
+        for index, row in enumerate(rows):
+            row.update(hit_decoder_limit=row["id"] in validation and index < 2, runtime_ms=500.0)
+        bakeoff.write_jsonl(self.predictions, rows)
+        bakeoff.write_json(self.predictions.with_suffix(".meta.json"), {"decoder_max_seq_length": 128, "image_max_width": 512,
+                                                                         "project_config": "exp_a_width512.yml", "ignored": "x"})  # fmt: skip
+        _, output = self.score()
+        results = self.results()
+        self.assertEqual((results[REAL_VAL]["decoder_limit_hits"], results[REAL_VAL]["runtime_seconds"]), (2, 2.0))
+        self.assertEqual(results[SYNTHETIC_VAL]["decoder_limit_hits"], 0)
+        self.assertNotIn("decoder_limit_hits", results[BLIND_TEST])  # locked: nothing about it is computed
+        self.assertRegex(output, r"real_val: 4/4 lines .* decoder limit hits=2 \| 2\.0 s")
+        report = json.loads((self.workspace.root / "manifests" / "evaluations" / "candidate.json").read_text(encoding="utf-8"))
+        self.assertEqual(report["run"], {"project_config": "exp_a_width512.yml", "image_max_width": 512, "decoder_max_seq_length": 128})
+
+    def test_predictions_without_those_fields_are_scored_as_before(self):
+        self.score()
+        self.assertNotIn("decoder_limit_hits", self.results()[REAL_VAL])
+        self.assertIn("runtime_seconds", self.results()[REAL_VAL])  # the fixture records a runtime
+
     def test_unlocking_needs_a_reason_and_leaves_a_trace(self):
         with self.assertRaises(SystemExit):
             self.score("--unlock-blind-test")
@@ -838,9 +860,14 @@ class TrainingReadiness(unittest.TestCase):
         self.assertEqual(gate["ready"], everything and report["result"] == "PASS")
 
 
-class NoTrainingCode(unittest.TestCase):
-    def test_nothing_here_takes_a_gradient_step(self):
-        forbidden = re.compile(r"\.backward\(|optimizer\.step\(|Trainer\(|\.train\(\)|tools/train\.py")
+class TrainingCodeLivesInOnePlace(unittest.TestCase):
+    def test_only_the_training_wrapper_takes_gradient_steps(self):
+        forbidden = re.compile(r"\.backward\(|optimizer\.step\(|\.train\(\)")
+        found = [path.name for path in sorted(dataset.DATASET_DIR.glob("*.py")) if forbidden.search(path.read_text(encoding="utf-8"))]
+        self.assertEqual(found, ["train_vietocr.py"])
+
+    def test_nothing_calls_the_vendored_or_the_pinned_trainer(self):
+        forbidden = re.compile(r"\bTrainer\(|tools/train\.py|from vietocr\.model\.trainer|import vietocr\.model\.trainer")
         for path in sorted(dataset.DATASET_DIR.glob("*.py")):
             self.assertIsNone(forbidden.search(path.read_text(encoding="utf-8")), path.name)
 

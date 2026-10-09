@@ -24,8 +24,8 @@ optimizer:
 trainer:
   batch_size: 16
   print_every: 50
-  valid_every: 320
-  iters: 9500
+  valid_every: 233
+  iters: 4670
   export: models/vietocr/finetuned/exp_b_width1024/weights.pth
   checkpoint: models/vietocr/finetuned/exp_b_width1024/checkpoint.pth
   log: models/vietocr/finetuned/exp_b_width1024/train.log
@@ -78,6 +78,15 @@ cnn:
 decoder_max_seq_length: 128
 experiment:
   seed: 20261201
+  accumulation_steps: 1
+  batch_norm_statistics: frozen
+  schedule:
+    samples_per_pass: 7459
+    effective_batch_size: 16
+    steps_per_epoch: 467
+    epochs: 10
+    total_steps: 4670
+    validate_every: 233
   data_mix: configs/vietnamese/vietocr/data_mix.yml
   selection_split: real_val
   selection_metric: cer_nfc

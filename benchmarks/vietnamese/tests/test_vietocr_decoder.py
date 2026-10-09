@@ -15,7 +15,6 @@ import sys
 import tempfile
 import types
 import unittest
-import unittest.mock
 from pathlib import Path
 
 import _paths
@@ -103,6 +102,34 @@ class WhereTheLimitComesFrom(unittest.TestCase):
             for forbidden in ("__defaults__", "setattr(", "monkeypatch", "mock.patch"):
                 self.assertNotIn(forbidden, source, path.name)
             self.assertIsNone(re.search(r"^\s*(vietocr|translate)\.[\w.]+\s*=", source, re.MULTILINE), path.name)
+
+
+class Weights(unittest.TestCase):
+    def test_the_pretrained_file_must_be_the_recorded_one(self):
+        original = run_vietocr.WEIGHTS_PATH
+        with tempfile.TemporaryDirectory() as directory:
+            fake = Path(directory) / "vgg_transformer.pth"
+            fake.write_bytes(b"not the checkpoint")
+            run_vietocr.WEIGHTS_PATH = fake
+            try:
+                with self.assertRaises(SystemExit) as refusal:
+                    run_vietocr.check_weights(fake, "url")
+            finally:
+                run_vietocr.WEIGHTS_PATH = original
+            self.assertIn(f"expected {run_vietocr.WEIGHTS_SHA256}", str(refusal.exception))
+
+    def test_fine_tuned_weights_are_accepted_and_their_digest_recorded(self):
+        with tempfile.TemporaryDirectory() as directory:
+            trained = Path(directory) / "weights.pth"
+            trained.write_bytes(b"weights written by a training run")
+            self.assertEqual(run_vietocr.check_weights(trained, "url"), bakeoff.sha256_file(trained))
+            with self.assertRaises(SystemExit):
+                run_vietocr.check_weights(Path(directory) / "missing.pth", "url")
+
+    def test_fine_tuned_weights_are_read_with_their_config_only(self):
+        source = (_paths.BAKEOFF_DIR / "run_vietocr.py").read_text(encoding="utf-8")
+        self.assertIn("if not pretrained and args.config is None:", source)
+        self.assertIn('"weights_sha256": weights_sha256,', source)
 
 
 class PinnedCheckout(unittest.TestCase):
@@ -215,9 +242,14 @@ class TrainingCollator(unittest.TestCase):
     def setUpClass(cls):
         use_pinned_checkout()
         # The module also imports what only its LMDB reader needs; the collator needs none of it.
-        absent = {name: types.ModuleType(name) for name in ("lmdb", "six", "cv2") if importlib.util.find_spec(name) is None}
-        with unittest.mock.patch.dict(sys.modules, absent):
+        absent = [name for name in ("lmdb", "six", "cv2") if importlib.util.find_spec(name) is None]
+        for name in absent:
+            sys.modules[name] = types.ModuleType(name)
+        try:
             from vietocr.loader.dataloader import Collator
+        finally:
+            for name in absent:  # only the stand-ins go; everything really imported stays imported
+                del sys.modules[name]
         cls.Collator = Collator
         cls.vocab = vocabulary()
 

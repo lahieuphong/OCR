@@ -8,7 +8,8 @@ Usage:
 
 ``inputs`` lists the crops of the sets to predict, in the form
 ``benchmarks/vietnamese/recognizer_bakeoff/run_vietocr.py --manifest`` reads.
-``score`` then reports CER, WER and exact-line accuracy separately for
+``score`` then reports CER, WER, exact-line accuracy, the number of predictions
+whose decoder ran out of steps and the time they took, separately for
 
     real_val             what a model or a setting is chosen on
     synthetic_val        a diagnostic: has the model learnt the synthetic data
@@ -39,6 +40,12 @@ import bakeoff_common as bakeoff  # noqa: E402  (path set up by dataset_common)
 from evaluate import nfc, page_counts, rate, rates  # noqa: E402
 
 DEFAULT_SPLITS = (REAL_VAL, SYNTHETIC_VAL, BAKEOFF_REGRESSION)
+# What is kept, from the metadata the recognizer wrote, about how predictions were made.
+RUN_KEYS = (
+    "recognizer", "repository_commit", "project_config", "image_max_width", "decoder_max_seq_length",
+    "decoder_max_seq_length_source", "weights_file", "weights_sha256", "weights_are_the_pretrained_checkpoint",
+    "device", "crops_processed", "runtime_seconds", "mean_runtime_ms",
+)  # fmt: skip
 UNLOCK_LOG = "blind_test_unlocks.jsonl"
 LOCKED = "LOCKED"
 
@@ -83,8 +90,12 @@ def score_rows(rows: list[dict], predictions: dict[str, str]) -> dict:
     return result
 
 
-def score(splits: dict[str, list[dict]], predictions: dict[str, str], unlocked: bool) -> dict:
-    """Metrics per set. The blind test is reported as locked unless ``unlocked``."""
+def score(splits: dict[str, list[dict]], predictions: dict[str, str], unlocked: bool, details: dict[str, dict] | None = None) -> dict:
+    """Metrics per set. The blind test is reported as locked unless ``unlocked``.
+
+    ``details`` are the full prediction records, when the recognizer wrote
+    more than text: whether its decoder ran out of steps, and its runtime.
+    """
     results = {}
     for split, rows in splits.items():
         if split == BLIND_TEST and not unlocked:
@@ -92,6 +103,11 @@ def score(splits: dict[str, list[dict]], predictions: dict[str, str], unlocked: 
             results[split] = {"lines": len(rows), "status": LOCKED, "predictions_not_scored": waiting}
         elif any(row["id"] in predictions for row in rows):
             results[split] = score_rows(rows, predictions)
+            records = [details[row["id"]] for row in rows if row["id"] in (details or {})]
+            if any("hit_decoder_limit" in record for record in records):
+                results[split]["decoder_limit_hits"] = sum(record.get("hit_decoder_limit") is True for record in records)
+            if any("runtime_ms" in record for record in records):
+                results[split]["runtime_seconds"] = round(sum(record.get("runtime_ms") or 0 for record in records) / 1000, 1)
     return results
 
 
@@ -129,17 +145,21 @@ def command_inputs(args: argparse.Namespace) -> int:
 
 
 def command_score(args: argparse.Namespace) -> int:
-    predictions = {key: row["prediction"] for key, row in bakeoff.load_predictions(args.predictions).items()}
+    details = bakeoff.load_predictions(args.predictions)
+    predictions = {key: row["prediction"] for key, row in details.items()}
     splits = dataset.read_splits(args.root)
     if args.unlock_blind_test:
         if not args.reason:
             raise SystemExit("--unlock-blind-test needs --reason: say why the blind test is opened now.")
         # Written before anything is shown: a look that crashes still counts.
         record_unlock(args.root, args.label, args.reason, args.by or bakeoff_git_user())
-    results = score(splits, predictions, args.unlock_blind_test)
+    results = score(splits, predictions, args.unlock_blind_test, details)
+    metadata_path = args.predictions.with_suffix(".meta.json")
+    metadata = json.loads(metadata_path.read_text(encoding="utf-8")) if metadata_path.is_file() else {}
+    run = {key: metadata[key] for key in RUN_KEYS if key in metadata}
     bakeoff.write_json(
         args.root / "manifests" / "evaluations" / f"{args.label}.json",
-        {"label": args.label, "predictions": args.predictions.name, "results": results},
+        {"label": args.label, "predictions": args.predictions.name, "run": run, "results": results},
     )
 
     for split, result in results.items():
@@ -151,6 +171,8 @@ def command_score(args: argparse.Namespace) -> int:
                 f"CER raw={result['cer_raw']:.6f} nfc={result['cer_nfc']:.6f} | "
                 f"WER raw={result['wer_raw']:.6f} nfc={result['wer_nfc']:.6f} | "
                 f"exact line={result['exact_line_nfc']:.4f}"
+                + (f" | decoder limit hits={result['decoder_limit_hits']}" if "decoder_limit_hits" in result else "")
+                + (f" | {result['runtime_seconds']} s" if "runtime_seconds" in result else "")
             )
     if not any(result.get("scored_lines") for result in results.values()):
         print("no prediction matched a line of an unlocked set")

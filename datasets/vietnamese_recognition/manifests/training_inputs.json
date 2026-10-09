@@ -1,0 +1,53 @@
+{
+  "frozen_at": "2026-10-09T16:34:39+00:00",
+  "dataset": {
+    "real_train": {
+      "path": "manifests/real_train.tsv",
+      "sha256": "7e0265b2e165f65e3447dda08b4ad25251ddca84d09b8da2f4f52ac762708d36",
+      "lines": 403
+    },
+    "real_val": {
+      "path": "manifests/real_val.tsv",
+      "sha256": "a7059843a33208aca0c1100176c1c020f73d76a07d01649e6a83216b1fb5e6a6",
+      "lines": 101
+    },
+    "synthetic_train": {
+      "path": "manifests/synthetic_train.tsv",
+      "sha256": "03d177e20271edbf83456434df52c60a86ad33cb04a866c350537a238e5741cb",
+      "lines": 5060
+    },
+    "synthetic_val": {
+      "path": "manifests/synthetic_val.tsv",
+      "sha256": "06dca6aac0e1b933900201893c1cddacddd74e869cc8b8a85f26e547e408f791",
+      "lines": 553
+    },
+    "train_mix_annotation": {
+      "path": "manifests/vietocr/train_mix_annotation.txt",
+      "sha256": "9511e514a7eec3cc6b9860c222aad2a76069c1043eb84eb2f68a1fbf5f2ef682",
+      "lines": 7459
+    },
+    "real_val_annotation": {
+      "path": "manifests/vietocr/real_val_annotation.txt",
+      "sha256": "864c6110e01e0722db6450cd9faf03f482a81b82ee5934699a84d2179f04d0b8",
+      "lines": 100
+    }
+  },
+  "configs": {
+    "exp_a_width512.yml": {
+      "path": "configs/vietnamese/vietocr/exp_a_width512.yml",
+      "sha256": "469272979b67f7dcf759b11508e1c914bfbe45b8374f893683a70889e2bbb15f"
+    },
+    "exp_b_width1024.yml": {
+      "path": "configs/vietnamese/vietocr/exp_b_width1024.yml",
+      "sha256": "48b1b348783381f4e080916839f114380e9d6d55f77d9055e3eb10589cc56802"
+    },
+    "data_mix.yml": {
+      "path": "configs/vietnamese/vietocr/data_mix.yml",
+      "sha256": "2efae9bb827a81805674ef4bce99fc4b16a4e279e9ea4be0a327dee62da3d565"
+    }
+  },
+  "pretrained": {
+    "path": "models/vietocr/vgg_transformer.pth",
+    "sha256": "380512193a8b6cbf6fad80deacdc9b6939d10d473d199892fc6408d13775ea59"
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "label": "phase4_pretrained_w512",
+  "predictions": "pretrained_w512.jsonl",
+  "run": {
+    "recognizer": "VietOCR vgg_transformer",
+    "repository_commit": "fe8c3a7fc714aec57ab81cec844eb3adf0c1636c",
+    "project_config": "exp_a_width512.yml",
+    "image_max_width": 512,
+    "decoder_max_seq_length": 128,
+    "decoder_max_seq_length_source": "config",
+    "weights_sha256": "380512193a8b6cbf6fad80deacdc9b6939d10d473d199892fc6408d13775ea59",
+    "device": "cpu",
+    "crops_processed": 752,
+    "runtime_seconds": 424.092,
+    "mean_runtime_ms": 564.0
+  },
+  "results": {
+    "real_val": {
+      "lines": 100,
+      "scored_lines": 100,
+      "characters": 4573,
+      "words": 1024,
+      "cer_raw": 0.0448283402580363,
+      "cer_nfc": 0.0448283402580363,
+      "wer_raw": 0.1064453125,
+      "wer_nfc": 0.1064453125,
+      "exact_line_nfc": 0.56,
+      "decoder_limit_hits": 0,
+      "runtime_seconds": 71.2
+    },
+    "synthetic_val": {
+      "lines": 552,
+      "scored_lines": 552,
+      "characters": 30092,
+      "words": 6531,
+      "cer_raw": 0.04482919048252027,
+      "cer_nfc": 0.04482919048252027,
+      "wer_raw": 0.10473128158015618,
+      "wer_nfc": 0.10473128158015618,
+      "exact_line_nfc": 0.4891304347826087,
+      "decoder_limit_hits": 5,
+      "runtime_seconds": 310.1
+    },
+    "bakeoff_regression": {
+      "lines": 100,
+      "scored_lines": 100,
+      "characters": 4853,
+      "words": 1053,
+      "cer_raw": 0.045126725736657734,
+      "cer_nfc": 0.045126725736657734,
+      "wer_raw": 0.08831908831908832,
+      "wer_nfc": 0.08831908831908832,
+      "exact_line_nfc": 0.57,
+      "decoder_limit_hits": 0,
+      "runtime_seconds": 42.8
+    },
+    "blind_test": {
+      "lines": 100,
+      "status": "LOCKED",
+      "predictions_not_scored": 0
+    }
+  }
+}

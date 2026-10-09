@@ -120,12 +120,19 @@ def load_config(weights: Path, device: str, project_config: Path | None = None):
     return config, weights_url
 
 
-def check_weights(path: Path, url: str) -> None:
+def check_weights(path: Path, url: str) -> str:
+    """SHA-256 of the weights file, after checking it is what it should be.
+
+    The pretrained checkpoint has to be the recorded file. Any other file is
+    fine-tuned weights written by ``train_vietocr.py``: it only has to exist,
+    and its digest goes into the metadata of the predictions.
+    """
     if not path.is_file():
         raise SystemExit(f"Missing VietOCR weights: {path}\nDownload {url} to that path.")
     digest = bakeoff.sha256_file(path)
-    if digest != WEIGHTS_SHA256:
+    if path.resolve() == WEIGHTS_PATH.resolve() and digest != WEIGHTS_SHA256:
         raise SystemExit(f"{path} has SHA-256 {digest}, expected {WEIGHTS_SHA256}.")
+    return digest
 
 
 def recognise(predictor, image, max_seq_length: int) -> tuple[str, float | None, float, bool | None]:
@@ -163,7 +170,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--manifest", type=Path, default=bakeoff.MANIFEST)
     parser.add_argument("--output", type=Path, default=bakeoff.PREDICTION_FILES[bakeoff.VIETOCR])
     parser.add_argument("--weights", type=Path, default=WEIGHTS_PATH)
-    parser.add_argument("--device", default="cpu", choices=("cpu", "mps"))
+    parser.add_argument("--device", default="cpu", help="cpu (default), mps, or a CUDA device such as cuda:0.")
     parser.add_argument(
         "--image-max-width",
         type=int,
@@ -206,7 +213,10 @@ def main(argv: list[str] | None = None) -> int:
     from vietocr.tool.predictor import Predictor
 
     config, weights_url = load_config(args.weights, args.device, args.config)
-    check_weights(args.weights, weights_url)
+    weights_sha256 = check_weights(args.weights, weights_url)
+    pretrained = weights_sha256 == WEIGHTS_SHA256
+    if not pretrained and args.config is None:
+        raise SystemExit("Fine-tuned weights are read with the config they were trained with: pass --config.")
     if args.image_max_width is not None:
         config["dataset"]["image_max_width"] = args.image_max_width
     max_seq_length, limit_source = decoder_limit(config, args.decoder_max_seq_length)
@@ -260,8 +270,10 @@ def main(argv: list[str] | None = None) -> int:
         "image_max_width": dataset["image_max_width"],
         "image_max_width_overridden": args.image_max_width is not None,
         "crops_squeezed_to_max_width": squeezed,
-        "weights_url": weights_url,
-        "weights_sha256": WEIGHTS_SHA256,
+        "weights_url": weights_url if pretrained else None,
+        "weights_file": args.weights.name,
+        "weights_sha256": weights_sha256,
+        "weights_are_the_pretrained_checkpoint": pretrained,
         "confidence": "mean softmax probability of the decoded characters, as "
         "Predictor.predict(return_prob=True) computes it; not calibrated and not "
         "comparable with the PP-OCRv6 score",
@@ -278,6 +290,7 @@ def main(argv: list[str] | None = None) -> int:
     bakeoff.write_predictions(args.output, rows, metadata)
 
     print(f"recognizer:      VietOCR {CONFIG_NAME} @ {VIETOCR_COMMIT[:10]} on {args.device}")
+    print(f"weights:         {'pretrained' if pretrained else 'fine-tuned'} {args.weights.name} ({weights_sha256[:12]})")
     print(f"crops processed: {len(rows)}")
     print(f"runtime:         {metadata['runtime_seconds']} s ({metadata['mean_runtime_ms']} ms/crop)")
     print(

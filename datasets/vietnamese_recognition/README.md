@@ -4,7 +4,9 @@ Dữ liệu để fine-tune recognizer VietOCR cho văn bản hành chính tiế
 các tập dùng để đo kết quả.
 
 Kiến trúc đã chốt sau bake-off: `PP-OCRv6_medium_det` → line crop dùng chung →
-VietOCR. Thư mục này chỉ chuẩn bị dữ liệu. **Chưa có gì được train.**
+VietOCR. Thư mục này chuẩn bị dữ liệu và chứa script train
+(`train_vietocr.py`). **Mới chỉ chạy smoke train; chưa có lần train đầy đủ
+nào.** Cách train, baseline và kế hoạch GPU: `configs/vietnamese/vietocr/README.md`.
 
 ## Sáu tập
 
