@@ -38,6 +38,10 @@ class DynamicSequenceAttention(nn.Module):
             raise ValueError("Unsupported MHA configuration; refuse ONNX export")
         # Preserve the exact pretrained/fine-tuned Parameter objects from the
         # export copy. Never initialize a new projection.
+        # nn.TransformerEncoder/Decoder inspect these attributes before
+        # calling the attention module, even in their non-fastpath branches.
+        self.batch_first = original.batch_first
+        self._qkv_same_embed_dim = original._qkv_same_embed_dim
         self.in_proj_weight = original.in_proj_weight
         self.in_proj_bias = original.in_proj_bias
         self.out_proj = original.out_proj
