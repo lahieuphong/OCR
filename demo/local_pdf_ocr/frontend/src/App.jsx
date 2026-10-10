@@ -34,6 +34,7 @@ export default function App() {
   const [selectedMode, setSelectedMode] = useState("vietocr_ocr");
   const [resultsByMode, setResultsByMode] = useState({});
   const [compare, setCompare] = useState(false);
+  const [splitHeaders, setSplitHeaders] = useState(false);
   const [page, setPage] = useState(1);
   const [working, setWorking] = useState(false);
   const [elapsed, setElapsed] = useState(0);
@@ -63,6 +64,7 @@ export default function App() {
     setError("");
     setResultsByMode({});
     setCompare(false);
+    setSplitHeaders(false);
     setPage(1);
     setCopied(false);
     if (!EXTENSIONS.test(file.name)) {
@@ -88,7 +90,9 @@ export default function App() {
     setWorking(true);
     setError("");
     setCompare(false);
-    setResultsByMode(previous => ({...previous, [selectedMode]: undefined}));
+    const requestKey = selectedMode === "vietocr_ocr" && splitHeaders
+      ? "vietocr_ocr_header_split" : selectedMode;
+    setResultsByMode(previous => ({...previous, [requestKey]: undefined}));
     setElapsed(0);
     const start = performance.now();
     elapsedTimer.current = window.setInterval(
@@ -98,6 +102,7 @@ export default function App() {
       const payload = new FormData();
       payload.append("file", document, document.name);
       payload.append("mode", selectedMode);
+      payload.append("split_headers", selectedMode === "vietocr_ocr" && splitHeaders ? "true" : "false");
       const response = await fetch("/api/ocr", {method: "POST", body: payload});
       let data;
       try {
@@ -109,10 +114,13 @@ export default function App() {
       if (data.method !== selectedMode) {
         throw Error("Backend trả sai chế độ xử lý đã chọn; dừng để bảo vệ kết quả.");
       }
+      if (selectedMode === "vietocr_ocr" && data.header_split_enabled !== splitHeaders) {
+        throw Error("Backend trả sai cài đặt split header; dừng để tránh so sánh nhầm.");
+      }
       if (!data.pages || !Array.isArray(data.pages)) {
         throw Error("Định dạng phản hồi từ backend không hợp lệ.");
       }
-      setResultsByMode(previous => ({...previous, [selectedMode]: data}));
+      setResultsByMode(previous => ({...previous, [requestKey]: data}));
       setPage(1);
     } catch (exception) {
       setError(exception?.message || String(exception));
@@ -123,12 +131,17 @@ export default function App() {
     }
   }
 
-  const result = resultsByMode[selectedMode] || null;
+  const resultKey = selectedMode === "vietocr_ocr" && splitHeaders
+    ? "vietocr_ocr_header_split" : selectedMode;
+  const result = resultsByMode[resultKey] || null;
   const currentPage = result?.pages.find(x => x.page === page);
   const shownText = activeView === "page" ? (currentPage?.text || "") : (result?.text || "");
   const isPDF = document && /\.pdf$/i.test(document.name);
   const icon = isPDF ? FileText : FileImage;
-  const bothReady = Boolean(isPDF && resultsByMode.native_text && resultsByMode.vietocr_ocr);
+  const comparisonOcr = resultsByMode[splitHeaders ? "vietocr_ocr_header_split" : "vietocr_ocr"];
+  const bothReady = Boolean(isPDF && resultsByMode.native_text && comparisonOcr);
+  const exportSuffix = result?.method === "vietocr_ocr" && result.header_split_enabled
+    ? "_header_split" : "";
   const canRun = health === "connected" || (health === "not-ready" && selectedMode === "native_text");
 
   async function copyText() {
@@ -233,7 +246,7 @@ export default function App() {
                   disabled={working}/>
                 <span className="mode-name"><ScanLine size={16}/> OCR bằng VietOCR B</span>
                 <small>PaddleOCR Detection · ONNX CPU · PDF/ảnh</small>
-                {resultsByMode.vietocr_ocr && <span className="mode-done"><Check size={12}/> Đã chạy</span>}
+                {resultsByMode[resultKey] && <span className="mode-done"><Check size={12}/> Đã chạy</span>}
               </label>
               <p className="mode-note">
                 {selectedMode === "native_text"
@@ -241,6 +254,16 @@ export default function App() {
                   : "Luôn render trang và chạy nhận dạng thực sự, kể cả PDF đã có text. Kết quả không bị chỉnh sửa dấu."}
               </p>
             </fieldset>
+
+            {selectedMode === "vietocr_ocr" && <div className="header-split-toggle">
+              <label>
+                <input type="checkbox" checked={splitHeaders}
+                  disabled={!document || working}
+                  onChange={event => {setSplitHeaders(event.target.checked); setCompare(false); setPage(1); setError("");}}/>
+                <strong>Thử tách header hai cột (experimental)</strong>
+              </label>
+              <p>Mặc định tắt. Chỉ tách box có khe trắng xác nhận bằng ảnh; có thể thay đổi số dòng và văn bản OCR. Kết quả gốc luôn được lưu riêng để so sánh.</p>
+            </div>}
 
             <div className="preview-area">
               <div className="section-label"><span>01</span> XEM TRƯỚC <span className="subtle-line"/></div>
@@ -280,8 +303,8 @@ export default function App() {
               </div>
               <div className="toolbar-actions">
                 <button title="Sao chép văn bản" disabled={!result} onClick={copyText}>{copied ? <Check size={17}/> : <Copy size={17}/>}</button>
-                <button title="Tải TXT" disabled={!result} onClick={() => downloadText(shortName(document.name) + "_" + result.method + ".txt", result.text)}><Download size={17}/></button>
-                <button title="Tải báo cáo JSON" disabled={!result} onClick={() => downloadText(shortName(document.name) + "_" + result.method + ".json", JSON.stringify(result, null, 2), "application/json;charset=utf-8")}><FileCode2 size={17}/></button>
+                <button title="Tải TXT" disabled={!result} onClick={() => downloadText(shortName(document.name) + "_" + result.method + exportSuffix + ".txt", result.text)}><Download size={17}/></button>
+                <button title="Tải báo cáo JSON" disabled={!result} onClick={() => downloadText(shortName(document.name) + "_" + result.method + exportSuffix + ".json", JSON.stringify(result, null, 2), "application/json;charset=utf-8")}><FileCode2 size={17}/></button>
               </div>
             </div>
 
@@ -299,6 +322,10 @@ export default function App() {
               <div className="review-warning" role="status"><AlertTriangle size={17}/>
                 <span>Có vùng OCR cần rà soát (header gộp, dòng gần dấu, hoặc mảnh chữ nằm giữa hai cột). Kết quả vẫn giữ nguyên từng ký tự nhận dạng; xem detection_review và reading_order trong JSON.</span>
               </div>}
+            {result?.header_split_enabled && <div className="review-warning" role="status">
+              <AlertTriangle size={17}/>
+              <span>Thử nghiệm tách header: {result.pages.reduce((n, p) => n + (p.header_split_experiment?.accepted_count || 0), 0)} box đã chia. Chưa được chứng minh tăng độ chính xác nhận dạng; hãy đối chiếu bản OCR gốc.</span>
+            </div>}
             {result && <div className="results-stats">
               <div><b>{result.page_count}</b><small>trang</small></div>
               <div><b>{result.line_count}</b><small>dòng nhận dạng</small></div>
@@ -315,8 +342,8 @@ export default function App() {
                 <div className="comparison-columns">
                   <section><strong>PDF text layer · PyMuPDF</strong>
                     <pre>{resultsByMode.native_text.text}</pre></section>
-                  <section><strong>OCR thực · VietOCR B</strong>
-                    <pre>{resultsByMode.vietocr_ocr.text}</pre></section>
+                  <section><strong>OCR thực · VietOCR B{splitHeaders ? " + thử tách header" : ""}</strong>
+                    <pre>{comparisonOcr.text}</pre></section>
                 </div>
               ) : result ? (
                 <pre>{shownText || "Không phát hiện được dòng văn bản. Hãy kiểm tra ảnh/PDF gốc."}</pre>
