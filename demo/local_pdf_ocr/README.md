@@ -235,3 +235,66 @@ Keep main unchanged until a multi-document OCR layout regression passes.
 Success for this branch means "real one-page OCR demo starts and returns
 correct-looking output" and an initial PDF regression report, not a
 production release.
+
+
+## Experimental region-aware OCR layout v2 (do not merge/deploy)
+
+Branch: feat/local-pdf-ocr-layout-v2, based on feat/local-pdf-ocr-demo.
+
+This version changes only OCR post-processing and detection **diagnostics**,
+not the PaddleOCR detector model or VietOCR recognizer. It groups the
+geometry of an unambiguous two-column zone found after a broad body line,
+regardless of whether the signature is near the bottom or upper half.
+It creates page-level reading_order and detection_review metadata.
+
+- Group disjoint left-column lines before right-column signature lines.
+- Keep undecidable fragments, such as OCR tokens from a visible stamp,
+  in a final zone with layout_region=overprint_review, rather than
+  deleting them or inventing corrections. Manual inspection is required.
+- Mark suspicious very wide first-page headings and unusually tall
+  detections in page.detection_review.flags, **without changing crop or
+  recognition results**. This is NOT a trained stamp detector or a
+  detection-accuracy improvement.
+- Preserve OCR text, quadrilateral coordinates and decoder-limit flags
+  for every input line. Never apply Vietnamese spelling replacements.
+- Native-text mode now labels scan-dominant PDFs with large displayed
+  page rasters and <=12 embedded lines, and reports pages_requiring_ocr,
+  native_text_complete, and per-page coverage. This does not auto-run OCR.
+
+Offline replay (not model re-inference) against the four user-supplied
+JSON documents covered 10 pages and 417/417 OCR lines. The intended
+layout modification applied only on 21-BCT page 2, 216-TB page 6,
+738-TTg page 1, and 10333/VPCP-CN page 1. No other page changed order.
+The two ambiguous fragments in 738-TTg were kept in overprint_review.
+The 3 scan-only PDFs' native-text coverage was 100% full-page raster,
+whereas digital 10333 was about 3% largest-image coverage.
+
+No private PDFs, actual OCR outputs, or model weights are committed as
+regression fixtures: the in-repo tests use synthetic geometry and PDFs.
+Model integration and Windows web build still require a separate local
+smoke test. v2 is NOT a replacement for a layout-aware detection model
+and cannot split an already-merged header recognition box.
+
+For an already working local Windows demo, from CMD:
+
+    cd /d E:\Phong_Nho_IT\OCR
+    git fetch origin
+    git checkout origin/feat/local-pdf-ocr-layout-v2 -- demo/local_pdf_ocr
+    .venv-demo\Scripts\python.exe -m unittest discover -s demo\local_pdf_ocr\backend\tests -p "test_*.py" -v
+
+If tests pass, restart backend:
+
+    .venv-demo\Scripts\python.exe -m uvicorn demo.local_pdf_ocr.backend.app:app --host 127.0.0.1 --port 8765
+
+Restart frontend from its directory (or ensure it HMR-reloads and rebuilds):
+
+    cd /d E:\Phong_Nho_IT\OCR\demo\local_pdf_ocr\frontend
+    npm run build
+    npm run dev
+
+Use the same PDFs in OCR mode to verify v2 emits
+reading_order.modified=true on the relevant pages. Check every token,
+especially the overprint_review fragments in 738-TTg. For native mode
+on the three scan PDFs, verify the explicit warning that extracted text
+is only an incomplete embedded layer. Keep main and the B checkpoint
+untouched. No blind test re-run and no merge.
