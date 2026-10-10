@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Export the FROZEN VietOCR B width-1024 recognizer as encoder/decoder-step ONNX graphs.
+r"""Export the FROZEN VietOCR B width-1024 recognizer as encoder/decoder-step ONNX graphs.
 
 This is *not* a production deployment command. Run parity verification before
 integrating the artifacts into any OCR pipeline.
@@ -85,7 +85,18 @@ def build_export_models(config_path: Path, weights_path: Path):
             self.transformer = recognizer.transformer
 
         def forward(self, image):
-            return self.transformer.forward_encoder(self.cnn(image))
+            # The pinned Vgg.forward ends with:
+            #   conv.transpose(-1, -2).flatten(2).permute(-1, 0, 1)
+            # PyTorch accepts a negative permutation index, but ONNX
+            # Transpose.perm ONLY accepts indices in [0, rank).
+            # Re-express the SAME operations with positive axis indices.
+            # Do not patch or change the pinned VietOCR submodule.
+            vgg = self.cnn.model
+            conv = vgg.features(image)
+            conv = vgg.dropout(conv)
+            conv = vgg.last_conv_1x1(conv)
+            sequence = conv.transpose(2, 3).flatten(2).permute(2, 0, 1)
+            return self.transformer.forward_encoder(sequence)
 
     class DecoderStep(nn.Module):
         def __init__(self, recognizer):
@@ -117,6 +128,18 @@ def export(config_path: Path, weights_path: Path, output_dir: Path, overwrite: b
     torch.backends.mha.set_fastpath_enabled(False)
     image = torch.zeros((1, 3, 32, 320), dtype=torch.float32)
     tokens = torch.tensor([[vocab.go], [vocab.c2i.get("a", 4)]], dtype=torch.long)
+
+    # Guardrail: the ONNX-friendly layout must remain bit-for-bit equivalent
+    # to the pinned PyTorch encoder; test several *non-zero* inputs/widths
+    # before any export. No blind-test images are involved.
+    with torch.inference_mode():
+        for width in (160, 320, 640, 1024):
+            probe = torch.linspace(0.0, 1.0, steps=3 * 32 * width).reshape(1, 3, 32, width)
+            pinned = model.transformer.forward_encoder(model.cnn(probe))
+            rewritten = encoder(probe)
+            if not torch.equal(pinned, rewritten):
+                delta = (pinned - rewritten).abs().max().item()
+                raise SystemExit(f"STOP: CNN ONNX-safe layout differs from pinned VietOCR at width {width}: {delta}")
 
     # The encoder must support image widths beyond the tracing example;
     # the decoder must support varying source widths and target prefix lengths.
