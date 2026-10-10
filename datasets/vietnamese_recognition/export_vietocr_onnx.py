@@ -62,9 +62,11 @@ def preflight(config_path: Path, weights_path: Path) -> dict:
 
 def build_export_models(config_path: Path, weights_path: Path):
     # Import after pinned checkout path has been established.
+    import copy
     import run_vietocr
     import torch
     from torch import nn
+    from onnx_attention import replace_attention_for_export
 
     run_vietocr.check_pinned_checkout()
     sys.dont_write_bytecode = True
@@ -77,6 +79,15 @@ def build_export_models(config_path: Path, weights_path: Path):
     model, vocab = build_model(config)
     model.load_state_dict(torch.load(weights_path, map_location="cpu", weights_only=True))
     model.eval()
+
+    # Keep an untouched pinned reference for numeric checks. The ONNX-only
+    # copy uses explicit attention matmul/softmax, avoiding sequence-length
+    # constants in legacy MultiheadAttention tracing.
+    export_model = copy.deepcopy(model)
+    replaced = replace_attention_for_export(export_model)
+    if replaced != 18:
+        raise SystemExit(f"STOP: expected 18 transformer attention modules; got {replaced}")
+    export_model.eval()
 
     class Encoder(nn.Module):
         def __init__(self, recognizer):
@@ -107,7 +118,7 @@ def build_export_models(config_path: Path, weights_path: Path):
             logits, _ = self.transformer.forward_decoder(tokens, memory)
             return logits[:, -1, :]
 
-    return model, vocab, Encoder(model).eval(), DecoderStep(model).eval()
+    return model, vocab, Encoder(export_model).eval(), DecoderStep(export_model).eval()
 
 
 def export(config_path: Path, weights_path: Path, output_dir: Path, overwrite: bool) -> dict:
@@ -137,9 +148,22 @@ def export(config_path: Path, weights_path: Path, output_dir: Path, overwrite: b
             probe = torch.linspace(0.0, 1.0, steps=3 * 32 * width).reshape(1, 3, 32, width)
             pinned = model.transformer.forward_encoder(model.cnn(probe))
             rewritten = encoder(probe)
-            if not torch.equal(pinned, rewritten):
+            if not torch.allclose(pinned, rewritten, atol=1e-4, rtol=1e-4):
                 delta = (pinned - rewritten).abs().max().item()
-                raise SystemExit(f"STOP: CNN ONNX-safe layout differs from pinned VietOCR at width {width}: {delta}")
+                raise SystemExit(f"STOP: attention rewrite differs numerically from pinned encoder at width {width}: {delta}")
+            # Check the entire decoder as well: self-attention with a causal
+            # mask and cross-attention on the variable-width encoder memory.
+            for prefix_length in (1, 2, 16):
+                prefix = torch.ones((prefix_length, 1), dtype=torch.long)
+                reference_logits, _ = model.transformer.forward_decoder(prefix, pinned)
+                export_logits = decoder(prefix, rewritten)
+                reference_last = reference_logits[:, -1, :]
+                if not torch.allclose(reference_last, export_logits, atol=5e-4, rtol=1e-4):
+                    delta = (reference_last - export_logits).abs().max().item()
+                    raise SystemExit(
+                        f"STOP: attention rewrite differs from pinned decoder at width {width}, "
+                        f"prefix {prefix_length}: {delta}"
+                    )
 
     # The encoder must support image widths beyond the tracing example;
     # the decoder must support varying source widths and target prefix lengths.
@@ -190,7 +214,7 @@ def export(config_path: Path, weights_path: Path, output_dir: Path, overwrite: b
         "config_path": config_path.relative_to(dataset.REPO_ROOT).as_posix(),
         "checkpoint_path": weights_path.relative_to(dataset.REPO_ROOT).as_posix(),
         "opset": OPSET,
-        "exporter": "torch.onnx.export(dynamo=False), explicit encoder and decoder-step",
+        "exporter": "torch.onnx.export(dynamo=False), encoder/decoder-step with export-only dynamic MHA",
         "torch_version": torch.__version__,
         "onnx_version": onnx.__version__,
         "onnxruntime_version": ort.__version__,
