@@ -3,10 +3,9 @@
 Never invoke PaddleOCR, the VietOCR checkpoint, OCR image rendering, or a
 blind-test reference. Output is sourced exclusively from embedded PDF text.
 
-Default reading order is PDF content-stream BLOCK order (sort=False), which
-on common government PDFs preserves the whole left-column 'Nơi nhận' block
-before the right-column signature instead of interleaving the two line by
-line. This is NOT a general layout-analysis solution.
+Reading order uses conservative geometric band/column ordering applied
+to PDF text blocks. Content-stream indexes are preserved for auditing,
+and no characters are ever changed. This is NOT a universal layout engine.
 """
 from __future__ import annotations
 
@@ -14,6 +13,7 @@ import time
 from pathlib import Path
 
 from .contract import MAX_PDF_PAGES, validate_upload
+from .reading_order import order_text_blocks
 
 
 def extract_pdf_text(raw: bytes, filename: str) -> dict:
@@ -40,10 +40,8 @@ def extract_pdf_text(raw: bytes, filename: str) -> dict:
         for page_index in range(len(pdf)):
             page_start = time.perf_counter()
             page = pdf[page_index]
-            # Avoid PyMuPDF sort=True: it can interleave adjacent columns and
-            # make left-column recipient lists mix with right-column signatures.
-            # Text block order is source content-stream order, not a guaranteed
-            # perfect human reading order for arbitrary PDFs.
+            # Read original PDF blocks, without PyMuPDF's linewise sort=True.
+            # A conservative geometric sorter reorders WHOLE blocks below.
             blocks = []
             flattened_lines = []
             for source_index, block in enumerate(page.get_text("blocks", sort=False)):
@@ -63,11 +61,13 @@ def extract_pdf_text(raw: bytes, filename: str) -> dict:
                     "text": extracted,
                     "line_count": len(block_lines),
                 })
-                for chunk in block_lines:
+            blocks = order_text_blocks(blocks, float(page.rect.width))
+            for item in blocks:
+                for chunk in item["text"].splitlines():
                     flattened_lines.append({
                         "line_index": len(flattened_lines) + 1,
-                        "block_index": source_index,
-                        "bbox": bbox,
+                        "block_index": item["source_block_index"],
+                        "bbox": item["bbox"],
                         "text": chunk,
                     })
             page_text = "\n".join(item["text"] for item in blocks)
@@ -79,7 +79,7 @@ def extract_pdf_text(raw: bytes, filename: str) -> dict:
                 "width": round(float(page.rect.width), 2),
                 "height": round(float(page.rect.height), 2),
                 "coordinate_system": "pdf_points",
-                "reading_order": "pdf_content_stream_blocks",
+                "reading_order": "spatial_bands_columns_v1",
                 "blocks": blocks,
                 "lines": flattened_lines,
                 "text": page_text,
@@ -113,7 +113,7 @@ def extract_pdf_text(raw: bytes, filename: str) -> dict:
         "limitations": [
             "Only the PDF embedded text layer is read; no OCR or visual verification",
             "A scanned page without embedded text stays empty; no automatic fallback",
-            "PDF content-stream block order may not equal reading order in complex layouts",
+            "Conservative spatial band/column ordering is not guaranteed for complex layouts",
             "Embedded PDF text may itself be wrong or incomplete",
         ],
         "deployment_approved": False,
