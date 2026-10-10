@@ -53,7 +53,8 @@ function requireFixtureContract(fixtures, metadata) {
         !/^\/fixtures\/line_[0-9]{4}\.f32$/.test(f.image_file) ||
         f.image_shape[0] !== 1 || f.image_shape[1] !== 3 || f.image_shape[2] !== 32 ||
         f.image_shape[3] < 32 || f.image_shape[3] > 1024 ||
-        typeof f.reference_text !== "string") {
+        typeof f.reference_text !== "string" ||
+        !/^[0-9a-f]{64}$/.test(f.tensor_sha256)) {
       throw new Error("STOP: invalid or duplicate non-blind fixture");
     }
     seen.add(f.id);
@@ -67,6 +68,11 @@ async function runOne(sample, encoder, decoder, metadata) {
   const expectedBytes = sample.image_shape.reduce((a, b) => a * b, 1) * 4;
   if (buffer.byteLength !== expectedBytes) {
     throw new Error("Tensor byte-length mismatch: " + sample.id);
+  }
+  const digest = await crypto.subtle.digest("SHA-256", buffer);
+  const tensorSha = Array.from(new Uint8Array(digest), (x) => x.toString(16).padStart(2, "0")).join("");
+  if (tensorSha !== sample.tensor_sha256) {
+    throw new Error("STOP: staged tensor checksum mismatch: " + sample.id);
   }
   const pixels = new Float32Array(buffer);
   const input = new ort.Tensor("float32", pixels, sample.image_shape);
@@ -84,7 +90,7 @@ async function runOne(sample, encoder, decoder, metadata) {
         if (values.length !== metadata.vocab_size) {
           throw new Error("Unexpected decoder vocabulary size " + values.length);
         }
-        return values;
+        return Float32Array.from(values);
       } finally {
         if (logits) logits.dispose();
         tokens.dispose();
@@ -195,8 +201,12 @@ async function run() {
     };
     downloadButton.disabled = false;
   } finally {
-    if (decoder) await decoder.release();
-    if (encoder) await encoder.release();
+    if (decoder) {
+      try { await decoder.release(); } catch (error) { write("decoder cleanup: " + String(error)); }
+    }
+    if (encoder) {
+      try { await encoder.release(); } catch (error) { write("encoder cleanup: " + String(error)); }
+    }
     button.disabled = false;
   }
 }
