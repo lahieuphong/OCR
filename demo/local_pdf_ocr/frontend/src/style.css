@@ -1,7 +1,5 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap');
-
 :root {
-  font-family: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif;
   color: #dce5f5;
   background: #0c1322;
   font-synthesis: none;
@@ -15,7 +13,7 @@ button {cursor:pointer;}
 button:disabled {cursor:not-allowed;}
 .app-shell {min-height:100vh;background:radial-gradient(70% 54% at 50% -14%,rgba(66,108,201,.15),transparent 70%),#0c1322;}
 .topbar {height:75px;border-bottom:1px solid #202d42;display:flex;align-items:center;justify-content:space-between;padding:0 max(32px,calc((100vw - 1280px)/2));gap:18px;}
-.brand {display:flex;align-items:center;gap:11px;font-family:Manrope,sans-serif;font-size:21px;font-weight:800;letter-spacing:-.7px;color:#fff;text-decoration:none;}
+.brand {display:flex;align-items:center;gap:11px;font-family:"Segoe UI",sans-serif;font-size:21px;font-weight:800;letter-spacing:-.7px;color:#fff;text-decoration:none;}
 .brand-mark {width:38px;height:38px;border-radius:10px;background:#687df5;display:grid;place-items:center;color:white;box-shadow:0 4px 22px #687df533;}
 .brand-accent {color:#8293ff;}
 .topbar-center {display:flex;align-items:center;gap:10px;font-size:10px;text-transform:uppercase;letter-spacing:2.4px;color:#667791;white-space:nowrap;}
@@ -30,7 +28,7 @@ button:disabled {cursor:not-allowed;}
 .hero {padding:48px 0 34px;}
 .eyebrow {font-size:10px;display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:2px;color:#8998ff;}
 .eyebrow-divider {display:inline-block;height:14px;width:1px;background:#37445b;margin:0 3px;}
-.hero h1 {font-family:Manrope,sans-serif;color:#f5f8ff;font-size:clamp(30px,3.45vw,45px);margin:13px 0 10px;font-weight:800;letter-spacing:-1.85px;line-height:1.21;}
+.hero h1 {font-family:"Segoe UI",sans-serif;color:#f5f8ff;font-size:clamp(30px,3.45vw,45px);margin:13px 0 10px;font-weight:800;letter-spacing:-1.85px;line-height:1.21;}
 .hero h1 em {font-style:normal;background:linear-gradient(90deg,#8a98ff,#86dbeb);background-clip:text;-webkit-background-clip:text;color:transparent;}
 .hero p {color:#98a7bd;font-size:14px;line-height:1.7;max-width:760px;margin:0;}
 .hero-meta {display:flex;gap:24px;flex-wrap:wrap;margin-top:19px;}
@@ -42,7 +40,7 @@ button:disabled {cursor:not-allowed;}
 .pane-header {display:flex;align-items:center;gap:12px;margin-bottom:23px;}
 .pane-icon {height:41px;width:41px;border-radius:11px;background:#22345d;color:#9aafff;display:grid;place-items:center;}
 .pane-icon.recognition {background:#203c43;color:#7fe0c5;}
-.pane-header h2 {font:800 15px/1.3 Manrope,sans-serif;letter-spacing:-.25px;margin:0;color:#f3f7ff;}
+.pane-header h2 {font:800 15px/1.3 "Segoe UI",sans-serif;letter-spacing:-.25px;margin:0;color:#f3f7ff;}
 .pane-header p {font-size:11px;margin:4px 0 0;color:#8a9bb2;}
 .pane-step {font-size:10px;color:#5c7497;margin-left:auto;letter-spacing:1.2px;white-space:nowrap;}
 .dropzone {border:1px dashed #586a90;border-radius:12px;background:linear-gradient(145deg,#1b2a44b3,#142138b2);padding:14px;min-height:155px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:border-color .2s,background .2s;}
@@ -51,7 +49,7 @@ button:disabled {cursor:not-allowed;}
 .dropzone.has-file {min-height:110px;border-style:solid;}
 .drop-empty{text-align:center;}
 .drop-icon {height:45px;width:45px;display:grid;place-items:center;border-radius:15px;margin:auto auto 9px;background:#2b3b66;color:#b1c2ff;}
-.drop-empty h3{font:700 13px Manrope,sans-serif;color:#e9f0ff;margin:0 0 5px;}
+.drop-empty h3{font:700 13px "Segoe UI",sans-serif;color:#e9f0ff;margin:0 0 5px;}
 .drop-empty p {font-size:11px;color:#8c9cbb;margin:0 0 13px;}
 .pick-file {padding:8px 12px;border-radius:7px;display:inline-flex;align-items:center;gap:5px;background:#6178ed;color:#fff;font-size:11px;font-weight:800;margin-bottom:10px;}
 .drop-empty small{display:block;color:#7187a8;font-size:10px;}
@@ -89,7 +87,7 @@ button:disabled {cursor:not-allowed;}
 .toolbar-actions button:disabled{opacity:.3;}
 .results-stats {display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:13px;}
 .results-stats>div{border:1px solid #30415a;background:#162538;border-radius:8px;padding:10px;text-align:center;}
-.results-stats b{display:block;font:800 14px Manrope,sans-serif;color:#ebefff;}
+.results-stats b{display:block;font:800 14px "Segoe UI",sans-serif;color:#ebefff;}
 .results-stats small{display:block;color:#8fa2bc;font-size:10px;margin-top:3px;}
 .page-tabs {display:flex;gap:5px;flex-wrap:wrap;margin:0 0 13px;}
 .page-tabs button {border:1px solid #36506b;background:#192a3f;color:#a1b2cb;padding:6px 10px;font-size:11px;border-radius:7px;}
@@ -97,11 +95,11 @@ button:disabled {cursor:not-allowed;}
 .text-output {height:497px;overflow:auto;border-radius:10px;border:1px solid #2b4057;background:#0d1827;}
 .results-stats + .text-output{height:425px;}
 .page-tabs + .text-output{height:385px;}
-.text-output pre {margin:0;white-space:pre-wrap;overflow-wrap:anywhere;color:#d9e8e7;font:13px/1.9 "DM Sans",Arial,sans-serif;padding:22px;user-select:text;}
+.text-output pre {margin:0;white-space:pre-wrap;overflow-wrap:anywhere;color:#d9e8e7;font:13px/1.9 "Segoe UI",Arial,sans-serif;padding:22px;user-select:text;}
 .empty-result {display:flex;align-items:center;justify-content:center;}
 .result-placeholder {padding:24px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:12px;}
 .result-icon {height:80px;width:80px;border-radius:23px;background:#1a3042;color:#73a5c1;display:grid;place-items:center;margin-bottom:6px;}
-.result-placeholder h3 {font:800 16px Manrope,sans-serif;color:#dee9f4;margin:0;}
+.result-placeholder h3 {font:800 16px "Segoe UI",sans-serif;color:#dee9f4;margin:0;}
 .result-placeholder p {max-width:280px;font-size:12px;line-height:1.65;color:#8295ad;margin:0;}
 .result-placeholder-hint {display:flex;gap:7px;align-items:center;border-radius:30px;padding:9px 12px;background:#233146;color:#90a9d8;font-size:10px;margin-top:12px;}
 .active-icon {color:#a1acff;}
