@@ -214,6 +214,10 @@ class LocalOcrEngine:
             all_text.append(page_text)
         return {
             "filename": Path(filename).name,
+            "method": "vietocr_ocr",
+            "source": "ocr_from_rendered_pages",
+            "engine": "PaddleOCR Detection + VietOCR B ONNX",
+            "used_ocr": True,
             "model": "phase4_exp_b_width1024",
             "detection_model": "PP-OCRv6_medium_det",
             "recognition_provider": "CPUExecutionProvider",
