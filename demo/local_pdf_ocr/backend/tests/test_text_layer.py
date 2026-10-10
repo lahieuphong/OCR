@@ -117,6 +117,44 @@ class ApiModeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["method"], "vietocr_ocr")
         self.assertTrue(result["used_ocr"])
 
+    async def test_header_split_opt_in_reaches_ocr_engine_only(self):
+        from fastapi import UploadFile
+        from demo.local_pdf_ocr.backend import app as service
+
+        called = []
+        class FakeEngine:
+            def process(self, payload, filename, *, split_headers=False):
+                called.append(split_headers)
+                return {
+                    "method": "vietocr_ocr", "used_ocr": True,
+                    "header_split_enabled": split_headers,
+                    "pages": [], "text": "test", "filename": filename,
+                }
+
+        with patch.object(service, "get_engine", return_value=FakeEngine()):
+            regular = await service.ocr(
+                file=UploadFile(filename="notice.pdf", file=io.BytesIO(pdf_with_text())),
+                mode="vietocr_ocr", split_headers=False,
+            )
+            experimental = await service.ocr(
+                file=UploadFile(filename="notice.pdf", file=io.BytesIO(pdf_with_text())),
+                mode="vietocr_ocr", split_headers=True,
+            )
+        self.assertEqual(called, [False, True])
+        self.assertFalse(json.loads(regular.body)["header_split_enabled"])
+        self.assertTrue(json.loads(experimental.body)["header_split_enabled"])
+
+    async def test_header_split_rejected_for_native_text(self):
+        from fastapi import UploadFile, HTTPException
+        from demo.local_pdf_ocr.backend import app as service
+
+        with self.assertRaises(HTTPException) as error:
+            await service.ocr(
+                file=UploadFile(filename="notice.pdf", file=io.BytesIO(pdf_with_text())),
+                mode="native_text", split_headers=True,
+            )
+        self.assertEqual(error.exception.status_code, 400)
+
     async def test_mode_required_from_allowlist(self):
         from fastapi import UploadFile, HTTPException
         from demo.local_pdf_ocr.backend import app as service
