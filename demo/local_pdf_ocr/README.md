@@ -174,6 +174,47 @@ so its reading-order defect is not silently 'fixed' by a text-layer mode.
 To improve OCR polygon grouping, preserve and examine a downloadable
 *_vietocr_ocr.json report containing each detected polygon.
 
+## OCR reading order gate: conservative split footer (October 10)
+
+A real government PDF OCR report with 50 detected lines showed that a
+simple top-to-bottom sort interleaved the recipient list (left) and the
+signature block (right). The frozen recognizer is correct at the graph
+parity level, but this is a separate **OCR layout error**.
+
+The OCR backend now calls ocr_layout.reorder_split_footer() **after**
+VietOCR recognition. It checks polygon geometry ONLY and can regroup
+the bottom two columns left-to-right if ALL gates are true:
+- a broad full-width text line anchors the end of the page body;
+- the following 5+ narrow lines start in the lower 55% of the page,
+  occupy <=30% of page height, and include two vertically overlapping
+  columns with a gutter >=5.5% of page width;
+- there are at least 3 lines in the left column and 2 in the right.
+
+If any check fails, baseline top-to-bottom order is retained.
+
+In the captured JSON (1191x1684px, 50 lines), the last wide anchor is
+source line 37. The tail has a measured 114px horizontal gutter,
+10 left-column lines (including a paragraph closing line) and 3
+right-column lines. The expected footer source-index order is:
+
+    38, 40, 41, 43, 44, 45, 46, 47, 48, 49, 39, 42, 50
+
+The API field pages[].reading_order records the decision including
+algorithm, modified, source line indices, gutter, and group sizes.
+After a modified sort, pages[].lines[].source_line_index records the
+original detection/recognition index. Its line_index becomes the
+one-based reconstructed reading-order index. The text, polygon, decoder
+limit flag and other recognition fields are never edited.
+This change DOES NOT fix mistakes like "triên", "BÔ", "XIIII" or "407:00".
+
+Tests are synthetic and do not expose source customer documents.
+Review exported JSON after re-running a document in OCR mode.
+The previously exported TXT and JSON will not change retroactively.
+
+The heuristic is deliberately scoped to a split footer. It does not
+solve all multi-column layouts, forms, tables, stamps or warped scans.
+Keep main unchanged until a multi-document OCR layout regression passes.
+
 ## Known limitations — NOT merge/deploy-ready
 
 - CPUExecutionProvider only in this local FastAPI demo. Browser WebGPU
