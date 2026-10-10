@@ -53,7 +53,7 @@ def preflight(config_path: Path, weights_path: Path) -> dict:
     config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
     if (config["dataset"]["image_max_width"] != 1024
             or config["experiment"]["name"] != "exp_b_width1024"
-            or config["experiment"]["decoder_max_seq_length"] != 128):
+            or config["decoder_max_seq_length"] != 128):
         raise SystemExit("STOP: B config differs from frozen width/decoder settings")
     if config["predictor"]["beamsearch"]:
         raise SystemExit("STOP: only the evaluated greedy decoder can be exported")
