@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fail-closed PyTorch/CUDA-reference vs ONNX Runtime parity for frozen VietOCR B.
+r"""Fail-closed PyTorch/CUDA-reference vs ONNX Runtime parity for frozen VietOCR B.
 
 Windows CMD:
   .venv-vietocr\Scripts\python.exe datasets\vietnamese_recognition\check_vietocr_onnx_parity.py
