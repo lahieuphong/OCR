@@ -31,7 +31,9 @@ export default function App() {
   const [document, setDocument] = useState(null);
   const [preview, setPreview] = useState("");
   const [hoverUpload, setHoverUpload] = useState(false);
-  const [result, setResult] = useState(null);
+  const [selectedMode, setSelectedMode] = useState("vietocr_ocr");
+  const [resultsByMode, setResultsByMode] = useState({});
+  const [compare, setCompare] = useState(false);
   const [page, setPage] = useState(1);
   const [working, setWorking] = useState(false);
   const [elapsed, setElapsed] = useState(0);
@@ -59,7 +61,8 @@ export default function App() {
   function chooseFile(file) {
     if (working || !file) return;
     setError("");
-    setResult(null);
+    setResultsByMode({});
+    setCompare(false);
     setPage(1);
     setCopied(false);
     if (!EXTENSIONS.test(file.name)) {
@@ -75,6 +78,8 @@ export default function App() {
       return;
     }
     setDocument(file);
+    // Visible default only; users must explicitly run the selected mode.
+    setSelectedMode(/\.pdf$/i.test(file.name) ? "native_text" : "vietocr_ocr");
     setPreview(URL.createObjectURL(file));
   }
 
@@ -82,7 +87,8 @@ export default function App() {
     if (!document || working) return;
     setWorking(true);
     setError("");
-    setResult(null);
+    setCompare(false);
+    setResultsByMode(previous => ({...previous, [selectedMode]: undefined}));
     setElapsed(0);
     const start = performance.now();
     elapsedTimer.current = window.setInterval(
@@ -91,6 +97,7 @@ export default function App() {
     try {
       const payload = new FormData();
       payload.append("file", document, document.name);
+      payload.append("mode", selectedMode);
       const response = await fetch("/api/ocr", {method: "POST", body: payload});
       let data;
       try {
@@ -99,10 +106,13 @@ export default function App() {
         throw Error("Backend không trả về JSON. Kiểm tra cửa sổ CMD của FastAPI.");
       }
       if (!response.ok) throw Error(data.detail || "OCR thất bại.");
+      if (data.method !== selectedMode) {
+        throw Error("Backend trả sai chế độ xử lý đã chọn; dừng để bảo vệ kết quả.");
+      }
       if (!data.pages || !Array.isArray(data.pages)) {
         throw Error("Định dạng phản hồi từ backend không hợp lệ.");
       }
-      setResult(data);
+      setResultsByMode(previous => ({...previous, [selectedMode]: data}));
       setPage(1);
     } catch (exception) {
       setError(exception?.message || String(exception));
@@ -113,10 +123,13 @@ export default function App() {
     }
   }
 
+  const result = resultsByMode[selectedMode] || null;
   const currentPage = result?.pages.find(x => x.page === page);
   const shownText = activeView === "page" ? (currentPage?.text || "") : (result?.text || "");
   const isPDF = document && /\.pdf$/i.test(document.name);
   const icon = isPDF ? FileText : FileImage;
+  const bothReady = Boolean(isPDF && resultsByMode.native_text && resultsByMode.vietocr_ocr);
+  const canRun = health === "connected" || (health === "not-ready" && selectedMode === "native_text");
 
   async function copyText() {
     if (!result) return;
@@ -150,7 +163,7 @@ export default function App() {
         <section className="hero">
           <div className="eyebrow"><Sparkles size={15}/> VIETNAMESE DOCUMENT RECOGNITION <span className="eyebrow-divider"/> V1 EXPERIMENTAL</div>
           <h1>Chuyển tài liệu thành <em>văn bản.</em></h1>
-          <p>Nhận dạng văn bản tiếng Việt từ PDF và ảnh, với PaddleOCR Detection kết hợp mô hình VietOCR B được huấn luyện chuyên biệt.</p>
+          <p>Trích xuất văn bản từ PDF có sẵn text hoặc nhận dạng PDF scan và ảnh bằng PaddleOCR Detection + VietOCR B. Hai phương pháp độc lập, không tự động thay thế lẫn nhau.</p>
           <div className="hero-meta">
             <span><ShieldCheck size={15}/> Xử lý trên máy của bạn</span>
             <span><Cpu size={15}/> ONNX Runtime CPU</span>
@@ -201,6 +214,34 @@ export default function App() {
               )}
             </div>
 
+
+            <fieldset className="ocr-mode-selector" disabled={!document || working}>
+              <legend>02 · CHỌN PHƯƠNG PHÁP</legend>
+              <label className={"mode-option " + (selectedMode === "native_text" ? "selected" : "") + (!isPDF ? " unavailable" : "")}>
+                <input type="radio" name="mode" value="native_text"
+                  checked={selectedMode === "native_text"}
+                  onChange={() => {setSelectedMode("native_text"); setPage(1); setError(""); setCompare(false);}}
+                  disabled={!isPDF || working}/>
+                <span className="mode-name"><FileText size={16}/> Text có sẵn trong PDF</span>
+                <small>PyMuPDF · nhanh · không chạy OCR</small>
+                {resultsByMode.native_text && <span className="mode-done"><Check size={12}/> Đã chạy</span>}
+              </label>
+              <label className={"mode-option " + (selectedMode === "vietocr_ocr" ? "selected" : "")}>
+                <input type="radio" name="mode" value="vietocr_ocr"
+                  checked={selectedMode === "vietocr_ocr"}
+                  onChange={() => {setSelectedMode("vietocr_ocr"); setPage(1); setError(""); setCompare(false);}}
+                  disabled={working}/>
+                <span className="mode-name"><ScanLine size={16}/> OCR bằng VietOCR B</span>
+                <small>PaddleOCR Detection · ONNX CPU · PDF/ảnh</small>
+                {resultsByMode.vietocr_ocr && <span className="mode-done"><Check size={12}/> Đã chạy</span>}
+              </label>
+              <p className="mode-note">
+                {selectedMode === "native_text"
+                  ? "Chỉ đọc lớp chữ nhúng trong PDF. PDF scan không có text sẽ báo lỗi, không tự chuyển sang OCR."
+                  : "Luôn render trang và chạy nhận dạng thực sự, kể cả PDF đã có text. Kết quả không bị chỉnh sửa dấu."}
+              </p>
+            </fieldset>
+
             <div className="preview-area">
               <div className="section-label"><span>01</span> XEM TRƯỚC <span className="subtle-line"/></div>
               {preview ? (
@@ -216,9 +257,9 @@ export default function App() {
             </div>
 
             <button className="run-button" type="button" onClick={runOcr}
-              disabled={!document || working || health !== "connected"}>
-              {working ? <><LoaderCircle className="spin" size={19}/> Đang nhận dạng...</> :
-                <><ScanLine size={19}/> Bắt đầu bóc tách văn bản <ChevronRight size={19}/></>}
+              disabled={!document || working || !canRun}>
+              {working ? <><LoaderCircle className="spin" size={19}/> Đang xử lý...</> :
+                <><ScanLine size={19}/>{selectedMode === "native_text" ? "Trích xuất text PDF" : "Chạy PaddleOCR + VietOCR"} <ChevronRight size={19}/></>}
             </button>
             {working && <div className="processing-status"><Clock3 size={14}/> Đang xử lý tại máy · {elapsed.toFixed(0)} giây. Vui lòng đợi và giữ trang mở.</div>}
             {error && <div className="error-box" role="alert"><AlertTriangle size={18}/><span>{error}</span></div>}
@@ -227,7 +268,7 @@ export default function App() {
           <div className="right-pane">
             <div className="pane-header">
               <span className="pane-icon recognition"><FileCode2 size={19}/></span>
-              <div><h2>Kết quả nhận dạng</h2><p>Văn bản tiếng Việt có dấu</p></div>
+              <div><h2>Kết quả tài liệu</h2><p>{selectedMode === "native_text" ? "Từ text layer PDF · không OCR" : "Từ nhận dạng hình ảnh · VietOCR B"}</p></div>
               <span className="pane-step">02 / OUTPUT</span>
             </div>
 
@@ -235,19 +276,26 @@ export default function App() {
               <div className="view-toggle">
                 <button className={activeView === "text" ? "active" : ""} onClick={() => setActiveView("text")}>Toàn văn</button>
                 <button className={activeView === "page" ? "active" : ""} onClick={() => setActiveView("page")}>Theo trang</button>
+                {bothReady && <button className={compare ? "active" : ""} onClick={() => setCompare(!compare)}>So sánh</button>}
               </div>
               <div className="toolbar-actions">
                 <button title="Sao chép văn bản" disabled={!result} onClick={copyText}>{copied ? <Check size={17}/> : <Copy size={17}/>}</button>
-                <button title="Tải TXT" disabled={!result} onClick={() => downloadText(shortName(document.name) + ".txt", result.text)}><Download size={17}/></button>
-                <button title="Tải báo cáo JSON" disabled={!result} onClick={() => downloadText(shortName(document.name) + ".json", JSON.stringify(result, null, 2), "application/json;charset=utf-8")}><FileCode2 size={17}/></button>
+                <button title="Tải TXT" disabled={!result} onClick={() => downloadText(shortName(document.name) + "_" + result.method + ".txt", result.text)}><Download size={17}/></button>
+                <button title="Tải báo cáo JSON" disabled={!result} onClick={() => downloadText(shortName(document.name) + "_" + result.method + ".json", JSON.stringify(result, null, 2), "application/json;charset=utf-8")}><FileCode2 size={17}/></button>
               </div>
             </div>
 
+            {result && <div className={"result-origin " + (result.used_ocr ? "ocr-origin" : "native-origin")}>
+              <ShieldCheck size={15}/>
+              <span>{result.used_ocr
+                ? "NGUỒN: PaddleOCR Detection + VietOCR B / ONNX CPU"
+                : "NGUỒN: Văn bản nhúng PDF / PyMuPDF — KHÔNG chạy OCR"}</span>
+            </div>}
             {result && <div className="results-stats">
               <div><b>{result.page_count}</b><small>trang</small></div>
               <div><b>{result.line_count}</b><small>dòng nhận dạng</small></div>
-              <div><b>{formatTime(result.elapsed_ms)}</b><small>thời gian OCR</small></div>
-              <div><b>{result.decoder_limit_hits}</b><small>dòng bị cắt</small></div>
+              <div><b>{formatTime(result.elapsed_ms)}</b><small>thời gian xử lý</small></div>
+              <div><b>{result.decoder_limit_hits ?? "—"}</b><small>{result.used_ocr ? "dòng bị cắt" : "không dùng decoder"}</small></div>
             </div>}
 
             {result && activeView === "page" && <div className="page-tabs">
@@ -255,28 +303,37 @@ export default function App() {
             </div>}
 
             <div className={"text-output " + (!result ? "empty-result" : "")}>
-              {result ? (
+              {result && compare && bothReady ? (
+                <div className="comparison-columns">
+                  <section><strong>PDF text layer · PyMuPDF</strong>
+                    <pre>{resultsByMode.native_text.text}</pre></section>
+                  <section><strong>OCR thực · VietOCR B</strong>
+                    <pre>{resultsByMode.vietocr_ocr.text}</pre></section>
+                </div>
+              ) : result ? (
                 <pre>{shownText || "Không phát hiện được dòng văn bản. Hãy kiểm tra ảnh/PDF gốc."}</pre>
               ) : working ? (
                 <div className="result-placeholder">
                   <span className="result-icon active-icon"><LoaderCircle className="spin" size={34}/></span>
                   <h3>Đang phân tích tài liệu...</h3>
-                  <p>Phát hiện dòng chữ, chuẩn hóa crop và giải mã VietOCR B.</p>
+                  <p>{selectedMode === "native_text"
+                    ? "Đang đọc lớp văn bản nhúng trong PDF, không chạy OCR."
+                    : "Phát hiện dòng chữ, chuẩn hóa crop và giải mã VietOCR B."}</p>
                 </div>
               ) : (
                 <div className="result-placeholder">
                   <span className="result-icon"><ScanText size={36}/></span>
                   <h3>Sẵn sàng bóc tách</h3>
                   <p>Kết quả OCR sẽ xuất hiện tại đây ngay sau khi xử lý.</p>
-                  <div className="result-placeholder-hint"><Sparkles size={15}/> Nhận dạng tiếng Việt · Không tự sửa dấu</div>
+                  <div className="result-placeholder-hint"><Sparkles size={15}/> Chọn một phương pháp ở cột trái rồi chạy</div>
                 </div>
               )}
             </div>
 
             <div className="output-bottom">
-              <div className="model-inline"><span className="model-dot"/><span>VIETOCR B / WIDTH 1024</span><span className="model-divider">/</span><span>ONNX CPU</span></div>
+              <div className="model-inline"><span className="model-dot"/><span>{result?.used_ocr || selectedMode === "vietocr_ocr" ? "VIETOCR B / WIDTH 1024" : "PDF TEXT LAYER / PYMUPDF"}</span><span className="model-divider">/</span><span>{selectedMode === "vietocr_ocr" ? "ONNX CPU" : "NO OCR"}</span></div>
               {result ? <span className="model-note">Experimental · cần kiểm thử PDF end-to-end</span> :
-                <span className="model-note">752/752 parity đã đạt · không đồng nghĩa PDF PASS</span>}
+                <span className="model-note">Hai chế độ độc lập · Không dùng text nhúng để che lỗi OCR</span>}
             </div>
           </div>
         </section>
