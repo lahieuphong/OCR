@@ -83,10 +83,12 @@ def iter_images(raw: bytes, extension: str):
 
     try:
         with Image.open(io.BytesIO(raw)) as image:
-            image = ImageOps.exif_transpose(image)
+            # Reject oversized compressed images BEFORE EXIF transposition or
+            # pixel decode allocates memory. The demo must remain local-safe.
             if image.width * image.height > MAX_IMAGE_PIXELS:
                 raise ValueError("Ảnh vượt giới hạn 12 triệu pixel.")
-            yield 1, image.convert("RGB")
+            upright = ImageOps.exif_transpose(image)
+            yield 1, upright.convert("RGB")
     except (UnidentifiedImageError, OSError) as error:
         raise ValueError("Không thể mở ảnh hoặc tệp đã hỏng.") from error
 
