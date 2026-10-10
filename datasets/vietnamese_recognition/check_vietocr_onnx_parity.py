@@ -119,10 +119,13 @@ def main() -> int:
     import onnxruntime as ort
     import run_vietocr
     from PIL import Image
-    from vietocr.model.vocab import Vocab
     from bakeoff_common import verified_crop_path
 
     run_vietocr.check_pinned_checkout()
+    sys.dont_write_bytecode = True
+    if str(run_vietocr.VIETOCR_DIR) not in sys.path:
+        sys.path.insert(0, str(run_vietocr.VIETOCR_DIR))
+    from vietocr.model.vocab import Vocab
     rows = read_jsonl(args.manifest)
     validate_manifest(rows)
     expected = verify_reference(rows, args.reference)
