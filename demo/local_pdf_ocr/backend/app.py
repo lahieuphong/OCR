@@ -47,9 +47,18 @@ def health():
 
 
 @app.post("/api/ocr")
-async def ocr(file: UploadFile = File(...), mode: str = Form("vietocr_ocr")):
+async def ocr(
+    file: UploadFile = File(...),
+    mode: str = Form("vietocr_ocr"),
+    split_headers: bool = Form(False),
+):
     # Explicit selection: a PDF's embedded text MUST NOT silently become
     # OCR reference/ground truth, and OCR mode must NEVER auto-skip inference.
+    # The explicit True check also preserves direct-call test compatibility:
+    # Form(False) is a dependency descriptor, not Python boolean False.
+    header_experiment = split_headers is True
+    if mode == "native_text" and header_experiment:
+        raise HTTPException(status_code=400, detail="Tách header chỉ dùng với chế độ VietOCR.")
     if mode not in {"native_text", "vietocr_ocr"}:
         raise HTTPException(status_code=400, detail="Chế độ không hợp lệ.")
     if _ocr_lock.locked():
@@ -73,7 +82,14 @@ async def ocr(file: UploadFile = File(...), mode: str = Form("vietocr_ocr")):
                 # Intentionally do not initialize PaddlePaddle/ONNX in text mode.
                 result = await run_in_threadpool(lambda: extract_pdf_text(payload, filename))
             else:
-                result = await run_in_threadpool(lambda: get_engine().process(payload, filename))
+                if header_experiment:
+                    result = await run_in_threadpool(
+                        lambda: get_engine().process(payload, filename, split_headers=True)
+                    )
+                else:
+                    result = await run_in_threadpool(
+                        lambda: get_engine().process(payload, filename)
+                    )
         except DemoConfigurationError as exc:
             logger.error("Model preflight failed: %s", exc)
             raise HTTPException(status_code=503, detail=str(exc)) from exc
