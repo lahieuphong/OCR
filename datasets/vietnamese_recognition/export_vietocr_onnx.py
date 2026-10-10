@@ -112,6 +112,9 @@ def export(config_path: Path, weights_path: Path, output_dir: Path, overwrite: b
         raise SystemExit(f"STOP: output already exists in {output_dir}; do not overwrite without --overwrite")
     output_dir.mkdir(parents=True, exist_ok=True)
     model, vocab, encoder, decoder = build_export_models(config_path, weights_path)
+    # Avoid PyTorch's optimized MHA inference fastpath (fused ATen ops may
+    # not have equivalent standard ONNX operators in the legacy exporter).
+    torch.backends.mha.set_fastpath_enabled(False)
     image = torch.zeros((1, 3, 32, 320), dtype=torch.float32)
     tokens = torch.tensor([[vocab.go], [vocab.c2i.get("a", 4)]], dtype=torch.long)
 
