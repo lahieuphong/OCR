@@ -154,11 +154,25 @@ For sample 10333_vpcp-cn_09102026_1-signed.signed.pdf:
 5. Test a **real scan-only** PDF with the text mode: it must fail clearly
    and NOT auto-start OCR. Select OCR deliberately.
 
-The text-layer reader preserves PyMuPDF content-stream block order and
-Unicode without editing recognition text. A PDF may contain broken/
-inaccurate text layers; embedded text is not automatically "ground truth".
-For complex multi-column PDFs, source block order also may need layout
-verification or manual editing.
+The text-layer reader preserves extracted text unchanged but now orders
+WHOLE blocks with a conservative spatial algorithm:
+- split into vertical bands where the gap exceeds 12 PDF points;
+- within a band, traverse the left column before the right ONLY if
+  columns are physically separated by at least 6 PDF points;
+- otherwise sort the whole band top-to-bottom.
+Each block retains its PDF source_block_index in the JSON report.
+For the 10333 VPCP sample this moves the digital signature audit block
+from the end to the TOP (its physical page location) without changing
+its original '+07:00' text. The recipient list and signing title remain
+separate, not interleaved line by line.
+
+**Limits:** This spatial heuristic is not universal for tables,
+multi-column newsletters or rotated scans, and embedded text is NOT an
+independently verified ground truth. Inspect visually before depending
+on the output. OCR mode still uses its original line-polygon sorting,
+so its reading-order defect is not silently 'fixed' by a text-layer mode.
+To improve OCR polygon grouping, preserve and examine a downloadable
+*_vietocr_ocr.json report containing each detected polygon.
 
 ## Known limitations — NOT merge/deploy-ready
 
