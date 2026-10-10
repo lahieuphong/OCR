@@ -15,6 +15,59 @@ import check_vietocr_onnx_parity as parity
 import export_vietocr_onnx as exporter
 
 
+class DynamicAttentionContract(unittest.TestCase):
+    def test_attention_matches_pytorch_for_variable_lengths(self):
+        import torch
+        from torch import nn
+        from onnx_attention import DynamicSequenceAttention
+
+        torch.manual_seed(37)
+        original = nn.MultiheadAttention(64, 8, dropout=0.1, batch_first=False).eval()
+        rewritten = DynamicSequenceAttention(original).eval()
+        with torch.inference_mode():
+            for query_length, memory_length in ((1, 32), (8, 8), (16, 40), (32, 16)):
+                query = torch.randn(query_length, 1, 64)
+                key = torch.randn(memory_length, 1, 64)
+                value = torch.randn(memory_length, 1, 64)
+                mask = torch.zeros(query_length, memory_length)
+                if query_length == memory_length:
+                    mask = nn.Transformer.generate_square_subsequent_mask(query_length)
+                expected, _ = original(
+                    query, key, value, attn_mask=mask, need_weights=False
+                )
+                actual, _ = rewritten(
+                    query, key, value, attn_mask=mask, need_weights=False
+                )
+                self.assertTrue(
+                    torch.allclose(expected, actual, atol=1e-5, rtol=1e-5),
+                    f"lengths {(query_length, memory_length)} differ: "
+                    f"{(expected - actual).abs().max().item()}",
+                )
+
+    def test_transformer_replacement_does_not_touch_original(self):
+        import copy
+        import torch
+        from torch import nn
+        from onnx_attention import DynamicSequenceAttention, replace_attention_for_export
+
+        original = nn.Transformer(
+            d_model=32, nhead=4, num_encoder_layers=2,
+            num_decoder_layers=2, dim_feedforward=64, dropout=0.0,
+        ).eval()
+        rewritten = copy.deepcopy(original)
+        self.assertEqual(replace_attention_for_export(rewritten), 6)
+        self.assertEqual(sum(isinstance(m, nn.MultiheadAttention) for m in original.modules()), 6)
+        self.assertEqual(sum(isinstance(m, nn.MultiheadAttention) for m in rewritten.modules()), 0)
+        self.assertEqual(sum(isinstance(m, DynamicSequenceAttention) for m in rewritten.modules()), 6)
+        with torch.inference_mode():
+            src = torch.randn(24, 1, 32)
+            tgt = torch.randn(10, 1, 32)
+            tgt_mask = nn.Transformer.generate_square_subsequent_mask(10)
+            expected = original(src, tgt, tgt_mask=tgt_mask)
+            actual = rewritten(src, tgt, tgt_mask=tgt_mask)
+        self.assertTrue(torch.allclose(expected, actual, atol=1e-4, rtol=1e-4))
+
+
 class FrozenExport(unittest.TestCase):
     def test_checkpoint_fingerprint_is_frozen(self):
         self.assertEqual(
