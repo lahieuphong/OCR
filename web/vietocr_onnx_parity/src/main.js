@@ -34,6 +34,29 @@ async function downloadChecked(path, expectedSha) {
   return new Uint8Array(buffer);
 }
 
+// Fail before session loading if Vite is returning its HTML fallback for a
+// missing runtime asset. ORT WebGPU requires matching Asyncify JS glue + WASM.
+async function verifyRuntimeAssets() {
+  const files = [
+    ["ort-wasm-simd-threaded.asyncify.mjs", "javascript"],
+    ["ort-wasm-simd-threaded.asyncify.wasm", "wasm"],
+  ];
+  for (const [file, mimeHint] of files) {
+    const url = new URL("/ort/" + file, window.location.origin);
+    const response = await fetch(url, {method: "HEAD", cache: "no-store"});
+    const type = response.headers.get("content-type") || "";
+    if (!response.ok ||
+        type.includes("text/html") ||
+        (mimeHint === "javascript" && !/javascript|ecmascript/.test(type))) {
+      throw new Error(
+        "STOP: WebGPU runtime asset missing or served with incorrect MIME: " +
+        url.href + " (HTTP " + response.status + ", content-type " + type +
+        "). Restart npm run dev to stage both .mjs and .wasm."
+      );
+    }
+  }
+}
+
 function requireFixtureContract(fixtures, metadata) {
   if (fixtures.kind !== "FROZEN_NONBLIND_PYTORCH_TO_BROWSER_WEBGPU" ||
       fixtures.blind_test_used !== false ||
@@ -132,7 +155,15 @@ async function run() {
       downloadChecked("/artifacts/encoder.onnx", metadata.encoder_sha256),
       downloadChecked("/artifacts/decoder_step.onnx", metadata.decoder_sha256)
     ]);
-    ort.env.wasm.wasmPaths = "/ort/";
+    await verifyRuntimeAssets();
+    // ONNX Runtime Web's native WebGPU provider loads an .asyncify.mjs file
+    // using dynamic import(). An object override explicitly binds the JS
+    // glue AND its WASM binary to public/ort/, rather than relying on Vite's
+    // dynamically rewritten module-relative URL.
+    ort.env.wasm.wasmPaths = {
+      mjs: new URL("/ort/ort-wasm-simd-threaded.asyncify.mjs", window.location.origin).href,
+      wasm: new URL("/ort/ort-wasm-simd-threaded.asyncify.wasm", window.location.origin).href,
+    };
     ort.env.wasm.numThreads = 1; // localhost smoke requires no cross-origin isolation
     const sessionOptions = {executionProviders: ["webgpu"], enableGraphCapture: false};
     setStatus("Loading WebGPU encoder…");
