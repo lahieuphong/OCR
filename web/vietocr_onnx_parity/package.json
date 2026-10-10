@@ -1,0 +1,21 @@
+{
+  "name": "vietocr-b1024-webgpu-parity",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "predev": "node scripts/stage_wasm.mjs",
+    "dev": "vite --host 127.0.0.1 --port 5174 --strictPort",
+    "test": "node --test tests/*.test.mjs",
+    "build": "vite build"
+  },
+  "dependencies": {
+    "onnxruntime-web": "1.30.0"
+  },
+  "devDependencies": {
+    "vite": "7.1.10"
+  },
+  "engines": {
+    "node": ">=20.19.0"
+  }
+}
