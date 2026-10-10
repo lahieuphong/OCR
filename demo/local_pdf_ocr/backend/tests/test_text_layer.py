@@ -21,6 +21,8 @@ def pdf_with_text() -> bytes:
     page.insert_text((70, 60), "Government notice - Decision XIII +07:00")
     page.insert_text((70, 650), "Recipients:\n- Agency A\n- Agency B")
     page.insert_text((330, 650), "SIGNATURE\nDirector")
+    # Written LAST in PDF stream but physically at the top of page.
+    page.insert_text((185, 18), "Digital-signature audit +07:00")
     data = pdf.tobytes()
     pdf.close()
     return data
@@ -36,13 +38,29 @@ class PdfTextLayerTests(unittest.TestCase):
         self.assertEqual(result["page_count"], 1)
         self.assertGreater(result["line_count"], 2)
         self.assertIn("Decision XIII +07:00", result["text"])
+        self.assertTrue(result["text"].startswith("Digital-signature audit +07:00"))
         self.assertIn("- Agency A", result["text"])
         self.assertIn("SIGNATURE", result["text"])
         self.assertLess(result["text"].index("Agency B"), result["text"].index("SIGNATURE"))
-        self.assertEqual(result["pages"][0]["reading_order"], "pdf_content_stream_blocks")
+        self.assertEqual(result["pages"][0]["reading_order"], "spatial_bands_columns_v1")
         self.assertEqual(result["pages"][0]["coordinate_system"], "pdf_points")
         self.assertIsNone(result["decoder_limit_hits"])
         self.assertFalse(result["deployment_approved"])
+
+    def test_spatial_sort_preserves_exact_characters_and_source_index(self):
+        from demo.local_pdf_ocr.backend.reading_order import order_text_blocks
+
+        blocks = [
+            {"source_block_index": 0, "bbox": [20, 640, 200, 720], "text": "Nơi nhận:\\n- Tỉnh\\n- Bộ"},
+            {"source_block_index": 1, "bbox": [350, 640, 540, 680], "text": "KT. BỘ TRƯỞNG\\nPHÓ CHỦ NHIỆM"},
+            {"source_block_index": 2, "bbox": [200, 3, 410, 35], "text": "Người ký: Bộ +07:00"},
+        ]
+        ordered = order_text_blocks(blocks, 595)
+        self.assertEqual([b["source_block_index"] for b in ordered], [2, 0, 1])
+        self.assertEqual(
+            {b["source_block_index"]: b["text"] for b in ordered},
+            {b["source_block_index"]: b["text"] for b in blocks},
+        )
 
     def test_scanned_pdf_refuses_silent_ocr_fallback(self):
         import fitz
