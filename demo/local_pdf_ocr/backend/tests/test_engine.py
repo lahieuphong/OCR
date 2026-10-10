@@ -68,6 +68,56 @@ class EngineTests(unittest.TestCase):
         self.assertFalse(result["deployment_approved"])
         self.assertEqual(result["pages"][0]["lines"][0]["line_index"], 1)
 
+    def test_opt_in_split_preserves_baseline_and_audits_children(self):
+        from PIL import Image
+
+        class FakeDetector:
+            def detect_and_crop(self, page_image, *, split_headers=False, page_number=1):
+                if split_headers:
+                    for part, index in (("left", 1), ("right", 2)):
+                        provenance = {
+                            "algorithm": "header_vertical_ink_gutter_v1",
+                            "split_part": part,
+                            "source_detection_index": 1,
+                        }
+                        yield (
+                            [[index * 60, 20], [index * 60 + 30, 20],
+                             [index * 60 + 30, 38], [index * 60, 38]],
+                            Image.new("RGB", (90 if index == 1 else 150, 32), "white"),
+                            provenance,
+                        )
+                else:
+                    yield [[10, 20], [180, 20], [180, 38], [10, 38]], (
+                        Image.new("RGB", (250, 32), "white")
+                    )
+
+        class FakeRecognizer:
+            def predict(self, crop):
+                return {250: "ORIGINAL", 90: "LEFT", 150: "RIGHT"}[crop.width], False
+
+        engine = LocalOcrEngine.__new__(LocalOcrEngine)
+        engine.detector = FakeDetector()
+        engine.recognizer = FakeRecognizer()
+        engine.checkpoint_sha256 = "stub"
+        out = io.BytesIO()
+        Image.new("RGB", (300, 120), "white").save(out, "PNG")
+        baseline = engine.process(out.getvalue(), "sample.png")
+        experimental = engine.process(out.getvalue(), "sample.png", split_headers=True)
+
+        self.assertEqual(baseline["text"], "ORIGINAL")
+        self.assertEqual(baseline["line_count"], 1)
+        self.assertFalse(baseline["header_split_enabled"])
+        self.assertEqual(experimental["text"], "LEFT\nRIGHT")
+        self.assertEqual(experimental["line_count"], 2)
+        self.assertTrue(experimental["header_split_enabled"])
+        self.assertEqual(
+            experimental["pages"][0]["header_split_experiment"]["accepted_count"], 1
+        )
+        self.assertEqual(
+            {row["header_split"]["split_part"] for row in experimental["pages"][0]["lines"]},
+            {"left", "right"},
+        )
+
     def test_pdf_4_pages_rejected_if_more_than_max(self):
         try:
             import fitz
