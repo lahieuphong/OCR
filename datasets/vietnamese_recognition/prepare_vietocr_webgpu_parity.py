@@ -12,6 +12,7 @@ No blind-test crop or blind-test prediction may be accessed.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import shutil
 import sys
@@ -96,6 +97,9 @@ def stage(limit: int, all_samples: bool) -> dict:
     # dedicated .gitignore to prevent accidental checkpoint/eval disclosure.
     SAMPLES.mkdir(parents=True, exist_ok=True)
     ARTIFACTS.mkdir(parents=True, exist_ok=True)
+    # Fail-closed: a partial staging run must never leave an old fixture
+    # manifest that a browser could confuse with this new run.
+    (SAMPLES / "manifest.json").unlink(missing_ok=True)
     for name in ("encoder.onnx", "decoder_step.onnx", "metadata.json"):
         shutil.copy2(OUTPUT / name, ARTIFACTS / name)
     fixtures = []
@@ -106,8 +110,10 @@ def stage(limit: int, all_samples: bool) -> dict:
         if pixel.shape[:3] != (1, 3, 32) or not 32 <= pixel.shape[3] <= 1024:
             raise SystemExit(f"STOP: unexpected tensor shape {pixel.shape} for {row['id']}")
         filename = f"line_{index:04d}.f32"
-        (SAMPLES / filename).write_bytes(pixel.astype("<f4", copy=False).tobytes(order="C"))
+        raw_bytes = pixel.astype("<f4", copy=False).tobytes(order="C")
+        (SAMPLES / filename).write_bytes(raw_bytes)
         fixtures.append({
+            "tensor_sha256": hashlib.sha256(raw_bytes).hexdigest(),
             "id": row["id"],
             "split": row["split"],
             "image_file": f"/fixtures/{filename}",
