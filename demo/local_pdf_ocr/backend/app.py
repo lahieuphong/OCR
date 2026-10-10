@@ -9,12 +9,13 @@ import logging
 import time
 from functools import lru_cache
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse
 
 from .contract import MAX_UPLOAD_BYTES, DemoConfigurationError, validate_upload
 from .engine import LocalOcrEngine
+from .text_layer import extract_pdf_text
 
 logger = logging.getLogger("local_pdf_ocr")
 app = FastAPI(
@@ -39,12 +40,18 @@ def health():
         "service": "local-pdf-ocr-demo",
         "state": "ready_to_initialize" if (MODEL_DIR / "parity_full.json").is_file() else "missing_model_files",
         "engine": "paddleocr-det+frozen-vietocr-b-onnx-cpu",
+        "modes": ["native_text", "vietocr_ocr"],
+        "native_text_ready": True,
         "deployment_approved": False,
     }
 
 
 @app.post("/api/ocr")
-async def ocr(file: UploadFile = File(...)):
+async def ocr(file: UploadFile = File(...), mode: str = Form("vietocr_ocr")):
+    # Explicit selection: a PDF's embedded text MUST NOT silently become
+    # OCR reference/ground truth, and OCR mode must NEVER auto-skip inference.
+    if mode not in {"native_text", "vietocr_ocr"}:
+        raise HTTPException(status_code=400, detail="Chế độ không hợp lệ.")
     if _ocr_lock.locked():
         raise HTTPException(status_code=429, detail="Máy đang xử lý tài liệu khác. Vui lòng đợi.")
     filename = file.filename or ""
@@ -53,14 +60,20 @@ async def ocr(file: UploadFile = File(...)):
     finally:
         await file.close()
     try:
-        validate_upload(filename, payload)
+        extension = validate_upload(filename, payload)
+        if mode == "native_text" and extension != ".pdf":
+            raise ValueError("Trích xuất text layer chỉ hỗ trợ PDF. Chọn OCR cho ảnh.")
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     async with _ocr_lock:
         start = time.perf_counter()
         try:
-            result = await run_in_threadpool(lambda: get_engine().process(payload, filename))
+            if mode == "native_text":
+                # Intentionally do not initialize PaddlePaddle/ONNX in text mode.
+                result = await run_in_threadpool(lambda: extract_pdf_text(payload, filename))
+            else:
+                result = await run_in_threadpool(lambda: get_engine().process(payload, filename))
         except DemoConfigurationError as exc:
             logger.error("Model preflight failed: %s", exc)
             raise HTTPException(status_code=503, detail=str(exc)) from exc
