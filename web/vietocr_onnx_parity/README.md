@@ -32,6 +32,44 @@ Run from E:\Phong_Nho_IT\OCR:
 Do not run git reset, pull or re-freeze training inputs. Python and ONNX
 weights remain unchanged. Do not merge main.
 
+## Fixed: Vite cannot import native WebGPU Asyncify module (October 10)
+
+The first browser attempt failed after it found a WebGPU adapter but before
+creating an encoder session:
+
+    Failed to fetch dynamically imported module:
+    http://127.0.0.1:5174/ort-wasm-simd-threaded.asyncify.mjs?import
+
+Cause: the old predev script copied only .wasm assets; the native WebGPU
+runtime needs both its matching Asyncify .mjs glue and .wasm binary.
+Now scripts/stage_wasm.mjs copies the exact
+ort-wasm-simd-threaded.asyncify.mjs and
+ort-wasm-simd-threaded.asyncify.wasm from the pinned installed
+onnxruntime-web 1.30.0, and throws if either is unavailable.
+src/main.js uses explicit absolute object paths
+ort.env.wasm.wasmPaths = {mjs: ..., wasm: ...} and checks that the .mjs
+file is served as JavaScript before creating a session.
+
+No model export, ONNX graph, checkpoint, or frozen prediction was changed.
+
+Restart Vite after pulling this fix:
+
+    cd /d E:\Phong_Nho_IT\OCR
+    git fetch origin
+    git checkout origin/feat/vietocr-b1024-onnx-parity -- web/vietocr_onnx_parity/scripts/stage_wasm.mjs web/vietocr_onnx_parity/src/main.js web/vietocr_onnx_parity/README.md
+    cd /d E:\Phong_Nho_IT\OCR\web\vietocr_onnx_parity
+    npm run dev
+
+Expected two "Staged" lines; verify the following local URL loads as a
+JavaScript module (not the HTML homepage):
+
+    http://127.0.0.1:5174/ort/ort-wasm-simd-threaded.asyncify.mjs
+
+Then reload Chrome with Ctrl+Shift+R, run 12-line smoke, export JSON.
+If an operator/provider error occurs instead of an asset error, STOP and
+report it as the new blocker. Never mask a WebGPU failure by choosing
+WASM-only execution or treating incomplete lines as PASS.
+
 ## First stage: 12 lines
 
     .venv-vietocr\Scripts\python.exe datasets\vietnamese_recognition\prepare_vietocr_webgpu_parity.py
