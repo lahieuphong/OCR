@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>VietOCR B — WebGPU parity gate</title>
+  <style>
+    :root { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; color-scheme: dark; }
+    body { max-width: 1000px; margin: 40px auto; padding: 0 18px; background: #101827; color: #e9eef6; }
+    h1 { font-size: 1.75rem; margin-bottom: 8px; }
+    p { line-height: 1.5; color: #bac9d9; }
+    code { color: #a5d9ff; }
+    .panel { background: #17253a; border: 1px solid #345174; padding: 18px; border-radius: 10px; }
+    button { background: #61a5f8; color: #07172c; font-weight: 700; cursor: pointer; padding: 12px 18px; border: none; border-radius: 6px; margin: 8px 8px 8px 0; }
+    button:disabled { opacity: 0.48; cursor: wait; }
+    #status { font-weight: 750; color: #a8dfc2; overflow-wrap: anywhere; }
+    pre { padding: 12px; margin-top: 16px; background: #091320; border: 1px solid #36506c; border-radius: 6px; font-size: .85rem; overflow: auto; max-height: 55vh; white-space: pre-wrap; overflow-wrap: anywhere; }
+    small { color: #c3cad2; }
+  </style>
+</head>
+<body>
+  <h1>VietOCR B — ONNX WebGPU parity</h1>
+  <p>Thử nghiệm riêng, không kết nối production. Đầu vào là tensor float32 được tiền xử lý bằng đúng VietOCR/PIL. Chỉ so khớp dự đoán đã lưu của 752 crop <strong>không thuộc blind test</strong>.</p>
+  <section class="panel">
+    <p><strong>Trạng thái:</strong> <span id="status">Chưa chạy</span></p>
+    <button id="run">Chạy WebGPU parity</button>
+    <button id="download" disabled>Lưu báo cáo JSON</button>
+    <p><small>Yêu cầu Chrome/Edge có WebGPU và địa chỉ <code>http://127.0.0.1:5174</code>. Phần mềm này chỉ chạy theo lựa chọn thủ công, không tự chuyển sang nhận dạng bằng WASM khi WebGPU thiếu. Kết quả khớp chuỗi không khẳng định mọi phép toán đều chạy trên GPU.</small></p>
+    <pre id="log" aria-live="polite"></pre>
+  </section>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
