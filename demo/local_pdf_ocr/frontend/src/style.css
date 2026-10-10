@@ -257,3 +257,18 @@ button:disabled {cursor:not-allowed;}
   .ocr-mode-selector {grid-template-columns: 1fr;}
   .mode-note {grid-column: 1;}
 }
+
+.review-warning {
+  display: flex;
+  gap: 9px;
+  align-items: flex-start;
+  margin: -6px 0 13px;
+  padding: 11px 12px;
+  font-size: 11px;
+  line-height: 1.55;
+  border-radius: 9px;
+  color: #f2d49e;
+  border: 1px solid #72572e;
+  background: #372b1d;
+}
+.review-warning svg { flex: 0 0 auto; margin-top: 1px; }
