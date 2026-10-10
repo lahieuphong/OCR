@@ -65,9 +65,12 @@ def build_export_models(config_path: Path, weights_path: Path):
     import run_vietocr
     import torch
     from torch import nn
-    from vietocr.tool.translate import build_model
 
     run_vietocr.check_pinned_checkout()
+    sys.dont_write_bytecode = True
+    if str(run_vietocr.VIETOCR_DIR) not in sys.path:
+        sys.path.insert(0, str(run_vietocr.VIETOCR_DIR))
+    from vietocr.tool.translate import build_model
     config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
     config["device"] = "cpu"
     config["cnn"]["pretrained"] = False
