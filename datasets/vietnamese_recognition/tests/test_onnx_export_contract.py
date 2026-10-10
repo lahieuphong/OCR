@@ -23,6 +23,20 @@ class FrozenExport(unittest.TestCase):
         )
         self.assertEqual(exporter.SELECTED, "phase4_exp_b_width1024")
 
+    def test_positive_cnn_axes_preserve_pinned_sequence_layout(self):
+        import torch
+
+        # Pinned VietOCR Vgg.forward uses negative axis indices. ONNX
+        # requires an explicit non-negative permutation.
+        for height, width in ((1, 10), (2, 25), (1, 64)):
+            features = torch.arange(2 * 256 * height * width, dtype=torch.float32).reshape(
+                2, 256, height, width
+            )
+            pinned = features.transpose(-1, -2).flatten(2).permute(-1, 0, 1)
+            onnx_safe = features.transpose(2, 3).flatten(2).permute(2, 0, 1)
+            self.assertTrue(torch.equal(pinned, onnx_safe))
+            self.assertEqual(onnx_safe.shape, (height * width, 2, 256))
+
     def test_nonblind_split_contract(self):
         self.assertEqual(parity.EXPECTED_SPLITS, {
             "real_val": 100, "synthetic_val": 552, "bakeoff_regression": 100
