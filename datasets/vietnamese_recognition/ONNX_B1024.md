@@ -28,17 +28,21 @@ metadata.json written by export records these properties and model hashes.
 
 ## Commands: Windows CMD at repo root on E:
 
-Fetch only the four new scripts/docs to avoid overwriting locally normalized
-training data.
+Fetch only the ONNX scripts/docs (including onnx_attention.py) to avoid
+overwriting locally normalized training data.
 
     cd /d E:\Phong_Nho_IT\OCR
     git fetch origin
-    git checkout origin/feat/vietocr-b1024-onnx-parity -- datasets/vietnamese_recognition/export_vietocr_onnx.py datasets/vietnamese_recognition/check_vietocr_onnx_parity.py datasets/vietnamese_recognition/tests/test_onnx_export_contract.py datasets/vietnamese_recognition/ONNX_B1024.md
+    git checkout origin/feat/vietocr-b1024-onnx-parity -- datasets/vietnamese_recognition/export_vietocr_onnx.py datasets/vietnamese_recognition/onnx_attention.py datasets/vietnamese_recognition/check_vietocr_onnx_parity.py datasets/vietnamese_recognition/tests/test_onnx_export_contract.py datasets/vietnamese_recognition/ONNX_B1024.md
 
     .venv-vietocr\Scripts\python.exe datasets\vietnamese_recognition\training_inputs.py --check
     .venv-vietocr\Scripts\python.exe -m unittest discover -s datasets\vietnamese_recognition\tests -p "test_onnx_export_contract.py"
     .venv-vietocr\Scripts\python.exe -m pip install "onnx>=1.16,<2" "onnxruntime>=1.20,<2"
-    .venv-vietocr\Scripts\python.exe datasets\vietnamese_recognition\export_vietocr_onnx.py
+    .venv-vietocr\Scripts\python.exe datasets\vietnamese_recognition\export_vietocr_onnx.py --overwrite
+
+The exporter uses ONNX-only attention with dynamic reshapes, keeping the
+original PyTorch model untouched. Before export it numerically compares
+encoder outputs and autoregressive decoder logits against the pinned model.
 
 The exporter checks graph syntax and dynamic shape behavior at widths
 160, 320, 640, 1024 and decoder prefixes 1, 2, 16 using ONNX Runtime CPU.
