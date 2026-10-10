@@ -14,6 +14,7 @@ from pathlib import Path
 
 from .contract import MAX_PDF_PAGES, validate_upload
 from .reading_order import order_text_blocks
+from .pdf_coverage import native_page_status
 
 
 def extract_pdf_text(raw: bytes, filename: str) -> dict:
@@ -31,6 +32,7 @@ def extract_pdf_text(raw: bytes, filename: str) -> dict:
     pages = []
     total_lines = 0
     empty_pages = []
+    pages_requiring_ocr = []
     try:
         if pdf.needs_pass:
             raise ValueError("PDF được bảo vệ bằng mật khẩu; hãy cung cấp bản không khóa.")
@@ -73,6 +75,9 @@ def extract_pdf_text(raw: bytes, filename: str) -> dict:
             page_text = "\n".join(item["text"] for item in blocks)
             if not page_text.strip():
                 empty_pages.append(page_index + 1)
+            coverage = native_page_status(page, len(flattened_lines))
+            if coverage["needs_ocr_for_page_content"]:
+                pages_requiring_ocr.append(page_index + 1)
             total_lines += len(flattened_lines)
             pages.append({
                 "page": page_index + 1,
@@ -82,6 +87,7 @@ def extract_pdf_text(raw: bytes, filename: str) -> dict:
                 "reading_order": "spatial_bands_columns_v1",
                 "blocks": blocks,
                 "lines": flattened_lines,
+                "coverage": coverage,
                 "text": page_text,
                 "elapsed_ms": round((time.perf_counter() - page_start) * 1000),
             })
@@ -107,6 +113,13 @@ def extract_pdf_text(raw: bytes, filename: str) -> dict:
         "line_count": total_lines,
         "decoder_limit_hits": None,
         "pages_without_text": empty_pages,
+        "pages_requiring_ocr": pages_requiring_ocr,
+        "native_text_complete": len(pages_requiring_ocr) == 0,
+        "warnings": (
+            ["PDF chứa ảnh scan toàn trang hoặc trang thiếu lớp văn bản: "
+             "trích xuất text layer chưa đủ nội dung; hãy chạy chế độ OCR."]
+            if pages_requiring_ocr else []
+        ),
         "pages": pages,
         "text": "\n\n".join(page["text"] for page in pages),
         "elapsed_ms": round((time.perf_counter() - started) * 1000),
