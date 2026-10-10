@@ -291,6 +291,14 @@ export default function App() {
                 ? "NGUỒN: PaddleOCR Detection + VietOCR B / ONNX CPU"
                 : "NGUỒN: Văn bản nhúng PDF / PyMuPDF — KHÔNG chạy OCR"}</span>
             </div>}
+            {result && !result.used_ocr && result.native_text_complete === false &&
+              <div className="review-warning" role="status"><AlertTriangle size={17}/>
+                <span>PDF này chứa ảnh scan hoặc trang thiếu text layer. Chế độ 1 chỉ trích xuất được phần chữ nhúng (có thể chỉ là thông tin ký số). Cần chạy chế độ OCR để lấy nội dung các trang {result.pages_requiring_ocr?.join(", ")}.</span>
+              </div>}
+            {result && result.used_ocr && result.pages?.some(p => p.detection_review?.review_required || p.reading_order?.review_source_line_indices?.length > 0) &&
+              <div className="review-warning" role="status"><AlertTriangle size={17}/>
+                <span>Có vùng OCR cần rà soát (header gộp, dòng gần dấu, hoặc mảnh chữ nằm giữa hai cột). Kết quả vẫn giữ nguyên từng ký tự nhận dạng; xem detection_review và reading_order trong JSON.</span>
+              </div>}
             {result && <div className="results-stats">
               <div><b>{result.page_count}</b><small>trang</small></div>
               <div><b>{result.line_count}</b><small>dòng nhận dạng</small></div>
