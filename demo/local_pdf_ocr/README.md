@@ -298,3 +298,90 @@ especially the overprint_review fragments in 738-TTg. For native mode
 on the three scan PDFs, verify the explicit warning that extracted text
 is only an incomplete embedded layer. Keep main and the B checkpoint
 untouched. No blind test re-run and no merge.
+
+
+## Experimental header split — explicit opt-in (branch: feat/local-pdf-ocr-header-split-exp)
+
+Goal: address the concrete detection problem where the two administrative
+headers ("BỘ CÔNG THƯƠNG"/"CỘNG HÒA...", etc.) were detected as one wide
+PaddleOCR text-line polygon on page 1.
+
+This is NOT a new detector, recognizer checkpoint or production improvement.
+The candidate split happens **after PaddleOCR detection and before crop/
+recognition**, only when a true dark-pixel-free vertical gutter is present.
+It uses image pixel projection and the geometry of the existing polygon,
+without looking at the recognized text or PDF text layer.
+
+Requirements for a split include: first-page wide and near-top quadrilateral,
+limited rotation, one unambiguous >=18px/1.5%-page-width gutter between
+34%-49% of page width, and sufficient ink on both sides. If any condition
+fails the original box/crop is retained. If cropping either proposed half
+fails, both halves are discarded and the original box is cropped as before.
+No text replacement, forced Vietnamese accents or dictionary rules.
+
+The frontend has a checkbox named:
+  "Thử tách header hai cột (experimental)"
+It defaults **OFF** and is only visible in OCR mode. Check it to run the
+candidate split before VietOCR B ONNX recognition; uncheck to run original
+OCR Layout v2 unmodified. Native-text mode does not support it.
+
+API: POST /api/ocr multipart/form-data with:
+  file=<PDF/image>, mode=vietocr_ocr, split_headers=true|false
+
+JSON output when enabled includes:
+- header_split_enabled: true
+- pages[].header_split_experiment.enabled / accepted_count /
+  accepted_source_detection_indices / extra_line_count
+- pages[].lines[].header_split for each half: original_polygon, gap_x,
+  gap_px, split_part, source_detection_index.
+
+The experimental run and original baseline are held separately in the
+browser and downloaded as distinct files:
+  *_vietocr_ocr_header_split.json / TXT (experiment)
+  *_vietocr_ocr.json / TXT (baseline)
+
+**Offline proposal validation (no new VietOCR inference):**
+- 21-bct page 1: 48-pixel gutter in merged detected line 5
+- 216-tb page 1: 39-pixel gutter in merged detected line 6
+- 738-ttg page 1: 33-pixel gutter in merged detected line 6
+- 10333 VPCP example and other tested pages: NO candidate split.
+Three candidate boxes among 417 existing OCR lines across four PDFs
+(10 pages). This checks pixel geometry, NOT recognition accuracy.
+If each half is successfully cropped, candidate mode is expected to add
+one recognized line per document for those three PDFs; it MUST NOT
+delete any other line. The real result and accuracy must be confirmed
+on the user's Windows environment.
+
+### Safe local Windows update
+
+From CMD, stop both backend and Vite first (Ctrl+C) and preserve any local
+edits in demo/local_pdf_ocr before selective checkout:
+
+    cd /d E:\Phong_Nho_IT\OCR
+    git fetch origin
+    git checkout origin/feat/local-pdf-ocr-header-split-exp -- demo/local_pdf_ocr
+    .venv-demo\Scripts\python.exe -m unittest discover -s demo\local_pdf_ocr\backend\tests -p "test_*.py" -v
+
+If **all unit tests OK**, start backend from the repo root:
+
+    .venv-demo\Scripts\python.exe -m uvicorn demo.local_pdf_ocr.backend.app:app --host 127.0.0.1 --port 8765
+
+Open a second CMD:
+
+    cd /d E:\Phong_Nho_IT\OCR\demo\local_pdf_ocr\frontend
+    npm run build
+    npm run dev
+
+Test first on a single-page file (e.g., 738-ttg) in OCR mode:
+1. Checkbox OFF -> run and export original baseline TXT/JSON.
+2. Checkbox ON -> run and export experiment TXT/JSON.
+3. Inspect split_part left/right under original detected header, and
+   compare recognition results and speed against baseline.
+4. Run 21-bct and 216-tb only if the first comparison has no regression.
+5. Export all six OCR files (3 docs x two variants). Send the pairs for
+   side-by-side review. Do not use embedded text as a secret OCR override.
+6. Keep this branch unmerged until the split improves tested accuracy
+   without regression elsewhere, and a separate end-to-end PDF gate passes.
+
+No re-training, no blind-test rerun, no modification to .venv-vietocr,
+no changed ONNX/checkpoint, no main merge or deployment.
