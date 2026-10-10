@@ -16,6 +16,7 @@ from .contract import (
     MAX_IMAGE_PIXELS, MAX_PDF_PAGES, MODEL_DIR,
     decode_ids, validate_upload, verify_frozen_onnx,
 )
+from .ocr_layout import reorder_split_footer
 
 
 def resize_width(width: int, height: int, out_h: int = 32, low: int = 32, high: int = 1024) -> int:
@@ -202,12 +203,18 @@ class LocalOcrEngine:
                     "text": text,
                     "hit_decoder_limit": truncated,
                 })
+            # Post-recognition, geometry-only. Never changes VietOCR text,
+            # checkpoint, ONNX graph, crop preprocessing, or detector output.
+            recognized, reading_order = reorder_split_footer(
+                recognized, image.width, image.height
+            )
             page_text = "\n".join(item["text"] for item in recognized)
             pages.append({
                 "page": number,
                 "width": image.width,
                 "height": image.height,
                 "lines": recognized,
+                "reading_order": reading_order,
                 "text": page_text,
                 "elapsed_ms": round((time.perf_counter() - page_started) * 1000),
             })
@@ -229,7 +236,7 @@ class LocalOcrEngine:
             "elapsed_ms": round((time.perf_counter() - started) * 1000),
             "limitations": [
                 "Document orientation and text-line 180-degree classification are not included",
-                "Basic top-to-bottom order; complex columns/tables need separate layout evaluation",
+                "Conservative footer-only two-column reading order; complex columns/tables require separate evaluation",
                 "Detector + crop + PDF rendering have NOT passed end-to-end regression",
                 "No spelling or diacritic corrections are applied",
             ],
