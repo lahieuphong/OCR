@@ -9,7 +9,17 @@ integration. Main, frozen training files and blind test remain unchanged.
 - React/Vite at http://127.0.0.1:5175.
 - FastAPI at http://127.0.0.1:8765; Vite proxies /api.
 - PDF/PNG/JPEG upload (15MB maximum, 6 PDF pages, 12MP/page).
-- PyMuPDF renders PDF pages (up to 2x, pixel cap enforced).
+- **Manual extraction method**: for PDFs, select either:
+  - native_text: PyMuPDF reads the embedded PDF text layer, without
+    loading/using any PaddleOCR, VietOCR, or other OCR model.
+  - vietocr_ocr: PyMuPDF renders every PDF page (up to 2x, pixel cap),
+    PaddleOCR detects lines and VietOCR B always recognizes their images.
+- For PNG/JPEG only vietocr_ocr is available. A scanned PDF without a
+  text layer must explicitly use OCR; no automatic fallback occurs.
+- Both modes are cached separately per selected file in the frontend;
+  after running both, click So sánh to inspect texts side-by-side.
+- JSON/TXT exports include the selected mode in the filename; JSON
+  explicitly reports method, source, engine, and used_ocr.
 - PaddleOCR TextDetection model PP-OCRv6_medium_det finds line quadrilaterals.
 - PaddleX CropByPolys rectifies line crops as in frozen bake-off.
 - RGB/PIL LANCZOS, width round-up-to-10 -> VietOCR B float32 NCHW.
@@ -105,11 +115,50 @@ Open http://127.0.0.1:5175/ in Chrome.
 5. Only then try 21-bct.signed.pdf, 216-tb.signed.pdf,
    738-ttg.signed.pdf and a representative land record.
 
-The PDF is rasterized for actual OCR even when it contains an embedded
-text layer. This demo does not silently bypass VietOCR for digital PDF.
+Only the OCR mode rasterizes the PDF. PDF text mode NEVER runs recognition,
+and it fails clearly for scanned PDFs without text. The OCR mode ALWAYS
+runs recognition even if the PDF contains perfect embedded text. Neither
+mode is used as ground truth for the other during calibration/parity.
 
 If the first PDF fails, save the backend CMD traceback and browser
 error, and STOP: do not claim the end-to-end gate passed.
+
+## Existing Windows demo: update code only and restart
+
+If the old local demo already runs, **do not reinstall or retrain**. In
+the repo's CMD window, fetch only the changed demo source:
+
+    cd /d E:\Phong_Nho_IT\OCR
+    git fetch origin
+    git checkout origin/feat/local-pdf-ocr-demo -- demo/local_pdf_ocr
+
+Run updated tests:
+
+    .venv-demo\Scripts\python.exe -m unittest discover -s demo\local_pdf_ocr\backend\tests -p "test_*.py" -v
+    .venv-vietocr\Scripts\python.exe datasets\vietnamese_recognition\training_inputs.py --check
+
+Restart the FastAPI process (Ctrl+C, run the uvicorn command again).
+Vite normally reloads the frontend after the selective checkout, but
+restart npm run dev (or Ctrl+Shift+R in Chrome) if the UI is stale.
+Neither model checkpoint nor ONNX graph needs to be regenerated.
+
+For sample 10333_vpcp-cn_09102026_1-signed.signed.pdf:
+1. Select "Text có sẵn trong PDF" and run extraction. This should
+   preserve embedded Unicode such as "triển khai thực hiện", "khóa XIII",
+   "biến đổi khí hậu", and the signed timestamp ending "+07:00".
+2. Switch to "OCR bằng VietOCR B" and run again; this is the independent
+   recognizer baseline. Expect much longer execution than text extraction.
+3. Click "So sánh" once both results exist. Compare the footer
+   "Nơi nhận" and signature blocks as well as the Vietnamese diacritics.
+4. Download the JSON of each mode, check method/source/used_ocr fields.
+5. Test a **real scan-only** PDF with the text mode: it must fail clearly
+   and NOT auto-start OCR. Select OCR deliberately.
+
+The text-layer reader preserves PyMuPDF content-stream block order and
+Unicode without editing recognition text. A PDF may contain broken/
+inaccurate text layers; embedded text is not automatically "ground truth".
+For complex multi-column PDFs, source block order also may need layout
+verification or manual editing.
 
 ## Known limitations — NOT merge/deploy-ready
 
