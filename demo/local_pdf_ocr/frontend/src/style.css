@@ -272,3 +272,24 @@ button:disabled {cursor:not-allowed;}
   background: #372b1d;
 }
 .review-warning svg { flex: 0 0 auto; margin-top: 1px; }
+
+
+/* Explicit opt-in experiment, visually separate from the stable OCR mode. */
+.header-split-toggle {
+  margin-top: 11px;
+  padding: 12px 14px;
+  border: 1px solid #4b547e;
+  border-radius: 10px;
+  background: #1b263d;
+  color: #cbd6ed;
+}
+.header-split-toggle label {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1.4;
+}
+.header-split-toggle input {accent-color: #9aaaff; width: 15px; height: 15px;}
+.header-split-toggle p {font-size: 10px; line-height: 1.65; margin: 7px 0 0; color: #a5b5d2;}
