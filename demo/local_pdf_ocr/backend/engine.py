@@ -17,6 +17,7 @@ from .contract import (
     decode_ids, validate_upload, verify_frozen_onnx,
 )
 from .ocr_layout_v2 import reorder_document_regions, analyze_detection_geometry
+from .header_split import propose_header_split
 
 
 def resize_width(width: int, height: int, out_h: int = 32, low: int = 32, high: int = 1024) -> int:
@@ -144,7 +145,7 @@ class PaddleTextDetector:
         self.detector = TextDetection(model_name="PP-OCRv6_medium_det", device="cpu")
         self.cropper = CropByPolys(det_box_type="quad")
 
-    def detect_and_crop(self, page_image):
+    def detect_and_crop(self, page_image, *, split_headers=False, page_number=1):
         import numpy as np
         from PIL import Image
 
@@ -168,14 +169,38 @@ class PaddleTextDetector:
                 continue
             bounded.append(p.tolist())
         ordered = sort_detected_polygons(bounded)
-        for quad in ordered:
+
+        def get_crop(quad):
             crop_bgr = self.cropper(bgr, [quad])[0]
             if crop_bgr is None or crop_bgr.size == 0:
                 raise RuntimeError("PaddleX CropByPolys returned an empty text crop")
             if crop_bgr.ndim != 3 or crop_bgr.shape[2] != 3:
                 raise RuntimeError("Unexpected crop BGR shape")
-            crop_rgb = self.cv2.cvtColor(crop_bgr, self.cv2.COLOR_BGR2RGB)
-            yield quad, Image.fromarray(crop_rgb)
+            return Image.fromarray(self.cv2.cvtColor(crop_bgr, self.cv2.COLOR_BGR2RGB))
+
+        for source_index, quad in enumerate(ordered, start=1):
+            proposed = (
+                propose_header_split(page_image, quad, page_number=page_number)
+                if split_headers else None
+            )
+            if proposed:
+                # Crop both *before* yielding. A failed candidate is rolled
+                # back to the original detection, never partially emitted.
+                try:
+                    split_crops = [get_crop(part) for part in proposed["polygons"]]
+                except Exception:
+                    proposed = None
+                else:
+                    for side, part, crop in zip(
+                        ("left", "right"), proposed["polygons"], split_crops
+                    ):
+                        yield part, crop, {
+                            **proposed["audit"],
+                            "split_part": side,
+                            "source_detection_index": source_index,
+                        }
+            if not proposed:
+                yield quad, get_crop(quad)
 
 
 class LocalOcrEngine:
@@ -185,7 +210,7 @@ class LocalOcrEngine:
         self.detector = PaddleTextDetector()
         self.checkpoint_sha256 = metadata["checkpoint_sha256"]
 
-    def process(self, source: bytes, filename: str) -> dict:
+    def process(self, source: bytes, filename: str, *, split_headers: bool = False) -> dict:
         extension = validate_upload(filename, source)
         started = time.perf_counter()
         pages = []
@@ -194,15 +219,38 @@ class LocalOcrEngine:
         for number, image in iter_images(source, extension):
             page_started = time.perf_counter()
             recognized = []
-            for i, (polygon, crop) in enumerate(self.detector.detect_and_crop(image), start=1):
+            # Default mode keeps the previous detector/crop code path intact.
+            # The experimental mode must be selected explicitly by the user.
+            detections = (
+                self.detector.detect_and_crop(image, split_headers=True, page_number=number)
+                if split_headers else self.detector.detect_and_crop(image)
+            )
+            for i, region in enumerate(detections, start=1):
+                polygon, crop = region[:2]
+                provenance = region[2] if len(region) > 2 else None
                 text, truncated = self.recognizer.predict(crop)
                 limit_hits += int(truncated)
-                recognized.append({
+                item = {
                     "line_index": i,
                     "polygon": polygon,
                     "text": text,
                     "hit_decoder_limit": truncated,
-                })
+                }
+                if provenance is not None:
+                    item["header_split"] = provenance
+                recognized.append(item)
+            accepted = sorted({
+                item["header_split"]["source_detection_index"]
+                for item in recognized if "header_split" in item
+            })
+            header_split_report = {
+                "enabled": bool(split_headers),
+                "algorithm": "header_vertical_ink_gutter_v1",
+                "accepted_source_detection_indices": accepted,
+                "accepted_count": len(accepted),
+                "extra_line_count": len(accepted),
+                "baseline_unchanged_when_disabled": True,
+            }
             # Post-recognition, geometry-only. Never changes VietOCR text,
             # checkpoint, ONNX graph, crop preprocessing, or detector output.
             # Geometry-only warnings: do not modify detector crops/text.
@@ -220,6 +268,7 @@ class LocalOcrEngine:
                 "lines": recognized,
                 "reading_order": reading_order,
                 "detection_review": detection_review,
+                "header_split_experiment": header_split_report,
                 "text": page_text,
                 "elapsed_ms": round((time.perf_counter() - page_started) * 1000),
             })
@@ -233,6 +282,7 @@ class LocalOcrEngine:
             "model": "phase4_exp_b_width1024",
             "detection_model": "PP-OCRv6_medium_det",
             "recognition_provider": "CPUExecutionProvider",
+            "header_split_enabled": bool(split_headers),
             "page_count": len(pages),
             "line_count": sum(len(item["lines"]) for item in pages),
             "decoder_limit_hits": limit_hits,
@@ -243,6 +293,7 @@ class LocalOcrEngine:
                 "Document orientation and text-line 180-degree classification are not included",
                 "Conservative geometric region ordering with flagged stamps/merged headers; complex layouts still need manual verification",
                 "Detector + crop + PDF rendering have NOT passed end-to-end regression",
+                "Opt-in header splits may change recognized text; compare against unmodified baseline before approval",
                 "No spelling or diacritic corrections are applied",
             ],
             "deployment_approved": False,
