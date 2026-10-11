@@ -14,8 +14,9 @@ import re
 NUMBER_HEADER = re.compile(r"^\s*s[ốo]\s*[:.\-]?\s*(?=\S)", re.IGNORECASE)
 
 
-def is_document_number(row: dict, *, page: int, width: int, height: int) -> bool:
-    if page != 1 or width <= 0 or height <= 0:
+def is_document_number(row: dict, *, page: int, width: int | None = None,
+                       height: int | None = None) -> bool:
+    if page != 1:
         return False
     prediction = row.get("ocr_prediction", row.get("text", ""))
     if not isinstance(prediction, str) or not NUMBER_HEADER.search(prediction):
@@ -28,10 +29,19 @@ def is_document_number(row: dict, *, page: int, width: int, height: int) -> bool
         ys = [float(p[1]) for p in polygon]
     except (ValueError, TypeError, IndexError):
         return False
+    # Legacy quality review packs do not retain page dimensions. In that
+    # case select only early line indices, never a body citation on line 24.
+    # This fallback is explicitly exploratory, not complete field retrieval.
+    if width is None or height is None:
+        return 1 <= int(row.get("line_index", 999)) <= 18
+    if width <= 0 or height <= 0:
+        return False
     # Broad layout guard. Số may be in an upper row or below a two-line header.
     if not (0 <= min(xs) < .60 * width and max(xs) <= width * 1.01):
         return False
     if not (.04 * height < min(ys) < .44 * height):
+        return False
+    if int(row.get("line_index", 999)) > 22:
         return False
     if not (max(ys) - min(ys) < .09 * height):
         return False
