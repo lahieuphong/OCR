@@ -151,6 +151,12 @@ def build_zone_audit(work_dir: Path, min_verified: int = 20) -> dict:
             "printed_text_only_metrics": groups["printed_text"]["baseline_metrics"],
             "candidate_lines_with_local_improvement": len(candidates_improved),
             "candidate_count": len(ledger),
+            "nontext_verified_labels_need_manual_review": len([
+                row for row in buckets["stamp_artifact"] if row["reference"].strip()
+            ]),
+            "nontext_labels_to_review": [
+                row["id"] for row in buckets["stamp_artifact"] if row["reference"].strip()
+            ],
             "candidate_inference_performed_by_this_script": False,
             "no_automatic_recognition_replacement": True,
             "blind_test_used": False,
@@ -218,6 +224,9 @@ def render_html(report: dict) -> str:
         ' dòng; phân loại vùng thủ công ' + esc(summary["region_reviewed_lines"]) +
         '; vùng chưa phân loại ' + esc(summary["region_unreviewed_lines"]) +
         '. Không thay đổi văn bản OCR hoặc merge main.</p>'
+        '<p><strong>' + esc(summary["nontext_verified_labels_need_manual_review"]) +
+        ' nhãn thuộc vùng chỉ là dấu/hình cần xem xét lại giá trị tham chiếu.</strong> '
+        'Không tự sửa, xóa hoặc loại các dòng này khỏi điểm gốc.</p>'
         '<p><b>Chú ý:</b> sửa một dòng cục bộ không chứng minh biến thể '
         'tốt hơn toàn bộ PDF. Các vùng dấu và hình phải được xem ảnh gốc.</p>'
         + "".join(cells) + "</main></html>"
