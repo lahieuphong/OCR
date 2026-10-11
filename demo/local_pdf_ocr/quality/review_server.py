@@ -137,6 +137,59 @@ class ReviewStore:
             }
 
 
+    def create_zone_report(self, *, min_verified: int = 20) -> dict:
+        """Build offline QA outputs without rewriting verified labels or OCR predictions.
+
+        A local file snapshot and in-memory review state must be identical.
+        Outputs are atomically replaced only after full validation succeeds.
+        """
+        from .zone_audit import build_zone_audit, render_html
+
+        with self.lock:
+            actual = read_jsonl(self.labels_path)
+            snapshot = {row.get("id"): row for row in actual}
+            if len(snapshot) != len(self.order) or snapshot != self.labels:
+                raise RuntimeError("Review labels changed outside the editor; restart server.")
+            labels_sha = sha256(self.labels_path)
+            report = build_zone_audit(self.directory, min_verified=min_verified)
+            if (sha256(self.labels_path) != labels_sha
+                    or report["summary"].get("source_labels_sha256") != labels_sha):
+                raise RuntimeError("Labels changed during report generation. Retry after restarting.")
+            files = (
+                (self.directory / "zone_audit.json",
+                 json.dumps(report, ensure_ascii=False, indent=2)),
+                (self.directory / "zone_audit.html", render_html(report)),
+            )
+            # Validate both derived outputs before replacing either.
+            for target, data in files:
+                if not isinstance(data, str) or not data:
+                    raise RuntimeError("Empty report rejected")
+            for target, data in files:
+                temporary = target.with_name(target.name + ".tmp")
+                try:
+                    with temporary.open("w", encoding="utf-8", newline="\n") as output:
+                        output.write(data)
+                        output.flush()
+                        os.fsync(output.fileno())
+                    os.replace(temporary, target)
+                finally:
+                    temporary.unlink(missing_ok=True)
+            return report["summary"]
+
+    def report_asset(self, name: str) -> bytes:
+        if name not in ("zone_audit.html", "zone_audit.json"):
+            raise ValueError("Unknown report file")
+        with self.lock:
+            metadata = self.directory / "zone_audit.json"
+            target = self.directory / name
+            if not metadata.is_file() or not target.is_file():
+                raise ValueError("No report exists. Create it in the review page.")
+            report = json.loads(metadata.read_text(encoding="utf-8"))
+            if report.get("summary", {}).get("source_labels_sha256") != sha256(self.labels_path):
+                raise RuntimeError("Report is stale after label edits; create a new report.")
+            return target.read_bytes()
+
+
 def make_handler(store: ReviewStore):
     class Handler(BaseHTTPRequestHandler):
         server_version = "VietDocReviewLocal/1.0"
@@ -169,6 +222,17 @@ def make_handler(store: ReviewStore):
             path = urlsplit(self.path).path
             if path == "/api/samples":
                 return self._json(200, store.samples())
+            if path in ("/reports/zone_audit.html", "/reports/zone_audit.json"):
+                name = path.rsplit("/", 1)[-1]
+                try:
+                    payload = store.report_asset(name)
+                except ValueError as exc:
+                    return self._json(404, {"error": str(exc)})
+                except RuntimeError as exc:
+                    return self._json(409, {"error": str(exc)})
+                mime = ("text/html; charset=utf-8" if name.endswith(".html")
+                        else "application/json; charset=utf-8")
+                return self._send(200, payload, mime)
             if path in ("/", "/review_ui.html", "/review_ui.css", "/review_ui.js"):
                 name = "review_ui.html" if path == "/" else path.lstrip("/")
                 asset = Path(__file__).parent / name
@@ -193,7 +257,8 @@ def make_handler(store: ReviewStore):
                     or self.headers.get("Origin") != f"http://127.0.0.1:{self.server.server_address[1]}"
                     or self.headers.get("X-Review-Token") != store.csrf_token):
                 return self._json(403, {"error": "Invalid local review origin/token"})
-            if urlsplit(self.path).path != "/api/review":
+            resource = urlsplit(self.path).path
+            if resource not in ("/api/review", "/api/zone-report"):
                 return self._json(404, {"error": "Not found"})
             try:
                 length = int(self.headers.get("Content-Length", "0"))
@@ -202,6 +267,14 @@ def make_handler(store: ReviewStore):
                 data = json.loads(self.rfile.read(length))
                 if not isinstance(data, dict):
                     raise ValueError("Expected JSON object")
+                if resource == "/api/zone-report":
+                    if data.get("operation") != "create" or set(data) != {"operation"}:
+                        raise ValueError("Report creation requires explicit operation=create")
+                    return self._json(200, {
+                        "summary": store.create_zone_report(),
+                        "html_url": "/reports/zone_audit.html",
+                        "json_url": "/reports/zone_audit.json",
+                    })
                 return self._json(200, store.save(
                     data.get("id"), data.get("action"), data.get("reference"),
                     data.get("region_type")))
