@@ -132,6 +132,13 @@ Important evaluation contract:
 
 - Whole 72-line CER/WER remains unchanged; never erase hard lines
   from official historical measurements.
+- `non_stamp_artifact_sensitivity` separately reports CER/WER after
+  omitting ONLY rows explicitly labeled `stamp_artifact` by a reviewer.
+  It retains `stamp_overlap`, `uncertain` and `unreviewed` rows and
+  is **not** a validated printed-text subset, an official benchmark,
+  or evidence that OCR accuracy improved. On the current 72-crop
+  dataset, 2 flagged stamp fragments imply a 70-row sensitivity
+  calculation; the frozen 72-row baseline remains unchanged.
 - Printed-only CER/WER is **optional sensitivity analysis** on
   *explicitly reviewed* printed_text rows, not a new official baseline.
 - Unreviewed rows remain **unreviewed**, not automatically printed.
