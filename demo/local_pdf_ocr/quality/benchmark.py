@@ -116,6 +116,28 @@ def verified_samples(work_dir: Path, *, min_verified: int = 20) -> list[dict]:
     return verified
 
 
+def annotation_audit(samples: list[dict]) -> dict:
+    """Count corrections without publishing private reference text."""
+    from collections import Counter
+
+    corrected = sum(
+        nfc(row["reference"]) != nfc(row["ocr_prediction"]) for row in samples
+    )
+    return {
+        "verified": len(samples),
+        "corrected_vs_ocr": corrected,
+        "accepted_unchanged": len(samples) - corrected,
+        "documents": dict(sorted(Counter(row.get("document", "unknown") for row in samples).items())),
+        "has_verified_ocr_errors": corrected > 0,
+        "note": (
+            "Labels verify image against text; accepted lines do not by themselves prove accuracy."
+            if corrected else
+            "WARNING: no corrections found. Review difficult crops visually before using "
+            "this set to claim recognition accuracy or preprocessing improvements."
+        ),
+    }
+
+
 def transform(crop, variant: str):
     from PIL import ImageEnhance, ImageFilter
 
@@ -137,6 +159,13 @@ VARIANTS = ("baseline", "contrast_1p15", "unsharp_light", "autocontrast_1pct")
 def run_benchmark(work_dir: Path, *, min_verified: int = 20) -> dict:
     """Only after verified reference count passes, load the frozen recognizer."""
     samples = verified_samples(work_dir, min_verified=min_verified)
+    audit = annotation_audit(samples)
+    if not audit["has_verified_ocr_errors"]:
+        raise ValueError(
+            "STOP: all reviewed references equal the model predictions; "
+            "there are no verified OCR errors to improve. "
+            "Recheck difficult crops against their original images."
+        )
     from PIL import Image
 
     from demo.local_pdf_ocr.backend.contract import verify_frozen_onnx
@@ -193,6 +222,7 @@ def run_benchmark(work_dir: Path, *, min_verified: int = 20) -> dict:
     return {
         "status": "EXPERIMENT_ONLY_NO_DEPLOYMENT_APPROVAL",
         "samples_human_verified": len(samples),
+        "annotation_audit": audit,
         "blind_test_used": False,
         "frozen_checkpoint_sha256": metadata["checkpoint_sha256"],
         "inference_provider": "CPUExecutionProvider",
@@ -212,7 +242,9 @@ def main(argv=None) -> int:
     args = parser.parse_args(argv)
     if args.validate_labels_only:
         samples = verified_samples(args.work_dir, min_verified=args.min_verified)
+        audit = annotation_audit(samples)
         print(f"PASS: {len(samples)} verified sample(s), crop hashes match. No OCR run.")
+        print(json.dumps(audit, ensure_ascii=False, indent=2))
         return 0
     report = run_benchmark(args.work_dir, min_verified=args.min_verified)
     path = args.work_dir / "benchmark_report.json"
