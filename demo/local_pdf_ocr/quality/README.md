@@ -45,6 +45,43 @@ After the editor shows at least **20 / 72** verified crops, stop it
 (Ctrl+C), then run the previous `benchmark --validate-labels-only` command.
 Only if that succeeds consider the experimental ONNX crop benchmark.
 
+## NEW: Generate and download zone report inside localhost review UI
+
+Once the four priority regions are manually classified, there is **no
+need to type zone_audit commands**. The local review editor has a
+`Tạo báo cáo phân tích` button and direct links to the HTML preview
+and JSON export. Only the running Windows machine can access them.
+
+1. Stop review_server with Ctrl+C, fetch the updated branch, and restart:
+
+```bat
+cd /d E:\Phong_Nho_IT\OCR
+git fetch origin
+git checkout origin/feat/vietocr-zone-aware-qa -- demo/local_pdf_ocr/quality
+.venv-demo\Scripts\python.exe -m unittest discover -s demo\local_pdf_ocr\quality\tests -p "test_*.py" -v
+.venv-demo\Scripts\python.exe -m demo.local_pdf_ocr.quality.review_server --work-dir demo\local_pdf_ocr\quality_work\review_01
+```
+
+2. Visit `http://127.0.0.1:8766/` and scroll to the **Báo cáo kiểm tra
+   sau phân loại** panel. Click **Tạo báo cáo phân tích**, then
+   **Xem báo cáo trực quan** or **Tải JSON để phân tích tiếp**.
+
+3. The server validates that 20+ crops are human-verified, all hashes
+   remain unchanged, the original 72-line frozen ONNX baseline and
+   targeted variant predictions match their saved reference text.
+   It writes only `zone_audit.html` and `zone_audit.json` locally.
+   If anything is stale, the UI shows the error instead of inventing
+   a report. If labels change after generation, links reject stale files
+   until you click **Tạo báo cáo phân tích** again.
+
+4. If a reviewer marks a crop as `stamp_artifact` but it still carries a
+   text-based ground-truth label from initial review, the report flags
+   that ID for careful re-review. **It never removes the example or
+   silently improves CER/WER.**
+
+The original `benchmark_report.json`, human labels, crop files,
+checkpoint, main branch and OCR pipeline are never modified by this action.
+
 ## Zone-aware QA: manual stamp classification + safe candidate ledger
 
 Branch: `feat/vietocr-zone-aware-qa`, based on
