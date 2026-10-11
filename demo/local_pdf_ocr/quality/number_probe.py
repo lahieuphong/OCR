@@ -42,6 +42,19 @@ def select_field_samples(work_dir: Path) -> list[dict]:
             f"No document-number header candidates found in {work_dir}. "
             "Use --selection document_number and inspect the original PDF."
         )
+    labels = {item["id"]: item for item in read_jsonl(work_dir / "labels.jsonl")}
+    if any(labels.get(ident, {}).get("verified") is not True for ident in candidate_ids):
+        raise ValueError(
+            "Document-number crops remain unverified. Review each crop image "
+            "in the local UI before any scoring."
+        )
+    if any(labels.get(ident, {}).get("region_type") == "stamp_artifact"
+           and labels.get(ident, {}).get("region_reviewed") is True
+           for ident in candidate_ids):
+        raise ValueError(
+            "STOP: a candidate is human-reviewed nontext stamp artwork; "
+            "this field probe only scores actual text. Do not silently omit it."
+        )
     verified = verified_samples(work_dir, min_verified=1)
     verified_by_id = {item["id"]: item for item in verified}
     if candidate_ids - verified_by_id.keys():
