@@ -10,8 +10,8 @@ import re
 
 
 # Deliberately restrict to the left-hand document number header, such as
-# "Số: 216/TB-VPCP". Do not match references in document body ("... số 216").
-NUMBER_HEADER = re.compile(r"^\s*s[ốo]\s*[:.\-]?\s*(?=\S)", re.IGNORECASE)
+# "Số: 216/TB-VPCP". Require separator: a bare "số điều..."\n# is BODY CONTENT, not a document number. Do not match references in body.
+NUMBER_HEADER = re.compile(r"^\s*s[ốo]\s*[:.\-]\s*(?=\S)", re.IGNORECASE)
 
 
 def is_document_number(row: dict, *, page: int, width: int | None = None,
