@@ -27,6 +27,21 @@
       <form id="form"><div class="field"><label for="reference">Chữ đúng theo ảnh (có thể sửa trực tiếp)</label><textarea id="reference" rows="3" spellcheck="false"></textarea><p class="hint">Kiểm tra dấu tiếng Việt, chữ hoa, số và dấu câu. Nếu ảnh bị dấu đóng che không đọc được, chọn Bỏ qua; đừng đoán.</p></div>
         <div class="buttons"><button id="save" type="submit" class="btn-primary">Lưu bản sửa & tiếp tục →</button><button id="skip" type="button" class="btn-muted">Bỏ qua ảnh này →</button><button id="unverify" type="button" class="btn-danger" hidden>Bỏ xác minh</button></div>
       </form>
+      <section class="zone-panel" aria-label="Phân loại vùng OCR">
+        <h3>Phân loại vùng ảnh (tùy chọn)</h3>
+        <p class="hint">Chỉ chọn sau khi xem ảnh PDF gốc. Loại vùng dùng để phân tích chất lượng theo nhóm, KHÔNG thay chữ OCR hoặc điểm benchmark cũ.</p>
+        <label for="region-type">Loại vùng trong tài liệu</label>
+        <select id="region-type">
+          <option value="">Chưa phân loại (mặc định)</option>
+          <option value="printed_text">Chữ in thông thường</option>
+          <option value="stamp_overlap">Chữ bị con dấu đè/che</option>
+          <option value="stamp_artifact">Chỉ là dấu/hình, không phải văn bản</option>
+          <option value="handwriting">Chữ viết tay</option>
+          <option value="uncertain">Không xác định từ ảnh</option>
+        </select>
+        <button type="button" class="btn-secondary" id="save-region">Lưu phân loại vùng</button>
+        <span class="zone-status" id="zone-status"></span>
+      </section>
       <div class="feedback" id="feedback" role="status" aria-live="polite"></div>
       <footer>Chỉ ghi vào <code>quality_work/review_01/labels.jsonl</code> trên máy này. Không thay đổi PDF, model hoặc kết quả OCR gốc.</footer>
     </section>
