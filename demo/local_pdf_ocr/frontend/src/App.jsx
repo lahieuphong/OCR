@@ -1,4 +1,5 @@
 import React, {useEffect, useRef, useState} from "react";
+import NumberReviewPanel from "./NumberReviewPanel.jsx";
 import {
   ScanText, FileText, FileImage, UploadCloud, ShieldCheck, Cpu,
   Sparkles, ChevronRight, Download, Copy, Check, AlertTriangle,
@@ -35,6 +36,7 @@ export default function App() {
   const [resultsByMode, setResultsByMode] = useState({});
   const [compare, setCompare] = useState(false);
   const [splitHeaders, setSplitHeaders] = useState(false);
+  const [numberReviewEnabled, setNumberReviewEnabled] = useState(false);
   const [page, setPage] = useState(1);
   const [working, setWorking] = useState(false);
   const [elapsed, setElapsed] = useState(0);
@@ -65,6 +67,7 @@ export default function App() {
     setResultsByMode({});
     setCompare(false);
     setSplitHeaders(false);
+    setNumberReviewEnabled(false);
     setPage(1);
     setCopied(false);
     if (!EXTENSIONS.test(file.name)) {
@@ -265,6 +268,16 @@ export default function App() {
               <p>Mặc định tắt. Chỉ tách box có khe trắng xác nhận bằng ảnh; có thể thay đổi số dòng và văn bản OCR. Kết quả gốc luôn được lưu riêng để so sánh.</p>
             </div>}
 
+            {selectedMode === "vietocr_ocr" && <div className="header-split-toggle">
+              <label>
+                <input type="checkbox" checked={numberReviewEnabled}
+                  disabled={!document || working}
+                  onChange={event => setNumberReviewEnabled(event.target.checked)}/>
+                <strong>Bật cảnh báo số văn bản cần kiểm tra (experimental)</strong>
+              </label>
+              <p>Chỉ hiện cảnh báo và vùng ảnh để xác minh sau khi OCR xong. Không gửi thêm yêu cầu nhận dạng, không thay TXT/JSON OCR gốc. Nhãn được tải ở JSON rà soát riêng.</p>
+            </div>}
+
             <div className="preview-area">
               <div className="section-label"><span>01</span> XEM TRƯỚC <span className="subtle-line"/></div>
               {preview ? (
@@ -326,6 +339,9 @@ export default function App() {
               <AlertTriangle size={17}/>
               <span>Thử nghiệm tách header: {result.pages.reduce((n, p) => n + (p.header_split_experiment?.accepted_count || 0), 0)} box đã chia. Chưa được chứng minh tăng độ chính xác nhận dạng; hãy đối chiếu bản OCR gốc.</span>
             </div>}
+            {result?.used_ocr && numberReviewEnabled &&
+              <NumberReviewPanel key={resultKey} sourceFile={document} result={result}/>}
+
             {result && <div className="results-stats">
               <div><b>{result.page_count}</b><small>trang</small></div>
               <div><b>{result.line_count}</b><small>dòng nhận dạng</small></div>

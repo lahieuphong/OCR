@@ -11,10 +11,11 @@ from functools import lru_cache
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.concurrency import run_in_threadpool
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 
 from .contract import MAX_UPLOAD_BYTES, DemoConfigurationError, validate_upload
 from .engine import LocalOcrEngine
+from .number_review_preview import create_review_preview
 from .text_layer import extract_pdf_text
 
 logger = logging.getLogger("local_pdf_ocr")
@@ -106,3 +107,32 @@ async def ocr(
             ) from exc
         result["request_elapsed_ms"] = round((time.perf_counter() - start) * 1000)
         return JSONResponse(content=result)
+
+@app.post("/api/review-crop")
+async def review_crop(
+    file: UploadFile = File(...),
+    page: int = Form(...),
+    width: int = Form(...),
+    height: int = Form(...),
+    polygon: str = Form(...),
+):
+    """Opt-in crop of the ORIGINAL document, never a new OCR result."""
+    try:
+        payload = await file.read(MAX_UPLOAD_BYTES + 1)
+    finally:
+        await file.close()
+    try:
+        # Isolate from simultaneous model inference; PyMuPDF is only used to
+        # display source pixels for review, not to extract embedded text.
+        png = await run_in_threadpool(
+            lambda: create_review_preview(
+                payload, file.filename or "", page=page, width=width,
+                height=height, polygon_json=polygon,
+            )
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return Response(
+        content=png, media_type="image/png",
+        headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"},
+    )

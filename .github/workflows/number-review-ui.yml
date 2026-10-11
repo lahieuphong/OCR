@@ -1,0 +1,42 @@
+name: Local number review UI (model-free)
+on:
+  pull_request:
+    paths:
+      - 'demo/local_pdf_ocr/backend/number_review_preview.py'
+      - 'demo/local_pdf_ocr/backend/app.py'
+      - 'demo/local_pdf_ocr/backend/tests/test_number_preview.py'
+      - 'demo/local_pdf_ocr/frontend/**'
+      - '.github/workflows/number-review-ui.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  number-review-ui:
+    name: Local preview + UI checks (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install model-free preview requirements
+        run: python -m pip install "Pillow>=10,<13" "PyMuPDF>=1.24,<2" "fastapi>=0.110,<1" "python-multipart>=0.0.9,<1"
+      - name: Verify source-crop module without OCR models
+        run: python -m unittest demo.local_pdf_ocr.backend.tests.test_number_preview -v
+      - name: Run number review heuristic unit tests
+        run: node --test demo/local_pdf_ocr/frontend/src/numberReview.test.js
+      - name: Install frontend dependencies (not deployment)
+        working-directory: demo/local_pdf_ocr/frontend
+        run: npm install --no-package-lock --no-audit --no-fund
+      - name: Compile experimental UI
+        working-directory: demo/local_pdf_ocr/frontend
+        run: npm run build
