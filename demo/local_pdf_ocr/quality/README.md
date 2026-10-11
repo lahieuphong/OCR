@@ -4,6 +4,47 @@ The quality lab works on already-exported PDF OCR JSON and original PDFs.
 It **does not change the website's detector, recognizer, output or weights**.
 It does **not** access frozen blind-test data or infer its labels.
 
+## NEW: Click-to-save visual review editor (no manual JSON editing)
+
+After you have **already exported** 72 crops into
+`demo/local_pdf_ocr/quality_work/review_01`, **do not rerun prepare_review**.
+The new editor works on these exact existing crop PNGs and labels.
+
+From Windows CMD at the repository root:
+
+```bat
+cd /d E:\Phong_Nho_IT\OCR
+git fetch origin
+git checkout origin/feat/vietocr-recognition-quality-exp -- demo/local_pdf_ocr/quality
+.venv-demo\Scripts\python.exe -m unittest discover -s demo\local_pdf_ocr\quality\tests -p "test_*.py" -v
+.venv-demo\Scripts\python.exe -m demo.local_pdf_ocr.quality.review_server --work-dir demo\local_pdf_ocr\quality_work\review_01
+```
+
+Keep the CMD window running. Open **http://127.0.0.1:8766/** in Chrome.
+The old `file:///.../index.html` is READ ONLY by design.
+
+At each crop:
+
+1. Inspect the ORIGINAL crop image (not just the OCR prediction).
+2. If the OCR line is correct, click **Chữ OCR đúng với ảnh — xác nhận**.
+3. If incorrect, edit the pre-filled Vietnamese text and click
+   **Lưu bản sửa & tiếp tục**.
+4. If a stamp or blur makes the true characters unknowable, click **Bỏ qua**.
+   Do not invent missing letters or force a confidence label.
+5. The progress counter increases immediately when the local server saves.
+   You may stop and restart the server; verified rows remain saved.
+
+Each explicit save changes ONLY `quality_work/review_01/labels.jsonl`
+(UTF-8 JSONL), atomically. The editor retains the first pre-edit backup
+`labels.jsonl.before_ui.bak`. It refuses if a crop SHA changes, if files
+are modified outside the UI while it is open, or if a cross-site request
+tries to write labels. It serves ONLY on 127.0.0.1 (not LAN or internet).
+PDFs, model checkpoint, ONNX, and the OCR JSON exports remain unchanged.
+
+After the editor shows at least **20 / 72** verified crops, stop it
+(Ctrl+C), then run the previous `benchmark --validate-labels-only` command.
+Only if that succeeds consider the experimental ONNX crop benchmark.
+
 ## Workflow
 
 1. Export image crops with prepare_review. It uses the same PDF raster
