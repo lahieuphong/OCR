@@ -8,3 +8,8 @@ __pycache__/
 *.jpg
 *.jpeg
 .env*
+
+# Private document fragments and human-verified labels; NEVER commit.
+/quality_work/
+/quality_outputs/
+/quality/quality_work/
