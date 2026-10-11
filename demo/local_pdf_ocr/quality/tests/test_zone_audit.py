@@ -9,7 +9,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from PIL import Image
-from demo.local_pdf_ocr.quality.benchmark import metrics
+from demo.local_pdf_ocr.quality.benchmark import metrics, verified_samples
 from demo.local_pdf_ocr.quality.review_server import ReviewStore
 from demo.local_pdf_ocr.quality.zone_audit import (
     build_zone_audit, candidate_ledger, normalized_region, render_html,
@@ -113,7 +113,9 @@ class ZoneAuditTests(unittest.TestCase):
 
     def test_candidate_ledger_contains_no_automatic_selection(self):
         from demo.local_pdf_ocr.quality.zone_audit import verified_region_rows
-        got = verified_region_rows(self.samples, self.labels)
+        got = verified_region_rows(
+            verified_samples(self.root, min_verified=1), self.labels
+        )
         ledger = candidate_ledger(self.root, got)
         self.assertEqual(len(ledger), 1)
         self.assertFalse(ledger[0]["automatic_choice_approved"])
@@ -126,7 +128,9 @@ class ZoneAuditTests(unittest.TestCase):
         (self.root / "error_analysis.json").write_text(json.dumps(content), encoding="utf-8")
         from demo.local_pdf_ocr.quality.zone_audit import verified_region_rows
         with self.assertRaisesRegex(ValueError, "Stale"):
-            candidate_ledger(self.root, verified_region_rows(self.samples, self.labels))
+            candidate_ledger(self.root, verified_region_rows(
+                verified_samples(self.root, min_verified=1), self.labels
+            ))
 
     def test_summary_keeps_all_line_metrics_and_printed_subset_distinct(self):
         with patch(
