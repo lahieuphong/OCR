@@ -194,16 +194,24 @@ def make_handler(store: ReviewStore):
     class Handler(BaseHTTPRequestHandler):
         server_version = "VietDocReviewLocal/1.0"
 
-        def _send(self, code, value: bytes, mime):
+        def _send(self, code, value: bytes, mime, *, report_html=False):
             self.send_response(code)
+            # The generated report uses embedded CSS. Allow CSS only there;
+            # disable all JavaScript execution in the report view.
+            security_policy = (
+                "default-src 'none'; script-src 'none'; style-src 'unsafe-inline'; "
+                "img-src 'self'; connect-src 'none'; base-uri 'none'; "
+                "form-action 'none'; frame-ancestors 'none'"
+                if report_html else
+                "default-src 'none'; script-src 'self'; style-src 'self'; "
+                "img-src 'self'; connect-src 'self'; base-uri 'none'; "
+                "form-action 'none'; frame-ancestors 'none'"
+            )
             for header, data in (
                 ("Content-Type", mime), ("Content-Length", str(len(value))),
                 ("Cache-Control", "no-store"), ("X-Content-Type-Options", "nosniff"),
                 ("X-Frame-Options", "DENY"),
-                ("Content-Security-Policy",
-                 "default-src 'none'; script-src 'self'; style-src 'self'; "
-                 "img-src 'self'; connect-src 'self'; base-uri 'none'; "
-                 "form-action 'none'; frame-ancestors 'none'"),
+                ("Content-Security-Policy", security_policy),
             ):
                 self.send_header(header, data)
             self.end_headers()
@@ -232,7 +240,7 @@ def make_handler(store: ReviewStore):
                     return self._json(409, {"error": str(exc)})
                 mime = ("text/html; charset=utf-8" if name.endswith(".html")
                         else "application/json; charset=utf-8")
-                return self._send(200, payload, mime)
+                return self._send(200, payload, mime, report_html=name.endswith(".html"))
             if path in ("/", "/review_ui.html", "/review_ui.css", "/review_ui.js"):
                 name = "review_ui.html" if path == "/" else path.lstrip("/")
                 asset = Path(__file__).parent / name
