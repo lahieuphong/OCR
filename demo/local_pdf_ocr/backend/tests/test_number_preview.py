@@ -72,5 +72,26 @@ class NumberPreviewTests(unittest.TestCase):
                                   height=160,polygon_json=json.dumps([[10, 10], [20, 10], [20, 20], [10, 20]]))
 
 
+class PreviewApiTests(unittest.IsolatedAsyncioTestCase):
+    async def test_preview_api_returns_png_and_refuses_mismatched_source(self):
+        from fastapi import HTTPException, UploadFile
+        from demo.local_pdf_ocr.backend import app as service
+
+        quad = json.dumps([[60, 40], [230, 40], [230, 75], [60, 75]])
+        image = await service.review_crop(
+            file=UploadFile(filename="image.png", file=io.BytesIO(png_source())),
+            page=1, width=300, height=160, polygon=quad,
+        )
+        self.assertEqual(image.media_type, "image/png")
+        self.assertTrue(image.body.startswith(b"\x89PNG\r\n\x1a\n"))
+        self.assertEqual(image.headers["cache-control"], "no-store")
+        with self.assertRaises(HTTPException) as ctx:
+            await service.review_crop(
+                file=UploadFile(filename="image.png", file=io.BytesIO(png_source())),
+                page=1, width=301, height=160, polygon=quad,
+            )
+        self.assertEqual(ctx.exception.status_code, 400)
+
+
 if __name__ == "__main__":
     unittest.main()
