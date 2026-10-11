@@ -9,6 +9,7 @@ from __future__ import annotations
 import io
 import json
 import math
+from contextlib import closing
 
 from .contract import validate_upload
 from .engine import iter_images
@@ -16,8 +17,6 @@ from .engine import iter_images
 
 def create_review_preview(source: bytes, filename: str, *, page: int,
                           width: int, height: int, polygon_json: str) -> bytes:
-    from PIL import Image
-
     ext = validate_upload(filename, source)
     if not isinstance(page, int) or page < 1 or page > 6:
         raise ValueError("Invalid OCR page number")
@@ -40,7 +39,8 @@ def create_review_preview(source: bytes, filename: str, *, page: int,
         raise ValueError("Invalid polygon coordinates")
     if ext != ".pdf" and page != 1:
         raise ValueError("An image has only one page")
-    image = next((image for index, image in iter_images(source, ext) if index == page), None)
+    with closing(iter_images(source, ext)) as pages:
+        image = next((image for index, image in pages if index == page), None)
     if image is None or image.size != (width, height):
         raise ValueError("STOP: review source page size differs from OCR JSON")
     xs = [float(point[0]) for point in quad]
