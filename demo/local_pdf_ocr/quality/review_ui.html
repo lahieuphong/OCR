@@ -42,6 +42,16 @@
         <button type="button" class="btn-secondary" id="save-region">Lưu phân loại vùng</button>
         <span class="zone-status" id="zone-status"></span>
       </section>
+      <section class="report-panel" aria-label="Tạo báo cáo nghiên cứu OCR">
+        <h3>Báo cáo kiểm tra sau phân loại</h3>
+        <p class="hint">Tổng hợp 72 nhãn đã kiểm chứng, nhóm vùng đã phân loại và ứng viên tăng chất lượng nhận dạng đã đo trước đó. Không chạy lại OCR hay thay nội dung văn bản.</p>
+        <button type="button" class="btn-primary" id="create-zone-report">Tạo báo cáo phân tích</button>
+        <div class="report-result" id="report-result" role="status" aria-live="polite"></div>
+        <div id="report-links" class="report-links" hidden>
+          <a href="/reports/zone_audit.html" target="_blank" rel="noopener noreferrer">Xem báo cáo trực quan</a>
+          <a href="/reports/zone_audit.json" download="zone_audit.json">Tải JSON để phân tích tiếp</a>
+        </div>
+      </section>
       <div class="feedback" id="feedback" role="status" aria-live="polite"></div>
       <footer>Chỉ ghi vào <code>quality_work/review_01/labels.jsonl</code> trên máy này. Không thay đổi PDF, model hoặc kết quả OCR gốc.</footer>
     </section>
