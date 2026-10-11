@@ -72,6 +72,8 @@ def candidate_ledger(work_dir: Path, rows: list[dict]) -> list[dict]:
             raise ValueError("Unknown or repeated candidate sample ID")
         seen.add(ident)
         original = known[ident]
+        if not isinstance(original.get("reference"), str) or not original["reference"]:
+            raise ValueError("Candidate ledger requires verified nonempty human reference: " + ident)
         if (entry.get("reference") != original["reference"]
                 or entry.get("baseline") != original["ocr_prediction"]
                 or entry.get("crop_sha256") != original["crop_sha256"]):
