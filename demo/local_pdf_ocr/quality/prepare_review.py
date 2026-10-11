@@ -171,6 +171,8 @@ def export_review(pairs: list[tuple[Path, Path]], output: Path, *,
                         "ocr_report_sha256": json_sha,
                         "page": page_number,
                         "line_index": line_index,
+                        "page_width": int(page_result["width"]),
+                        "page_height": int(page_result["height"]),
                         "source_line_index": source_index,
                         "polygon": line["polygon"],
                         "ocr_prediction": line["text"],  # NOT ground truth
