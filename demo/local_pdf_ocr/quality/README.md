@@ -45,6 +45,54 @@ After the editor shows at least **20 / 72** verified crops, stop it
 (Ctrl+C), then run the previous `benchmark --validate-labels-only` command.
 Only if that succeeds consider the experimental ONNX crop benchmark.
 
+## Verified-error triage after the 72-crop baseline benchmark
+
+If `review_01/benchmark_report.json` exists and its 72 labels have not
+changed, analyze the 13 incorrect OCR lines and all line IDs flagged as
+candidate regressions in the previous benchmark. No new PDF OCR or crop
+export is needed.
+
+```bat
+cd /d E:\Phong_Nho_IT\OCR
+git fetch origin
+git checkout origin/feat/vietocr-recognition-quality-exp -- demo/local_pdf_ocr/quality
+.venv-demo\Scripts\python.exe -m unittest discover -s demo\local_pdf_ocr\quality\tests -p "test_*.py" -v
+
+REM Step A: offline analysis, NO model inference
+.venv-demo\Scripts\python.exe -m demo.local_pdf_ocr.quality.error_analysis ^
+  --work-dir demo\local_pdf_ocr\quality_work\review_01
+
+REM Step B: OPTIONAL — recompute original + 3 variants ONLY on selected crops
+.venv-demo\Scripts\python.exe -m demo.local_pdf_ocr.quality.error_analysis ^
+  --work-dir demo\local_pdf_ocr\quality_work\review_01 ^
+  --with-variants
+```
+
+Open `E:\Phong_Nho_IT\OCR\demo\local_pdf_ocr\quality_work\review_01\error_analysis.html`
+in Chrome. Each error displays the actual cropped image, verified text,
+original VietOCR output, character edit spans, and (with Step B) predictions
+and per-line CER/WER error deltas from each transform.
+
+The companion `error_analysis.json` holds the same line-by-line comparison.
+Share that JSON if you want the assistant to study the specific mistakes;
+it contains PRIVATE human-transcribed text, so share only if appropriate.
+The script writes ONLY these two analysis artifacts; it never edits
+`labels.jsonl`, `manifest.jsonl`, or `benchmark_report.json`.
+
+Safety gates:
+
+- Revalidate all verified crop SHA256 and label IDs.
+- Previous benchmark must be frozen ONNX baseline PASS with the same
+  reference text: mismatched per-line labels/summary will STOP.
+- Extra line IDs flagged as regressions are included even if baseline
+  recognized them correctly (to reveal harmful transforms).
+- With Step B, exact baseline is reproduced on *every selected crop*
+  before variant predictions are generated.
+- Difference categories describe observed text edits, NOT whether the
+  problem physically came from a stamp, segmentation, or recognizer.
+- Selection-biased samples cannot establish whole-document CER/WER;
+  all transform candidates remain NO-GO for deployment.
+
 ## Workflow
 
 1. Export image crops with prepare_review. It uses the same PDF raster
