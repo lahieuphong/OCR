@@ -1,3 +1,35 @@
+## Experimental document-number review warnings (opt-in; no OCR replacement)
+
+The number-only 5-PDF independent study found NO holdout CER/WER gain from mild
+contrast or unsharp transforms. A separate **review-only** feature is now
+available on the local website behind an explicit, default-OFF checkbox.
+
+1. Fetch `feat/vietocr-number-review-ui-exp` only for
+   `demo/local_pdf_ocr/frontend` and
+   `demo/local_pdf_ocr/backend/number_review_preview.py`,
+   `demo/local_pdf_ocr/backend/app.py` (only after preserving any local edits).
+2. Restart BOTH local FastAPI server (`127.0.0.1:8765`) and Vite
+   (`127.0.0.1:5175`) so the new endpoint is available.
+3. Choose a PDF and `OCR bằng VietOCR B`, check
+   **Bật cảnh báo số văn bản cần kiểm tra (experimental)**, then click
+   **Chạy PaddleOCR + VietOCR**. The checkbox does not change the
+   OCR request or exported original TXT/JSON.
+4. If a number is suspicious (e.g., `1H9`, `RU6`, `2 1`), the
+   website opens an original-source crop using a separate no-model API.
+   Enter the visibly verified text only if certain, click
+   **Lưu xác minh riêng, không sửa OCR**, and download the
+   **JSON rà soát riêng** report. Notes exist only in the browser tab
+   until exported; they are not a corrected OCR output.
+5. When `Số:` is unreadable, a first-page left/header line aligned
+   with a right-side dateline is flagged conservatively. When neither
+   text nor geometry locates the field, a page-level manual check
+   message remains. These are heuristics, not a trained detector.
+
+Do NOT merge the experimental PR, train/replace the frozen ONNX model,
+run the frozen blind test or claim recall/precision from the 8
+already-evaluated number crops. Approval requires frontend/preview
+CI, user-local 5-PDF spot checks and broader independent coverage.
+
 # VietDoc OCR — Local Windows demo (experimental)
 
 **Branch only:** feat/local-pdf-ocr-demo. **Not approved for production.**
