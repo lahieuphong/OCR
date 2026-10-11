@@ -1,0 +1,31 @@
+name: Recognition quality lab (model-free)
+on:
+  pull_request:
+    paths:
+      - 'demo/local_pdf_ocr/quality/**'
+      - 'demo/local_pdf_ocr/.gitignore'
+      - '.github/workflows/quality-lab.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  model-free-tests:
+    name: Model-free checks (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install minimal test dependency
+        run: python -m pip install "Pillow>=10,<13"
+      - name: Syntax check (no OCR, no private datasets)
+        run: python -m compileall -q demo/local_pdf_ocr/quality
+      - name: Unit tests (no model, no blind dataset)
+        run: python -m unittest discover -s demo/local_pdf_ocr/quality/tests -p "test_*.py" -v

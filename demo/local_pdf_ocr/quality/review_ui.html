@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>VietDoc OCR · Xác minh dòng chữ</title>
+<link rel="stylesheet" href="/review_ui.css">
+<script src="/review_ui.js" defer></script>
+</head>
+<body>
+<main class="shell">
+  <header class="top">
+    <div><div class="eyebrow">VIETDOC OCR · CÔNG CỤ KIỂM CHỨNG</div><h1>Rà soát lỗi nhận dạng tiếng Việt</h1><p>Nhìn ảnh crop, xác nhận đúng hoặc sửa chữ rồi nhấn <strong>Lưu & tiếp tục</strong>. Không phải sửa JSON thủ công.</p></div>
+    <div class="progressbox"><strong id="progress">Đang tải...</strong><span>ảnh đã xác minh</span><div class="progressbar"><div id="progress-fill"></div></div></div>
+  </header>
+  <section class="layout" id="workspace" hidden>
+    <aside class="sidebar">
+      <h2>Danh sách ảnh</h2>
+      <label for="filter">Lọc trạng thái</label><select id="filter"><option value="pending">Chưa xác minh</option><option value="all">Tất cả</option><option value="verified">Đã xác minh</option></select>
+      <label for="document">Tài liệu</label><select id="document"><option value="all">Tất cả PDF</option></select>
+      <div id="sample-list" class="samples" aria-label="Các crop cần kiểm tra"></div>
+    </aside>
+    <section class="editor">
+      <div class="editor-head"><div><span class="eyebrow" id="location">Trang</span><h2 id="sample-title">Ảnh crop</h2></div><span id="status" class="status">Chưa xác minh</span></div>
+      <div class="imagebox"><img id="crop" alt="Ảnh dòng chữ từ PDF gốc" /></div>
+      <div class="field"><label>VietOCR đã đọc</label><div id="prediction" class="prediction"></div><button id="accept" type="button" class="btn-secondary">✓ Chữ OCR đúng với ảnh — xác nhận</button></div>
+      <form id="form"><div class="field"><label for="reference">Chữ đúng theo ảnh (có thể sửa trực tiếp)</label><textarea id="reference" rows="3" spellcheck="false"></textarea><p class="hint">Kiểm tra dấu tiếng Việt, chữ hoa, số và dấu câu. Nếu ảnh bị dấu đóng che không đọc được, chọn Bỏ qua; đừng đoán.</p></div>
+        <div class="buttons"><button id="save" type="submit" class="btn-primary">Lưu bản sửa & tiếp tục →</button><button id="skip" type="button" class="btn-muted">Bỏ qua ảnh này →</button><button id="unverify" type="button" class="btn-danger" hidden>Bỏ xác minh</button></div>
+      </form>
+      <div class="feedback" id="feedback" role="status" aria-live="polite"></div>
+      <footer>Chỉ ghi vào <code>quality_work/review_01/labels.jsonl</code> trên máy này. Không thay đổi PDF, model hoặc kết quả OCR gốc.</footer>
+    </section>
+  </section>
+  <div id="loading" class="loading">Đang tải danh sách crop...</div>
+</main>
+</body>
+</html>
