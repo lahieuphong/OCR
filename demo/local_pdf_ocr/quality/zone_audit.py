@@ -17,15 +17,7 @@ from urllib.parse import quote
 
 from .benchmark import distance, metrics, nfc, verified_samples
 from .error_analysis import verify_previous_report
-
-
-REGION_TYPES = {
-    "printed_text": "Chữ in thông thường",
-    "stamp_overlap": "Chữ bị con dấu che/đè",
-    "stamp_artifact": "Chỉ là con dấu/hình, không phải dòng văn bản",
-    "handwriting": "Chữ viết tay",
-    "uncertain": "Chưa thể xác định từ ảnh",
-}
+from .zone_types import REGION_TYPE_LABELS as REGION_TYPES
 
 
 def normalized_region(label: dict) -> str:
