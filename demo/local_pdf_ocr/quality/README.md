@@ -4,6 +4,103 @@ The quality lab works on already-exported PDF OCR JSON and original PDFs.
 It **does not change the website's detector, recognizer, output or weights**.
 It does **not** access frozen blind-test data or infer its labels.
 
+## Document-number-only recognition probe (opt-in, no OCR output changes)
+
+The previous 72-crop verified dataset found one specific local improvement:
+"Số: RU6/TB-VPCP" recognized as "Số: 216/TB-VPCP" under BOTH mild
+contrast and mild unsharp filtering. This does **not** justify global
+contrast or model corrections.
+
+This experimental **number_probe** can now re-evaluate all existing
+first-page document-number header crops in \`review_01\`, with the fixed
+candidate methods contrast_1p15 and unsharp_light. It uses the unchanged
+frozen ONNX recognizer. Field selection depends only on the *baseline*
+OCR prefix "Số" (not on a correct transcription), first-page positions,
+and line indices. A missed "Số" prefix is a known retrieval false negative,
+so this cannot measure document-number field recall.
+
+### Start with your existing verified crops — no PDF OCR rerun
+
+From Windows CMD, after closing any running QA server if needed:
+
+\`\`\`bat
+cd /d E:\Phong_Nho_IT\OCR
+git fetch origin
+git checkout origin/feat/vietocr-document-number-probe -- demo/local_pdf_ocr/quality
+.venv-demo\Scripts\python.exe -m unittest discover -s demo\local_pdf_ocr\quality\tests -p "test_*.py" -v
+.venv-demo\Scripts\python.exe -m demo.local_pdf_ocr.quality.number_probe --calibration-dir demo\local_pdf_ocr\quality_work\review_01
+\`\`\`
+
+Output: \`demo/local_pdf_ocr/quality_work/review_01/number_probe.json\`.
+If the target exists, the tool STOPS rather than overwrite a previous run.
+Use \`--output demo/local_pdf_ocr/quality_work/review_01/number_probe_run_02.json\`
+for a new version. The JSON is private (actual confirmed text) and stays
+in the gitignored local \`quality_work\` directory.
+
+The current dataset is only **3 PDFs**, so the default result must say
+\`INSUFFICIENT_INDEPENDENT_DOCUMENTS\` even if it finds a local gain.
+This is intentional. The experiment does not alter the local OCR website.
+
+### Expand with independent document-number scans if available
+
+For each *new and independent* PDF, run the existing local website OCR
+and export its untouched \`*_vietocr_ocr_header_split.json\` alongside the
+PDF (never edit OCR output). Then make a NEW review directory, e.g.
+\`quality_work/review_numbers_02\`, containing only document-number
+crops by using \`prepare_review\`'s new selection mode:
+
+\`\`\`bat
+.venv-demo\Scripts\python.exe -m demo.local_pdf_ocr.quality.prepare_review ^
+  --pair "E:\OCR_SAMPLES\new01.pdf" "E:\OCR_SAMPLES\new01_vietocr_ocr_header_split.json" ^
+  --pair "E:\OCR_SAMPLES\new02.pdf" "E:\OCR_SAMPLES\new02_vietocr_ocr_header_split.json" ^
+  --output demo\local_pdf_ocr\quality_work\review_numbers_02 ^
+  --selection document_number ^
+  --per-page 8
+\`\`\`
+
+Substitute real PDF/JSON filenames! The script does NOT fabricate missing
+files, never overwrites existing review packs and never re-runs full OCR.
+It records documents missing a candidate instead of hiding them.
+\`--per-page\` is the safety maximum: if candidates exceed it, stop
+rather than silently skip any matching number line.
+
+Use the same localhost labeling UI on \`review_numbers_02\`:
+
+\`\`\`bat
+.venv-demo\Scripts\python.exe -m demo.local_pdf_ocr.quality.review_server --work-dir demo\local_pdf_ocr\quality_work\review_numbers_02
+\`\`\`
+
+Verify **every** selected crop by looking at the PDF original, especially
+crossed-out, handwritten or stamped document numbers. Never copy the OCR
+prediction into the ground truth without checking. If the PDF does not
+have visible readable content for a selected crop, do not verify the label;
+the probe will fail closed, not guess.
+
+Once there are >=5 distinct new PDFs in holdout with human-verified
+number-header crops and not sharing PDF SHA256 with calibration:
+
+\`\`\`bat
+.venv-demo\Scripts\python.exe -m demo.local_pdf_ocr.quality.number_probe ^
+  --calibration-dir demo\local_pdf_ocr\quality_work\review_01 ^
+  --holdout-dir demo\local_pdf_ocr\quality_work\review_numbers_02 ^
+  --output demo\local_pdf_ocr\quality_work\review_01\number_probe_with_holdout.json
+\`\`\`
+
+The candidate can be marked **eligible for a larger trial only**, not
+merge/deployment, when:
+- baseline matches EXACTLY on every selected crop;
+- calibration and holdout contain no shared PDF SHA;
+- at least five separate new holdout PDFs and five verified number crops;
+- the holdout achieves strictly fewer character errors, no extra word
+  errors and zero *per-line* regressions; and
+- the calibration set also has zero line regressions.
+
+No new recognizer weights, checkpoint, browser OCR output or blind tests.
+No silent rewriting of Vietnamese diacritics, document numbers, dates,
+names, stamps or metadata. Avoid interpreting the 3 calibration PDFs as
+independent evidence of candidate accuracy.
+
+
 ## NEW: Click-to-save visual review editor (no manual JSON editing)
 
 After you have **already exported** 72 crops into
