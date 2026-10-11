@@ -124,7 +124,7 @@ class NumberTriageTests(unittest.TestCase):
         record["all_predicted_lines"]["holdout"][0]["pdf_sha256"] = (
             record["all_predicted_lines"]["calibration"][0]["pdf_sha256"]
         )
-        with self.assertRaisesRegex(ValueError, "split"):
+        with self.assertRaisesRegex(ValueError, "share PDF content|split"):
             build_triage(record)
 
     def test_ground_truth_or_doc_name_can_never_drive_flag_function(self):
