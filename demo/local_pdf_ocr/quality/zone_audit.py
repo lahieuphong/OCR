@@ -171,7 +171,7 @@ def build_zone_audit(work_dir: Path, min_verified: int = 20) -> dict:
                     "material; not the original or an unbiased document score."
                 ),
             },
-            "printed_text_only_metrics": groups["printed_text"]["baseline"],
+            "printed_text_only_metrics": groups["printed_text"]["baseline_metrics"],
             "candidate_lines_with_local_improvement": len(candidates_improved),
             "candidate_count": len(ledger),
             "nontext_verified_labels_need_manual_review": len([
