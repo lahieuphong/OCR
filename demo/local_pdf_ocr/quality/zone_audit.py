@@ -15,7 +15,7 @@ import os
 from pathlib import Path
 from urllib.parse import quote
 
-from .benchmark import distance, metrics, nfc, verified_samples
+from .benchmark import distance, metrics, nfc, sha256, verified_samples
 from .error_analysis import verify_previous_report
 from .zone_types import REGION_TYPE_LABELS as REGION_TYPES
 
