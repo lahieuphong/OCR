@@ -4,6 +4,50 @@ The quality lab works on already-exported PDF OCR JSON and original PDFs.
 It **does not change the website's detector, recognizer, output or weights**.
 It does **not** access frozen blind-test data or infer its labels.
 
+## NEW: Review-risk triage of number fields — no automatic text correction
+
+The independent 5-PDF test found **NO improvement** from contrast_1p15
+or unsharp_light on the only remaining header-number error (a handwritten
+`1H9` where a human read `149`). Both transforms correctly scored
+`NO_GO_FOR_LARGER_TRIAL`. Do not apply them automatically.
+
+`number_triage.py` is an additional **model-free, offline** QA utility:
+it reads an already existing `number_probe_with_holdout.json`, detects
+suspicious numeric serials and disagreement between frozen OCR variants.
+The detector **never sees the reference label, PDF filename or external
+document number** when creating a flag.
+
+It flags cases such as `Số: 1H9/...`, `Số: RU6/...` and `Số: 2 1/...`;
+it does *not* mark `Số: 76 /2026/TT-BXD` suspicious just because there is
+a space before the slash. It does not rewrite, normalize, replace or delete
+a single OCR character. Missing flags do **not** certify correctness.
+
+Run safely on the existing 3+5 independent-document report:
+
+```bat
+cd /d E:\Phong_Nho_IT\OCR
+git fetch origin
+git checkout origin/feat/vietocr-number-review-triage -- demo/local_pdf_ocr/quality
+.venv-demo\Scripts\python.exe -m unittest discover -s demo\local_pdf_ocr\quality\tests -p "test_*.py" -v
+.venv-demo\Scripts\python.exe -m demo.local_pdf_ocr.quality.number_triage ^
+  --input demo\local_pdf_ocr\quality_work\review_01\number_probe_with_holdout.json
+```
+
+The output is `review_01/number_triage.json`; this command does not
+reload ONNX, rerun OCR, change labels or invoke the blind test. If an
+output already exists, provide `--output ...\number_triage_v2.json`
+instead of overwriting.
+
+The report separately shows calibration and independent holdout:
+- how many incorrect numbers triggered a review flag;
+- how many already-correct numbers triggered a review flag;
+- how many errors were **not** caught by the heuristic;
+- the unchanged OCR text and verified reference for manual inspection.
+
+All scores are on a tiny *selected* header crop set only, and **do not**
+represent end-to-end PDF field-detection recall. This work stays in a
+Draft PR and is **not** a production feature or merge approval.
+
 ## Document-number-only recognition probe (opt-in, no OCR output changes)
 
 The previous 72-crop verified dataset found one specific local improvement:
