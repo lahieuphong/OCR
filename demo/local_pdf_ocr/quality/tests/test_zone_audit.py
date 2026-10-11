@@ -139,7 +139,7 @@ class ZoneAuditTests(unittest.TestCase):
         self.assertIsNone(result["summary"]["printed_text_only_metrics"])
         self.assertEqual(result["summary"]["original_all_line_metrics"], self.old_metrics)
         self.assertEqual(result["summary"]["candidate_lines_with_local_improvement"], 1)
-        self.assertFalse(result["summary"]["no_automatic_recognition_replacement"])
+        self.assertTrue(result["summary"]["no_automatic_recognition_replacement"])
         self.assertFalse(result["summary"]["merge_approved"])
         markup = render_html(result)
         self.assertIn("Số: RU6/TB-VPCP", markup)
