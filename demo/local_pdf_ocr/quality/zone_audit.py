@@ -144,6 +144,7 @@ def build_zone_audit(work_dir: Path, min_verified: int = 20) -> dict:
         "summary": {
             "status": "EXPERIMENTAL_REVIEW_ONLY",
             "verified_lines": len(rows),
+            "source_labels_sha256": sha256(work_dir / "labels.jsonl"),
             "region_reviewed_lines": len(rows) - len(buckets["unreviewed"]),
             "region_unreviewed_lines": len(buckets["unreviewed"]),
             "original_all_line_metrics": previous["scores"]["baseline"],
