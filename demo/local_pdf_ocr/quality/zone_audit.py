@@ -133,6 +133,12 @@ def build_zone_audit(work_dir: Path, min_verified: int = 20) -> dict:
             "count": len(members),
             "baseline_metrics": score_subset(members),
         }
+    # Optional sensitivity ONLY: omit explicitly reviewed pure stamp imagery.
+    # Most other rows remain unreviewed; this is NOT a validated printed
+    # text-only benchmark and must never replace original_all_line_metrics.
+    sensitivity_rows = [
+        row for row in rows if row["region_type"] != "stamp_artifact"
+    ]
     candidates_improved = [
         {"id": entry["id"], "document": entry["document"],
          "variants": [candidate["name"] for candidate in entry["variants"]
@@ -148,7 +154,24 @@ def build_zone_audit(work_dir: Path, min_verified: int = 20) -> dict:
             "region_reviewed_lines": len(rows) - len(buckets["unreviewed"]),
             "region_unreviewed_lines": len(buckets["unreviewed"]),
             "original_all_line_metrics": previous["scores"]["baseline"],
-            "printed_text_only_metrics": groups["printed_text"]["baseline_metrics"],
+            "non_stamp_artifact_sensitivity": {
+                "metrics": score_subset(sensitivity_rows),
+                "retained_lines": len(sensitivity_rows),
+                "excluded_verified_stamp_artifacts": len(buckets["stamp_artifact"]),
+                "still_unreviewed_lines": len(buckets["unreviewed"]),
+                "not_official_cer": True,
+                "not_fully_printed_text": bool(
+                    buckets["unreviewed"] or buckets["stamp_overlap"]
+                    or buckets["handwriting"] or buckets["uncertain"]
+                ),
+                "note": (
+                    "Research-only sensitivity. Removes ONLY explicitly "
+                    "human-reviewed stamp_artifact rows from the numerator "
+                    "and denominator. Other rows may contain unknown/stamped "
+                    "material; not the original or an unbiased document score."
+                ),
+            },
+            "printed_text_only_metrics": groups["printed_text"]["baseline"],
             "candidate_lines_with_local_improvement": len(candidates_improved),
             "candidate_count": len(ledger),
             "nontext_verified_labels_need_manual_review": len([
@@ -227,6 +250,15 @@ def render_html(report: dict) -> str:
         '<p><strong>' + esc(summary["nontext_verified_labels_need_manual_review"]) +
         ' nhãn thuộc vùng chỉ là dấu/hình cần xem xét lại giá trị tham chiếu.</strong> '
         'Không tự sửa, xóa hoặc loại các dòng này khỏi điểm gốc.</p>'
+        '<p><b>Độ nhạy khi không tính mảnh con dấu đã xác minh:</b> '
+        + esc(summary["non_stamp_artifact_sensitivity"]["retained_lines"]) +
+        ' dòng, ' +
+        esc(round(summary["non_stamp_artifact_sensitivity"]["metrics"]["cer"] * 100, 3))
+        + '% CER, ' +
+        esc(round(summary["non_stamp_artifact_sensitivity"]["metrics"]["wer"] * 100, 3))
+        + '% WER. Đây KHÔNG phải chỉ số chính thức hoặc kiểm thử đại diện; '
+        'còn ' + esc(summary["non_stamp_artifact_sensitivity"]["still_unreviewed_lines"]) +
+        ' dòng chưa phân loại vùng.</p>'
         '<p><b>Chú ý:</b> sửa một dòng cục bộ không chứng minh biến thể '
         'tốt hơn toàn bộ PDF. Các vùng dấu và hình phải được xem ảnh gốc.</p>'
         + "".join(cells) + "</main></html>"
