@@ -44,6 +44,7 @@ class HeaderSelectionTests(unittest.TestCase):
                 row(8, "BỘ CÔNG THƯƠNG"),
                 row(9, "Số: RU6/TB-VPCP", y=350),
                 row(10, "Số: 21/2026/TT-BCT", y=405),
+                row(12, "số điều của Luật Giá được sửa đổi", y=530),
                 row(24, "SỐ 80/2023/NĐ-CP", y=840),
                 row(25, "Căn cứ số 80/2023/NĐ-CP", y=915),
             ],
@@ -55,6 +56,7 @@ class HeaderSelectionTests(unittest.TestCase):
         self.assertEqual(select_number_headers({**page, "page": 2}), [])
         self.assertTrue(NUMBER_HEADER.match("Số: 738/QĐ-TTg"))
         self.assertFalse(NUMBER_HEADER.match("Theo số 738/QĐ-TTg"))
+        self.assertFalse(NUMBER_HEADER.match("số điều của Luật Giá"))
         with self.assertRaisesRegex(ValueError, "never silently trim"):
             select_number_headers(page, limit=1)
 
