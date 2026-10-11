@@ -132,6 +132,33 @@ class ZoneAuditTests(unittest.TestCase):
                 verified_samples(self.root, min_verified=1), self.labels
             ))
 
+    def test_stamp_artifact_exclusion_is_separate_sensitivity_not_baseline(self):
+        # One independently classified stamp-artifact crop is excluded only
+        # from the separate sensitivity score; all-line metrics remain frozen.
+        store = ReviewStore(self.root)
+        store.save("b", "classify", region_type="stamp_artifact")
+        with patch(
+            "demo.local_pdf_ocr.quality.zone_audit.verify_previous_report",
+            return_value={"scores": {"baseline": self.old_metrics}},
+        ):
+            result = build_zone_audit(self.root, min_verified=1)
+        summary = result["summary"]
+        alt = summary["non_stamp_artifact_sensitivity"]
+        self.assertEqual(summary["original_all_line_metrics"], self.old_metrics)
+        self.assertEqual(summary["verified_lines"], 3)
+        self.assertEqual(alt["retained_lines"], 2)
+        self.assertEqual(alt["excluded_verified_stamp_artifacts"], 1)
+        self.assertEqual(alt["still_unreviewed_lines"], 2)
+        self.assertTrue(alt["not_official_cer"])
+        self.assertTrue(alt["not_fully_printed_text"])
+        self.assertEqual(
+            alt["metrics"]["char_errors"],
+            self.old_metrics["char_errors"] - 3,
+        )
+        self.assertEqual(summary["nontext_verified_labels_need_manual_review"], 1)
+        self.assertIn("b", summary["nontext_labels_to_review"])
+        self.assertIn("KHÔNG phải chỉ số chính thức", render_html(result))
+
     def test_summary_keeps_all_line_metrics_and_printed_subset_distinct(self):
         with patch(
             "demo.local_pdf_ocr.quality.zone_audit.verify_previous_report",
