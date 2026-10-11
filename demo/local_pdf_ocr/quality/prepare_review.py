@@ -19,6 +19,8 @@ import math
 import re
 from pathlib import Path
 
+from .number_fields import select_number_headers
+
 
 def sha256(path: Path) -> str:
     h = hashlib.sha256()
@@ -90,12 +92,15 @@ def write_jsonl(path: Path, rows: list[dict]) -> None:
 
 
 def export_review(pairs: list[tuple[Path, Path]], output: Path, *,
-                  per_page: int = 8, focus: tuple[str, ...] = ()) -> dict:
+                  per_page: int = 8, focus: tuple[str, ...] = (),
+                  selection: str = "priority") -> dict:
     import cv2
     import fitz
     import numpy as np
     from paddlex.inference.pipelines.components import CropByPolys
 
+    if selection not in {"priority", "document_number"}:
+        raise ValueError("Unknown crop selection mode")
     if output.exists():
         raise ValueError(f"STOP: output already exists (will not overwrite labels/crops): {output}")
     if not pairs:
@@ -118,6 +123,7 @@ def export_review(pairs: list[tuple[Path, Path]], output: Path, *,
     cropper = CropByPolys(det_box_type="quad")
     manifest, labels = [], []
     seen = set()
+    candidates_by_document = {}
     for pdf_path, report_path, report, pdf_sha, json_sha in inputs:
         doc_id = safe_id(pdf_path.name) + "_" + pdf_sha[:10]
         with fitz.open(pdf_path) as pdf:
@@ -127,7 +133,14 @@ def export_review(pairs: list[tuple[Path, Path]], output: Path, *,
                 page_number = int(page_result["page"])
                 if not 1 <= page_number <= len(pdf):
                     raise ValueError("Invalid page number in JSON")
-                chosen = selected_lines(page_result, per_page=per_page, focus=focus)
+                chosen = (
+                    select_number_headers(page_result, limit=per_page)
+                    if selection == "document_number"
+                    else selected_lines(page_result, per_page=per_page, focus=focus)
+                )
+                candidates_by_document[doc_id] = (
+                    candidates_by_document.get(doc_id, 0) + len(chosen)
+                )
                 if not chosen:
                     continue
                 image = render_page(
@@ -166,6 +179,7 @@ def export_review(pairs: list[tuple[Path, Path]], output: Path, *,
                         "baseline_method": "PaddleX_CropByPolys_quad",
                         "header_split": bool(line.get("header_split")),
                         "layout_region": line.get("layout_region", ""),
+                        "selection_mode": selection,
                     }
                     manifest.append(record)
                     labels.append({
@@ -174,6 +188,11 @@ def export_review(pairs: list[tuple[Path, Path]], output: Path, *,
                         "reference": None,
                         "verified": False,
                     })
+    if selection == "document_number":
+        # No silent success with all-negative/missed candidates. The original
+        # OCR report is preserved; review other PDFs if the heuristic misses.
+        if not manifest:
+            raise ValueError("No document-number candidates found in the supplied OCR JSON")
     write_jsonl(output / "manifest.jsonl", manifest)
     write_jsonl(output / "labels.jsonl", labels)
     # Read-only offline HTML review; users edit labels.jsonl to supply truth.
@@ -196,6 +215,12 @@ def export_review(pairs: list[tuple[Path, Path]], output: Path, *,
         + "".join(items) + "</html>", encoding="utf-8"
     )
     result = {"selected": len(manifest), "documents": len(inputs),
+              "selection_mode": selection,
+              "selected_by_document": candidates_by_document,
+              "documents_without_candidate": [
+                  identifier for identifier, amount in candidates_by_document.items()
+                  if amount == 0
+              ],
               "pages": len({(r["document"], r["page"]) for r in manifest}),
               "verified": 0, "output": str(output), "blind_test_used": False}
     (output / "prepare_summary.json").write_text(
@@ -209,10 +234,14 @@ def main(argv=None) -> int:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--per-page", type=int, default=8)
     parser.add_argument("--focus", action="append", default=[])
+    parser.add_argument(
+        "--selection", choices=("priority", "document_number"),
+        default="priority", help="Document-number mode selects ALL likely first-page document IDs"
+    )
     args = parser.parse_args(argv)
     result = export_review([(Path(a), Path(b)) for a, b in args.pair],
                            args.output, per_page=args.per_page,
-                           focus=tuple(args.focus))
+                           focus=tuple(args.focus), selection=args.selection)
     print(json.dumps(result, indent=2, ensure_ascii=False))
     return 0
 
