@@ -45,6 +45,65 @@ After the editor shows at least **20 / 72** verified crops, stop it
 (Ctrl+C), then run the previous `benchmark --validate-labels-only` command.
 Only if that succeeds consider the experimental ONNX crop benchmark.
 
+## Zone-aware QA: manual stamp classification + safe candidate ledger
+
+Branch: `feat/vietocr-zone-aware-qa`, based on
+`feat/vietocr-recognition-quality-exp`. **No OCR pipeline changes.**
+Keep the original 72 verified lines and 13 corrected labels unchanged.
+
+1. Close the old localhost review editor with Ctrl+C; do NOT rerun
+   `prepare_review` or delete `quality_work/review_01`.
+2. Update only the offline QA tools:
+
+```bat
+cd /d E:\Phong_Nho_IT\OCR
+git fetch origin
+git checkout origin/feat/vietocr-zone-aware-qa -- demo/local_pdf_ocr/quality
+.venv-demo\Scripts\python.exe -m unittest discover -s demo\local_pdf_ocr\quality\tests -p "test_*.py" -v
+.venv-demo\Scripts\python.exe -m demo.local_pdf_ocr.quality.review_server --work-dir demo\local_pdf_ocr\quality_work\review_01
+```
+
+3. Open `http://127.0.0.1:8766/`. Existing verified texts are preserved.
+   Select `Tất cả` if there are no unverified crops, then use the
+   **Phân loại vùng ảnh** dropdown and **Lưu phân loại vùng** button.
+   Only tag images you have visually inspected; there are no automatic
+   rules that decide a printed line is a stamp, or vice versa.
+   Suggested priority cases to VISUALLY REVIEW, not pre-label:
+   - `216-tb` page 1 line 9: document number over reception-stamp noise
+   - `216-tb` page 5 line 14: paragraph plus stamp-overprint fragment
+   - `738-ttg` page 1 lines 58 and 59: possible stamp/figure fragments
+   - `738-ttg` page 1 line 21: printed Vietnamese diacritic error
+   Human reviewers choose among printed_text, stamp_overlap,
+   stamp_artifact, handwriting, uncertain. Do not retype or silently
+   delete existing references merely to alter the score.
+
+4. When the original benchmark and the targeted `error_analysis.json`
+   are already present, run:
+
+```bat
+.venv-demo\Scripts\python.exe -m demo.local_pdf_ocr.quality.zone_audit ^
+  --work-dir demo\local_pdf_ocr\quality_work\review_01
+start "" "E:\Phong_Nho_IT\OCR\demo\local_pdf_ocr\quality_work\review_01\zone_audit.html"
+```
+
+   The script reads already saved prediction variants; it DOES NOT
+   re-run recognition, detector, PDF rasterization, training or blind test.
+   It creates `zone_audit.html` and `zone_audit.json` locally.
+   Files contain private verified OCR text and must not be committed.
+
+Important evaluation contract:
+
+- Whole 72-line CER/WER remains unchanged; never erase hard lines
+  from official historical measurements.
+- Printed-only CER/WER is **optional sensitivity analysis** on
+  *explicitly reviewed* printed_text rows, not a new official baseline.
+- Unreviewed rows remain **unreviewed**, not automatically printed.
+- Candidate ledger highlights local improvements such as `RU6 -> 216`
+  but **automatic_choice_approved=false for every line**.
+- Stale/modified labels or altered candidate predictions cause a hard stop.
+- A 1-line improvement does not justify a general preprocessing rule.
+- No main merge, ONNX/checkpoint modification or deployment in this step.
+
 ## Verified-error triage after the 72-crop baseline benchmark
 
 If `review_01/benchmark_report.json` exists and its 72 labels have not
