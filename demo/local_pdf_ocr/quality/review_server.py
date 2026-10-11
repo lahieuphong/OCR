@@ -17,6 +17,7 @@ from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
 from .benchmark import read_jsonl, sha256
+from .zone_types import REVIEWABLE_REGION_TYPES
 
 
 class ReviewStore:
@@ -68,24 +69,30 @@ class ReviewStore:
                     "layout_region": self.rows[ident].get("layout_region", ""),
                     "verified": self.labels[ident].get("verified") is True,
                     "reference": self.labels[ident].get("reference"),
+                    "region_type": self.labels[ident].get("region_type"),
+                    "region_reviewed": self.labels[ident].get("region_reviewed") is True,
                     "image_url": "/crop/" + ident,
                 } for ident in self.order],
             }
 
-    def save(self, ident: str, action: str, reference=None) -> dict:
+    def save(self, ident: str, action: str, reference=None, region_type=None) -> dict:
         if ident not in self.rows:
             raise ValueError("Unknown crop ID")
-        if action not in ("accept", "correct", "unverify"):
+        if action not in ("accept", "correct", "unverify", "classify"):
             raise ValueError("Unknown review action")
-        if action == "accept":
+        if action == "classify":
+            if region_type not in REVIEWABLE_REGION_TYPES:
+                raise ValueError("Unknown region type")
+        elif action == "accept":
             reference = self.rows[ident]["ocr_prediction"]
         elif action == "correct":
             if (not isinstance(reference, str) or not reference.strip()
                     or len(reference) > 5000 or "\r" in reference or "\n" in reference):
                 raise ValueError("Enter one nonempty physical line, max 5000 characters")
-        else:
+        elif action == "unverify":
             reference = None
-        if action != "unverify" and (not isinstance(reference, str) or not reference.strip()):
+        if action not in ("unverify", "classify") and (
+                not isinstance(reference, str) or not reference.strip()):
             raise ValueError("Cannot verify empty OCR text")
         with self.lock:
             current = read_jsonl(self.labels_path)
@@ -93,7 +100,14 @@ class ReviewStore:
             if len(disk) != len(self.order) or disk != self.labels:
                 raise RuntimeError("labels.jsonl was edited outside the UI. Restart before saving.")
             previous = dict(self.labels[ident])
-            self.labels[ident] = {**previous, "reference": reference, "verified": action != "unverify"}
+            if action == "classify":
+                self.labels[ident] = {
+                    **previous, "region_type": region_type, "region_reviewed": True,
+                }
+            else:
+                self.labels[ident] = {
+                    **previous, "reference": reference, "verified": action != "unverify",
+                }
             temp = self.labels_path.with_name("labels.jsonl.tmp")
             try:
                 backup = self.labels_path.with_name("labels.jsonl.before_ui.bak")
@@ -110,8 +124,15 @@ class ReviewStore:
                 temp.unlink(missing_ok=True)
                 raise
             return {
-                "id": ident, "reference": reference, "verified": action != "unverify",
+                "id": ident,
+                "reference": self.labels[ident].get("reference"),
+                "verified": self.labels[ident].get("verified") is True,
+                "region_type": self.labels[ident].get("region_type"),
+                "region_reviewed": self.labels[ident].get("region_reviewed") is True,
                 "verified_count": sum(item.get("verified") is True for item in self.labels.values()),
+                "region_reviewed_count": sum(
+                    item.get("region_reviewed") is True for item in self.labels.values()
+                ),
                 "total": len(self.rows),
             }
 
@@ -182,7 +203,8 @@ def make_handler(store: ReviewStore):
                 if not isinstance(data, dict):
                     raise ValueError("Expected JSON object")
                 return self._json(200, store.save(
-                    data.get("id"), data.get("action"), data.get("reference")))
+                    data.get("id"), data.get("action"), data.get("reference"),
+                    data.get("region_type")))
             except ValueError as exc:
                 return self._json(400, {"error": str(exc)})
             except RuntimeError as exc:
