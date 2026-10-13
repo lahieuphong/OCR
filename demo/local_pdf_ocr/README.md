@@ -1,3 +1,54 @@
+## EXPERIMENTAL: Lost 'Số:' prefix — geometry fallback quality gate
+
+The existing local website number review panel is still default-OFF. On 8
+existing administrative OCR JSONs, a **synthetic, in-memory** corruption of
+the first-page `Số:` prefix (e.g. `Số:` -> `5ô:`) produced:
+
+- 7 / 8 PDFs: an aligned, numeric-looking left-side crop next to the dateline;
+- 1 / 8 (`21-bct`): only a page-level review request, because a dateline
+  could not be reliably located;
+- 0 cases with multiple suspicious crop candidates after adding a
+  guard against the unrelated `V/v kết thúc thực hiện Đề án` line.
+
+This is NOT a real-model evaluation of missing prefixes! The 8 JSONs are
+already known examples; only the in-memory OCR TEXT is changed. Neither
+the baseline JSON, checkpoint, ONNX, PDF, labels nor the frozen blind test
+is touched. This work does **not** support main merge or OCR correction.
+
+To update only the UI heuristic and optionally replay a local directory
+of original exported OCR JSONs, use Windows CMD:
+
+```bat
+cd /d E:\Phong_Nho_IT\OCR
+git status --short -- demo/local_pdf_ocr/frontend
+git fetch origin
+git checkout origin/feat/vietocr-number-prefix-fallback-qa -- demo/local_pdf_ocr/frontend
+cd demo\local_pdf_ocr\frontend
+node --test src\numberReview.test.js src\replayNumberPrefix.test.js
+npm run build
+```
+
+Use `git checkout ... --` only if the previous `git status` has **no**
+local changes you need to keep. No backend restart is needed for this
+frontend-only change; restart `npm run dev` on 5175 or refresh Chrome.
+
+The replay is optional and does not rewrite original OCR files:
+
+```bat
+cd /d E:\Phong_Nho_IT\OCR
+node demo\local_pdf_ocr\frontend\scripts\replayNumberPrefix.mjs --dir E:\OCR_SAMPLES_HOLDOUT
+```
+
+Replace `E:\OCR_SAMPLES_HOLDOUT` with a REAL folder containing
+`*_vietocr_ocr_header_split.json`. Or provide repeated `--file` paths.
+To save a private diagnostic report, add `--output` pointing to a NEW
+path; the tool refuses to overwrite any previous report.
+
+**Next validation gate:** obtain PDFs whose LIVE OCR genuinely corrupts
+or misses the `Số:` prefix. Review crops and count false positives/omissions
+without using filenames as labels. The current synthetic results measure
+only robustness of the review heuristic, not generalization.
+
 ## Experimental document-number review warnings (opt-in; no OCR replacement)
 
 The number-only 5-PDF independent study found NO holdout CER/WER gain from mild

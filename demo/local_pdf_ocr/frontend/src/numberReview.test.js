@@ -63,3 +63,85 @@ test("title and body references never cause false alarms",()=>{
   ]);
   assert.deepEqual(findNumberReviewCandidates(data),[]);
 });
+
+test("missing prefix: neighboring agency name without serial shape is NOT auto-cropped",()=>{
+  const data=doc("BỘ XÂY DỰNG");
+  const found=findNumberReviewCandidates(data);
+  assert.equal(found.length,1);
+  assert.equal(found[0].line_index,null);
+  assert.deepEqual(found[0].reasons,["number_field_not_located"]);
+});
+
+test("missing source number detection box: show page-level review not a fake polygon",()=>{
+  const data=doc("Số: 738/QĐ-TTg");
+  data.pages[0].lines=data.pages[0].lines.filter(l=>l.line_index!==8);
+  const found=findNumberReviewCandidates(data);
+  assert.equal(found.length,1);
+  assert.equal(found[0].polygon,null);
+  assert.equal(found[0].review_key,"p1_unlocated");
+});
+
+test("missing prefix + no dateline for 21-bct style: no invented coordinates",()=>{
+  const data=doc("Sô: 2 1/2026/TT-BCT");
+  data.pages[0].lines=data.pages[0].lines.filter(l=>l.line_index!==9);
+  const found=findNumberReviewCandidates(data);
+  assert.deepEqual(found.map(x=>x.reasons),[["number_field_not_located"]]);
+  assert.equal(found[0].polygon,null);
+});
+
+test("malformed geometry never leads to an unsafe crop",()=>{
+  const data=doc("Số: RU6");
+  const number=data.pages[0].lines.find(l=>l.line_index===8);
+  number.polygon=[[NaN,3],[230,3],[230,40],[NaN,40]];
+  const found=findNumberReviewCandidates(data);
+  assert.deepEqual(found.map(x=>x.reasons),[["number_field_not_located"]]);
+});
+
+test("unrelated legitimate title on date row stays out of number alert",()=>{
+  const data=doc("THÔNG TƯ VỀ CHI PHÍ");
+  const found=findNumberReviewCandidates(data);
+  assert.equal(found.length,1);
+  assert.equal(found[0].review_key,"p1_unlocated");
+});
+
+test("prefix recognized as valid prevents geometry false alarms elsewhere",()=>{
+  const data=doc("Số: 76 /2026/TT-BXD",[
+    line(12,"1H9 /QĐ-UNRELATED",200,236,250,30),
+  ]);
+  assert.deepEqual(findNumberReviewCandidates(data),[]);
+});
+
+test("all outcomes are hints only: copies remain byte-for-byte equal in JSON",()=>{
+  for(const sample of [
+    doc("Số: RU6/TB-VPCP"),doc("Số: 76 /2026/TT-BXD"),
+    doc("5ô: 1H9 /QĐ-APEC"),doc("BỘ XÂY DỰNG"),
+  ]){
+    const before=JSON.stringify(sample);
+    const out=findNumberReviewCandidates(sample);
+    assert.equal(JSON.stringify(sample),before);
+    assert.ok(out.every(x=>Array.isArray(x.reasons)&&x.reasons.length));
+    assert.ok(out.every(x=>!Object.hasOwn(x,"replacement_text")));
+  }
+});
+
+test("real-layout 10314: V/v line beside date is not a second number candidate",()=>{
+  const data={
+    method:"vietocr_ocr",used_ocr:true,
+    pages:[{page:1,width:1191,height:1685,lines:[
+      line(8,"5ô: 10314/VPCP-KGVX",213,232,267,28),
+      line(9,"Hà Nội, ngày 08 tháng 10 năm 2026",636,233,431,30),
+      line(10,"V/v kết thúc thực hiện Đề án",222,248,350,30),
+    ]}],
+  };
+  const original=JSON.stringify(data);
+  const found=findNumberReviewCandidates(data);
+  assert.deepEqual(found.map(x=>x.line_index),[8]);
+  assert.equal(found[0].reasons[0],"geometry_possible_number");
+  assert.equal(JSON.stringify(data),original);
+});
+
+test("date-adjacent V/v with a year after slash is not a serial number",()=>{
+  const data=doc("V/v 2026 triển khai",[]);
+  assert.deepEqual(findNumberReviewCandidates(data).map(x=>x.reasons),
+                   [["number_field_not_located"]]);
+});
