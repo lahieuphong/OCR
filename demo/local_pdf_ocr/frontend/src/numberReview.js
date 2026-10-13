@@ -6,7 +6,9 @@
  */
 const PREFIX=/^\s*s[ốo]\s*[:.\-]\s*/iu;
 const DATE=/\bngày\s*\d{1,2}\s+tháng\s*\d{1,2}/iu;
-// Require a digit BEFORE the first slash. This excludes labels such as\n// 'V/v kết thúc thực hiện Đề án' aligned with the document dateline.\nconst MAYBE_SERIAL_BEFORE_SLASH=/[0-9]/u;
+// Require a digit BEFORE the first slash. Exclude nearby header text.
+// 'V/v kết thúc thực hiện Đề án' can share a row with the dateline.
+const MAYBE_SERIAL_BEFORE_SLASH=/[0-9]/u;
 
 export const REASONS={
   non_digit_serial:"Có chữ cái trong phần số trước dấu /",
