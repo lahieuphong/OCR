@@ -6,7 +6,7 @@
  */
 const PREFIX=/^\s*s[ốo]\s*[:.\-]\s*/iu;
 const DATE=/\bngày\s*\d{1,2}\s+tháng\s*\d{1,2}/iu;
-const MAYBE_SERIAL=/[0-9/:]/u;
+// Require a digit BEFORE the first slash. This excludes labels such as\n// 'V/v kết thúc thực hiện Đề án' aligned with the document dateline.\nconst MAYBE_SERIAL_BEFORE_SLASH=/[0-9]/u;
 
 export const REASONS={
   non_digit_serial:"Có chữ cái trong phần số trước dấu /",
@@ -82,7 +82,8 @@ export function findNumberReviewCandidates(data){
   // A completely unreadable/missing line gets a page-level warning instead.
   const aligned=header.filter(l=>{
     const b=bounds(l);
-    return MAYBE_SERIAL.test(l.text||"")&&dateLines.some(d=>{
+    const beforeSlash=String(l.text||"").split("/",1)[0].slice(0,24);
+    return MAYBE_SERIAL_BEFORE_SLASH.test(beforeSlash)&&dateLines.some(d=>{
       const date=bounds(d);
       return b.x1<date.x0&&Math.abs(b.yc-date.yc)<.024*H;
     });
