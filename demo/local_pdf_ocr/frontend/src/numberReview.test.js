@@ -123,3 +123,25 @@ test("all outcomes are hints only: copies remain byte-for-byte equal in JSON",()
     assert.ok(out.every(x=>!Object.hasOwn(x,"replacement_text")));
   }
 });
+
+test("real-layout 10314: V/v line beside date is not a second number candidate",()=>{
+  const data={
+    method:"vietocr_ocr",used_ocr:true,
+    pages:[{page:1,width:1191,height:1685,lines:[
+      line(8,"5ô: 10314/VPCP-KGVX",213,232,267,28),
+      line(9,"Hà Nội, ngày 08 tháng 10 năm 2026",636,233,431,30),
+      line(10,"V/v kết thúc thực hiện Đề án",222,248,350,30),
+    ]}],
+  };
+  const original=JSON.stringify(data);
+  const found=findNumberReviewCandidates(data);
+  assert.deepEqual(found.map(x=>x.line_index),[8]);
+  assert.equal(found[0].reasons[0],"geometry_possible_number");
+  assert.equal(JSON.stringify(data),original);
+});
+
+test("date-adjacent V/v with a year after slash is not a serial number",()=>{
+  const data=doc("V/v 2026 triển khai",[]);
+  assert.deepEqual(findNumberReviewCandidates(data).map(x=>x.reasons),
+                   [["number_field_not_located"]]);
+});
