@@ -33,7 +33,7 @@ jobs:
       - name: Verify source-crop module without OCR models
         run: python -m unittest demo.local_pdf_ocr.backend.tests.test_number_preview -v
       - name: Run number review heuristic unit tests
-        run: node --test demo/local_pdf_ocr/frontend/src/numberReview.test.js
+        run: node --test demo/local_pdf_ocr/frontend/src/numberReview.test.js demo/local_pdf_ocr/frontend/src/replayNumberPrefix.test.js
       - name: Install frontend dependencies (not deployment)
         working-directory: demo/local_pdf_ocr/frontend
         run: npm install --no-package-lock --no-audit --no-fund
