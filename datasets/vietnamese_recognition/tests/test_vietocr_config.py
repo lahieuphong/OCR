@@ -102,7 +102,8 @@ class Configs(unittest.TestCase):
         for config in self.configs.values():
             data = config["dataset"]
             root = dataset.REPO_ROOT / data["data_root"]
-            self.assertEqual(dataset.training_data_problems(root / data["train_annotation"], root / data["valid_annotation"], root), [])
+            # Quarantined labels are a separate refusal, see test_line_endings_and_quarantine.
+            self.assertEqual(dataset.evaluation_line_problems(root / data["train_annotation"], root / data["valid_annotation"], root), [])
         check = (dataset.DATASET_DIR / "check_vietocr_config.py").read_text(encoding="utf-8")
         self.assertIn("dataset.training_data_problems(", check)  # the readiness check applies the same rule
 

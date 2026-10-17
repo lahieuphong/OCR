@@ -120,9 +120,14 @@ class ExtendedDictionary(unittest.TestCase):
         self.assertEqual(audit_charset.audit(build_extended_dict.EXTENDED_DICT)["missing"], [])
 
     def test_file_on_disk_is_what_the_builder_produces(self):
+        # Compared as git stores both files: a CRLF checkout on Windows rewrites
+        # the line ends of the dictionaries on disk, not their entries.
+        def as_stored(data: bytes) -> bytes:
+            return data.replace(b"\r\n", b"\n")
+
         self.assertEqual(
-            build_extended_dict.EXTENDED_DICT.read_bytes(),
-            build_extended_dict.build(audit_charset.PPOCRV6_DICT),
+            as_stored(build_extended_dict.EXTENDED_DICT.read_bytes()),
+            as_stored(build_extended_dict.build(audit_charset.PPOCRV6_DICT)),
         )
 
     def test_it_lives_outside_the_vendored_tree(self):

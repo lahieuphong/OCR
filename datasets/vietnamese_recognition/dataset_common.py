@@ -85,6 +85,13 @@ FROZEN_COLUMNS = (
 )
 BENCHMARK_DOCUMENTS = DATASET_DIR / BAKEOFF_REGRESSION / "source_documents.tsv"
 
+# --- labels held back from training ------------------------------------------
+# A verified label that a later check put in doubt is listed here, one row per
+# line id, until a person has looked at its image again. While a row is open the
+# line may not appear in a training or validation file.
+QUARANTINE_COLUMNS = ("id", "split", "reason", "status", "opened", "note")
+QUARANTINE_OPEN = "open"
+
 # --- the canonical manifest: one row per line image ----------------------------
 CANONICAL_COLUMNS = (
     "id",
@@ -125,6 +132,16 @@ def sha256_file(path: Path) -> str:
         for chunk in iter(lambda: stream.read(1 << 20), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def text_sha256(path: Path) -> str:
+    """SHA-256 of a text file as git stores it: CRLF line ends read as LF.
+
+    A Windows checkout with core.autocrlf=true writes CRLF. Every reader here
+    (csv with newline="", splitlines, text-mode reads) parses both forms alike,
+    so only the line ends are forgiven; any other changed byte still counts.
+    """
+    return sha256_bytes(path.read_bytes().replace(b"\r\n", b"\n"))
 
 
 def write_text_atomic(path: Path, data: str) -> None:
@@ -228,7 +245,16 @@ def annotation_images(path: Path) -> list[str]:
 def training_data_problems(
     train_annotation: Path, valid_annotation: Path, root: Path = DATASET_DIR, known_splits: tuple[str, ...] = SPLITS
 ) -> list[str]:
-    """Reasons why a training run must not start from these two annotation files.
+    """Reasons why a training run must not start from these two annotation files:
+    an evaluation line (``evaluation_line_problems``) or a label still in quarantine."""
+    return (evaluation_line_problems(train_annotation, valid_annotation, root, known_splits)
+            + quarantine_problems(train_annotation, valid_annotation, root, known_splits))
+
+
+def evaluation_line_problems(
+    train_annotation: Path, valid_annotation: Path, root: Path = DATASET_DIR, known_splits: tuple[str, ...] = SPLITS
+) -> list[str]:
+    """Lines of the wrong set in these two annotation files.
 
     Training may read ``real_train`` and ``synthetic_train``; validation may
     read ``real_val`` only, because the weights to keep are chosen on real
@@ -261,6 +287,43 @@ def training_data_problems(
     return problems
 
 
+def quarantine_problems(
+    train_annotation: Path, valid_annotation: Path, root: Path = DATASET_DIR, known_splits: tuple[str, ...] = SPLITS
+) -> list[str]:
+    """Quarantined lines in these two annotation files; nothing is read without an open quarantine."""
+    held = open_quarantine(root)
+    if not held:
+        return []
+    line_id = {}
+    for split in known_splits:
+        path = manifest_path(split, root)
+        for row in read_manifest(path) if path.is_file() else []:
+            line_id[row["image_path"]] = row["id"]
+    problems = []
+    for role, path in (("training", train_annotation), ("validation", valid_annotation)):
+        quarantined = sum(line_id.get(image) in held for image in annotation_images(path))
+        if quarantined:
+            problems.append(f"{role} file {path.name}: {quarantined} quarantined line(s) awaiting a "
+                            f"human re-check ({quarantine_path(root).relative_to(root).as_posix()})")
+    return problems
+
+
+def quarantine_path(root: Path = DATASET_DIR) -> Path:
+    return root / "manifests" / "label_quarantine.tsv"
+
+
+def open_quarantine(root: Path = DATASET_DIR) -> set[str]:
+    """Ids of the lines whose quarantine is still open; no file means none."""
+    path = quarantine_path(root)
+    if not path.is_file():
+        return set()
+    rows = read_table(path, QUARANTINE_COLUMNS)
+    unknown = sorted({row["status"] for row in rows} - {QUARANTINE_OPEN, "resolved"})
+    if unknown:
+        raise SystemExit(f"{path}: unknown quarantine status {unknown}")
+    return {row["id"] for row in rows if row["status"] == QUARANTINE_OPEN}
+
+
 # --- frozen evaluation sets --------------------------------------------------
 
 
@@ -274,8 +337,13 @@ def load_frozen(name: str, path: Path | None = None, lock: Path | None = None) -
     lock = lock or path.with_suffix(".sha256")
     if not path.is_file() or not lock.is_file():
         raise SystemExit(f"No frozen {name} at {path}.")
-    if sha256_file(path) != lock.read_text(encoding="utf-8").split()[0]:
-        raise SystemExit(f"{path} differs from the frozen version recorded in {lock.name}.")
+    recorded = lock.read_text(encoding="utf-8").split()[0]
+    if sha256_file(path) != recorded:
+        if text_sha256(path) != recorded:
+            raise SystemExit(f"{path} differs from the frozen version recorded in {lock.name}.")
+        # Same content, CRLF checkout: accepted, but never silently.
+        print(f"warning: {path.name} has CRLF line ends; it matches {lock.name} once read as LF",
+              file=sys.stderr)
     rows = read_table(path, FROZEN_COLUMNS)
     blind = "true" if name == BLIND_TEST else "false"
     if any((row["split"], row["frozen"], row["blind"]) != (name, "true", blind) for row in rows):
