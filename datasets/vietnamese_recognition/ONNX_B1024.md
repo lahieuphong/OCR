@@ -31,7 +31,7 @@ metadata.json written by export records these properties and model hashes.
 Fetch only the ONNX scripts/docs (including onnx_attention.py) to avoid
 overwriting locally normalized training data.
 
-    cd /d E:\Phong_Nho_IT\OCR
+    cd /d <REPO_ROOT>
     git fetch origin
     git checkout origin/feat/vietocr-b1024-onnx-parity -- datasets/vietnamese_recognition/export_vietocr_onnx.py datasets/vietnamese_recognition/onnx_attention.py datasets/vietnamese_recognition/check_vietocr_onnx_parity.py datasets/vietnamese_recognition/tests/test_onnx_export_contract.py datasets/vietnamese_recognition/ONNX_B1024.md
 

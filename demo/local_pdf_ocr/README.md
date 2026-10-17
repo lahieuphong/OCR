@@ -1,3 +1,7 @@
+> Sample names used below: `scan-A`, `scan-B` and `scan-C` are the three local
+> calibration scans and `digital-D` a local born-digital PDF. The real files and
+> their OCR exports stay outside git.
+
 ## EXPERIMENTAL: Lost 'Số:' prefix — geometry fallback quality gate
 
 The existing local website number review panel is still default-OFF. On 8
@@ -5,10 +9,10 @@ existing administrative OCR JSONs, a **synthetic, in-memory** corruption of
 the first-page `Số:` prefix (e.g. `Số:` -> `5ô:`) produced:
 
 - 7 / 8 PDFs: an aligned, numeric-looking left-side crop next to the dateline;
-- 1 / 8 (`21-bct`): only a page-level review request, because a dateline
+- 1 / 8 (`scan-A`): only a page-level review request, because a dateline
   could not be reliably located;
 - 0 cases with multiple suspicious crop candidates after adding a
-  guard against the unrelated `V/v kết thúc thực hiện Đề án` line.
+  guard against the unrelated `V/v <trích yếu>` line.
 
 This is NOT a real-model evaluation of missing prefixes! The 8 JSONs are
 already known examples; only the in-memory OCR TEXT is changed. Neither
@@ -19,7 +23,7 @@ To update only the UI heuristic and optionally replay a local directory
 of original exported OCR JSONs, use Windows CMD:
 
 ```bat
-cd /d E:\Phong_Nho_IT\OCR
+cd /d <REPO_ROOT>
 git status --short -- demo/local_pdf_ocr/frontend
 git fetch origin
 git checkout origin/feat/vietocr-number-prefix-fallback-qa -- demo/local_pdf_ocr/frontend
@@ -35,11 +39,11 @@ frontend-only change; restart `npm run dev` on 5175 or refresh Chrome.
 The replay is optional and does not rewrite original OCR files:
 
 ```bat
-cd /d E:\Phong_Nho_IT\OCR
-node demo\local_pdf_ocr\frontend\scripts\replayNumberPrefix.mjs --dir E:\OCR_SAMPLES_HOLDOUT
+cd /d <REPO_ROOT>
+node demo\local_pdf_ocr\frontend\scripts\replayNumberPrefix.mjs --dir <SAMPLES_DIR>_HOLDOUT
 ```
 
-Replace `E:\OCR_SAMPLES_HOLDOUT` with a REAL folder containing
+Replace `<SAMPLES_DIR>_HOLDOUT` with a REAL folder containing
 `*_vietocr_ocr_header_split.json`. Or provide repeated `--file` paths.
 To save a private diagnostic report, add `--output` pointing to a NEW
 path; the tool refuses to overwrite any previous report.
@@ -65,7 +69,7 @@ available on the local website behind an explicit, default-OFF checkbox.
    **Bật cảnh báo số văn bản cần kiểm tra (experimental)**, then click
    **Chạy PaddleOCR + VietOCR**. The checkbox does not change the
    OCR request or exported original TXT/JSON.
-4. If a number is suspicious (e.g., `1H9`, `RU6`, `2 1`), the
+4. If a number is suspicious (e.g., `4H7`, `RU8`, `3 7`), the
    website opens an original-source crop using a separate no-model API.
    Enter the visibly verified text only if certain, click
    **Lưu xác minh riêng, không sửa OCR**, and download the
@@ -135,7 +139,7 @@ Never replace B weights or re-open blind test.
 
 ## 1. Fetch ONLY new demo files (Windows CMD)
 
-    cd /d E:\Phong_Nho_IT\OCR
+    cd /d <REPO_ROOT>
     git fetch origin
     git checkout origin/feat/local-pdf-ocr-demo -- demo/local_pdf_ocr
     git status --short
@@ -168,7 +172,7 @@ Model-free tests, then frozen data guard:
 
 ## 3. Run backend — CMD terminal A, leave running
 
-    cd /d E:\Phong_Nho_IT\OCR
+    cd /d <REPO_ROOT>
     .venv-demo\Scripts\python.exe -m uvicorn demo.local_pdf_ocr.backend.app:app --host 127.0.0.1 --port 8765
 
 Verify http://127.0.0.1:8765/api/health returns
@@ -180,7 +184,7 @@ the first OCR request loads/checks models. If state says
 
 Requires Node.js >=20.19 (prefer 22+):
 
-    cd /d E:\Phong_Nho_IT\OCR\demo\local_pdf_ocr\frontend
+    cd /d <REPO_ROOT>\demo\local_pdf_ocr\frontend
     node --version
     npm install
     npm run dev
@@ -195,8 +199,8 @@ Open http://127.0.0.1:5175/ in Chrome.
 3. Inspect Vietnamese diacritics and page order; look for the words
    "chuẩn" and "triển" in actual documents.
 4. Save TXT and JSON, compare against actual PDF image.
-5. Only then try 21-bct.signed.pdf, 216-tb.signed.pdf,
-   738-ttg.signed.pdf and a representative land record.
+5. Only then try the three local calibration scans (`scan-A`, `scan-B`,
+   `scan-C`) and a representative land record.
 
 Only the OCR mode rasterizes the PDF. PDF text mode NEVER runs recognition,
 and it fails clearly for scanned PDFs without text. The OCR mode ALWAYS
@@ -211,7 +215,7 @@ error, and STOP: do not claim the end-to-end gate passed.
 If the old local demo already runs, **do not reinstall or retrain**. In
 the repo's CMD window, fetch only the changed demo source:
 
-    cd /d E:\Phong_Nho_IT\OCR
+    cd /d <REPO_ROOT>
     git fetch origin
     git checkout origin/feat/local-pdf-ocr-demo -- demo/local_pdf_ocr
 
@@ -225,7 +229,7 @@ Vite normally reloads the frontend after the selective checkout, but
 restart npm run dev (or Ctrl+Shift+R in Chrome) if the UI is stale.
 Neither model checkpoint nor ONNX graph needs to be regenerated.
 
-For sample 10333_vpcp-cn_09102026_1-signed.signed.pdf:
+For the local born-digital sample `digital-D`:
 1. Select "Text có sẵn trong PDF" and run extraction. This should
    preserve embedded Unicode such as "triển khai thực hiện", "khóa XIII",
    "biến đổi khí hậu", and the signed timestamp ending "+07:00".
@@ -244,7 +248,7 @@ WHOLE blocks with a conservative spatial algorithm:
   columns are physically separated by at least 6 PDF points;
 - otherwise sort the whole band top-to-bottom.
 Each block retains its PDF source_block_index in the JSON report.
-For the 10333 VPCP sample this moves the digital signature audit block
+For `digital-D` this moves the digital signature audit block
 from the end to the TOP (its physical page location) without changing
 its original '+07:00' text. The recipient list and signing title remain
 separate, not interleaved line by line.
@@ -346,11 +350,11 @@ It creates page-level reading_order and detection_review metadata.
 
 Offline replay (not model re-inference) against the four user-supplied
 JSON documents covered 10 pages and 417/417 OCR lines. The intended
-layout modification applied only on 21-BCT page 2, 216-TB page 6,
-738-TTg page 1, and 10333/VPCP-CN page 1. No other page changed order.
-The two ambiguous fragments in 738-TTg were kept in overprint_review.
+layout modification applied only on scan-A page 2, scan-B page 6,
+scan-C page 1, and digital-D page 1. No other page changed order.
+The two ambiguous fragments in scan-C were kept in overprint_review.
 The 3 scan-only PDFs' native-text coverage was 100% full-page raster,
-whereas digital 10333 was about 3% largest-image coverage.
+whereas digital-D was about 3% largest-image coverage.
 
 No private PDFs, actual OCR outputs, or model weights are committed as
 regression fixtures: the in-repo tests use synthetic geometry and PDFs.
@@ -360,7 +364,7 @@ and cannot split an already-merged header recognition box.
 
 For an already working local Windows demo, from CMD:
 
-    cd /d E:\Phong_Nho_IT\OCR
+    cd /d <REPO_ROOT>
     git fetch origin
     git checkout origin/feat/local-pdf-ocr-layout-v2 -- demo/local_pdf_ocr
     .venv-demo\Scripts\python.exe -m unittest discover -s demo\local_pdf_ocr\backend\tests -p "test_*.py" -v
@@ -371,13 +375,13 @@ If tests pass, restart backend:
 
 Restart frontend from its directory (or ensure it HMR-reloads and rebuilds):
 
-    cd /d E:\Phong_Nho_IT\OCR\demo\local_pdf_ocr\frontend
+    cd /d <REPO_ROOT>\demo\local_pdf_ocr\frontend
     npm run build
     npm run dev
 
 Use the same PDFs in OCR mode to verify v2 emits
 reading_order.modified=true on the relevant pages. Check every token,
-especially the overprint_review fragments in 738-TTg. For native mode
+especially the overprint_review fragments in scan-C. For native mode
 on the three scan PDFs, verify the explicit warning that extracted text
 is only an incomplete embedded layer. Keep main and the B checkpoint
 untouched. No blind test re-run and no merge.
@@ -424,10 +428,10 @@ browser and downloaded as distinct files:
   *_vietocr_ocr.json / TXT (baseline)
 
 **Offline proposal validation (no new VietOCR inference):**
-- 21-bct page 1: 48-pixel gutter in merged detected line 5
-- 216-tb page 1: 39-pixel gutter in merged detected line 6
-- 738-ttg page 1: 33-pixel gutter in merged detected line 6
-- 10333 VPCP example and other tested pages: NO candidate split.
+- scan-A page 1: 48-pixel gutter in merged detected line 5
+- scan-B page 1: 39-pixel gutter in merged detected line 6
+- scan-C page 1: 33-pixel gutter in merged detected line 6
+- digital-D and other tested pages: NO candidate split.
 Three candidate boxes among 417 existing OCR lines across four PDFs
 (10 pages). This checks pixel geometry, NOT recognition accuracy.
 If each half is successfully cropped, candidate mode is expected to add
@@ -440,7 +444,7 @@ on the user's Windows environment.
 From CMD, stop both backend and Vite first (Ctrl+C) and preserve any local
 edits in demo/local_pdf_ocr before selective checkout:
 
-    cd /d E:\Phong_Nho_IT\OCR
+    cd /d <REPO_ROOT>
     git fetch origin
     git checkout origin/feat/local-pdf-ocr-header-split-exp -- demo/local_pdf_ocr
     .venv-demo\Scripts\python.exe -m unittest discover -s demo\local_pdf_ocr\backend\tests -p "test_*.py" -v
@@ -451,16 +455,16 @@ If **all unit tests OK**, start backend from the repo root:
 
 Open a second CMD:
 
-    cd /d E:\Phong_Nho_IT\OCR\demo\local_pdf_ocr\frontend
+    cd /d <REPO_ROOT>\demo\local_pdf_ocr\frontend
     npm run build
     npm run dev
 
-Test first on a single-page file (e.g., 738-ttg) in OCR mode:
+Test first on a single-page file (e.g., scan-C) in OCR mode:
 1. Checkbox OFF -> run and export original baseline TXT/JSON.
 2. Checkbox ON -> run and export experiment TXT/JSON.
 3. Inspect split_part left/right under original detected header, and
    compare recognition results and speed against baseline.
-4. Run 21-bct and 216-tb only if the first comparison has no regression.
+4. Run scan-A and scan-B only if the first comparison has no regression.
 5. Export all six OCR files (3 docs x two variants). Send the pairs for
    side-by-side review. Do not use embedded text as a secret OCR override.
 6. Keep this branch unmerged until the split improves tested accuracy

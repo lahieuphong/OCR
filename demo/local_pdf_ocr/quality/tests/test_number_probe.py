@@ -42,11 +42,11 @@ class HeaderSelectionTests(unittest.TestCase):
             "page": 1, "width": 1200, "height": 1700,
             "lines": [
                 row(8, "BỘ CÔNG THƯƠNG"),
-                row(9, "Số: RU6/TB-VPCP", y=350),
-                row(10, "Số: 21/2026/TT-BCT", y=405),
-                row(12, "số điều của Luật Giá được sửa đổi", y=530),
-                row(24, "SỐ 80/2023/NĐ-CP", y=840),
-                row(25, "Căn cứ số 80/2023/NĐ-CP", y=915),
+                row(9, "Số: RU8/TB-VPCP", y=350),
+                row(10, "Số: 37/2025/TT-BCT", y=405),
+                row(12, "số điều của Luật Mẫu được sửa đổi", y=530),
+                row(24, "SỐ 64/2022/NĐ-CP", y=840),
+                row(25, "Căn cứ số 64/2022/NĐ-CP", y=915),
             ],
         }
         self.assertEqual(
@@ -54,17 +54,17 @@ class HeaderSelectionTests(unittest.TestCase):
             [9, 10],
         )
         self.assertEqual(select_number_headers({**page, "page": 2}), [])
-        self.assertTrue(NUMBER_HEADER.match("Số: 738/QĐ-TTg"))
-        self.assertFalse(NUMBER_HEADER.match("Theo số 738/QĐ-TTg"))
-        self.assertFalse(NUMBER_HEADER.match("số điều của Luật Giá"))
+        self.assertTrue(NUMBER_HEADER.match("Số: 815/QĐ-TTg"))
+        self.assertFalse(NUMBER_HEADER.match("Theo số 815/QĐ-TTg"))
+        self.assertFalse(NUMBER_HEADER.match("số điều của Luật Mẫu"))
         with self.assertRaisesRegex(ValueError, "never silently trim"):
             select_number_headers(page, limit=1)
 
     def test_legacy_manifest_without_page_dimensions_uses_early_line_guard(self):
-        r = row(9, "Số: RU6/TB-VPCP")
+        r = row(9, "Số: RU8/TB-VPCP")
         self.assertTrue(is_document_number(
             {**r, "ocr_prediction": r["text"]}, page=1))
-        late = row(24, "SỐ 80/2023/NĐ-CP")
+        late = row(24, "SỐ 64/2022/NĐ-CP")
         self.assertFalse(is_document_number(
             {**late, "ocr_prediction": late["text"]}, page=1))
 
@@ -72,9 +72,9 @@ class HeaderSelectionTests(unittest.TestCase):
 class ProbeGatesTests(unittest.TestCase):
     def test_no_per_line_regression_and_strict_holdout_improvement_required(self):
         calibrate = summarize_variants([
-            observation("old", "Số: 216", "Số: RU6", "Số: 216", "Số: 216"),
-            observation("old2", "Số: 21", "Số: 21", "Số: 21", "Số: 21"),
-            observation("old3", "Số: 738", "Số: 738", "Số: 738", "Số: 738"),
+            observation("old", "Số: 218", "Số: RU8", "Số: 218", "Số: 218"),
+            observation("old2", "Số: 37", "Số: 37", "Số: 37", "Số: 37"),
+            observation("old3", "Số: 815", "Số: 815", "Số: 815", "Số: 815"),
         ])
         # Five independent PDF documents and no changes: insufficient improvement.
         held = summarize_variants([
@@ -105,8 +105,8 @@ class ProbeGatesTests(unittest.TestCase):
 
     def test_worsened_one_line_vetoes_even_when_total_improves(self):
         trial = summarize_variants([
-            observation("gain", "Số: 216", "Số: RU6", "Số: 216", "Số: 216"),
-            observation("loss", "Số: 738", "Số: 738", "Số: 739", "Số: 738"),
+            observation("gain", "Số: 218", "Số: RU8", "Số: 218", "Số: 218"),
+            observation("loss", "Số: 815", "Số: 815", "Số: 816", "Số: 815"),
         ])
         self.assertEqual(
             trial["candidate_analysis"]["contrast_1p15"]["regressed_line_ids"],
@@ -131,11 +131,11 @@ class ProbeGatesTests(unittest.TestCase):
             Image.new("RGB", (100, 25), "white").save(picture)
             sample = {
                 "id": "wrong", "_crop_path": picture,
-                "ocr_prediction": "Số: 216",
+                "ocr_prediction": "Số: 218",
             }
             class BadRecognizer:
                 def predict(self, img):
-                    return "Số: RU6", False
+                    return "Số: RU8", False
             with self.assertRaisesRegex(RuntimeError, "parity mismatch"):
                 infer_verified([sample], BadRecognizer())
 
@@ -149,8 +149,8 @@ class ProbeGatesTests(unittest.TestCase):
             entry = {
                 "id": "one", "document": "doc.pdf",
                 "page": 1, "line_index": 9,
-                "polygon": row(9, "Số: RU6")["polygon"],
-                "ocr_prediction": "Số: RU6/TB-VPCP",
+                "polygon": row(9, "Số: RU8")["polygon"],
+                "ocr_prediction": "Số: RU8/TB-VPCP",
                 "pdf_sha256": "d" * 64,
                 "crop_path": "crops/one.png",
                 "crop_sha256": digest,
@@ -160,12 +160,12 @@ class ProbeGatesTests(unittest.TestCase):
             (root / "labels.jsonl").write_text(json.dumps(label)+"\n", encoding="utf-8")
             with self.assertRaisesRegex(ValueError, "remain unverified"):
                 select_field_samples(root)
-            label["reference"], label["verified"] = "Số: 216/TB-VPCP", True
+            label["reference"], label["verified"] = "Số: 218/TB-VPCP", True
             (root / "labels.jsonl").write_text(
                 json.dumps(label, ensure_ascii=False)+"\n", encoding="utf-8"
             )
             result = select_field_samples(root)
-            self.assertEqual(result[0]["reference"], "Số: 216/TB-VPCP")
+            self.assertEqual(result[0]["reference"], "Số: 218/TB-VPCP")
             self.assertEqual(result[0]["pdf_sha256"], "d" * 64)
 
 

@@ -24,7 +24,7 @@ staged fixture set because the manifest split counts are checked.
 
 ## Windows CMD: fetch new files only
 
-Run from E:\Phong_Nho_IT\OCR:
+Run from <REPO_ROOT>:
 
     git fetch origin
     git checkout origin/feat/vietocr-b1024-onnx-parity -- datasets/vietnamese_recognition/prepare_vietocr_webgpu_parity.py web/vietocr_onnx_parity
@@ -54,10 +54,10 @@ No model export, ONNX graph, checkpoint, or frozen prediction was changed.
 
 Restart Vite after pulling this fix:
 
-    cd /d E:\Phong_Nho_IT\OCR
+    cd /d <REPO_ROOT>
     git fetch origin
     git checkout origin/feat/vietocr-b1024-onnx-parity -- web/vietocr_onnx_parity/scripts/stage_wasm.mjs web/vietocr_onnx_parity/src/main.js web/vietocr_onnx_parity/README.md
-    cd /d E:\Phong_Nho_IT\OCR\web\vietocr_onnx_parity
+    cd /d <REPO_ROOT>\web\vietocr_onnx_parity
     npm run dev
 
 Expected two "Staged" lines; verify the following local URL loads as a
@@ -78,7 +78,7 @@ Expected: WEBGPU FIXTURES READY: 12/752 non-blind lines
 
 Node.js >=20.19 is needed for Vite 7 (prefer Node 22+). Then:
 
-    cd /d E:\Phong_Nho_IT\OCR\web\vietocr_onnx_parity
+    cd /d <REPO_ROOT>\web\vietocr_onnx_parity
     node --version
     npm install
     npm test
@@ -97,9 +97,9 @@ decoder_limit_hits=0. This is NOT production approval.
 
 Stop the dev server with Ctrl+C, then:
 
-    cd /d E:\Phong_Nho_IT\OCR
+    cd /d <REPO_ROOT>
     .venv-vietocr\Scripts\python.exe datasets\vietnamese_recognition\prepare_vietocr_webgpu_parity.py --all
-    cd /d E:\Phong_Nho_IT\OCR\web\vietocr_onnx_parity
+    cd /d <REPO_ROOT>\web\vietocr_onnx_parity
     npm run dev
 
 Reload the page, run WebGPU parity and export JSON. All 752 lines must

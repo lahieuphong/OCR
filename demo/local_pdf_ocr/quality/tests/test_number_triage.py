@@ -31,17 +31,17 @@ def observation(i, *, original, reference, contrast=None, unsharp=None):
 
 def fixture():
     calibration = [
-        observation(1, original="Số: 2 1/A", reference="Số: 21/A"),
-        observation(2, original="Số: RU6/B", reference="Số: 216/B",
-                    contrast="Số: 216/B", unsharp="Số: 216/B"),
-        observation(3, original="Số: 738/C", reference="Số: 738/C"),
+        observation(1, original="Số: 3 7/A", reference="Số: 37/A"),
+        observation(2, original="Số: RU8/B", reference="Số: 218/B",
+                    contrast="Số: 218/B", unsharp="Số: 218/B"),
+        observation(3, original="Số: 815/C", reference="Số: 815/C"),
     ]
     holdout = [
-        observation(4, original="Số: 1H9/D", reference="Số: 149/D"),
-        observation(5, original="Số: 76 /TT-BXD", reference="Số: 76 /TT-BXD"),
-        observation(6, original="Số: 10314/KGVX", reference="Số: 10314/KGVX"),
-        observation(7, original="Số: 48/QĐ-TTg", reference="Số: 48/QĐ-TTg"),
-        observation(8, original="Số: 324/NQ-CP", reference="Số: 324/NQ-CP"),
+        observation(4, original="Số: 4H7/D", reference="Số: 147/D"),
+        observation(5, original="Số: 59 /TT-BXD", reference="Số: 59 /TT-BXD"),
+        observation(6, original="Số: 10427/KGVX", reference="Số: 10427/KGVX"),
+        observation(7, original="Số: 57/QĐ-TTg", reference="Số: 57/QĐ-TTg"),
+        observation(8, original="Số: 336/NQ-CP", reference="Số: 336/NQ-CP"),
     ]
     return {
         "status": "OFFLINE_FIELD_PROBE_NOT_PRODUCTION",
@@ -63,20 +63,20 @@ def fixture():
 
 class NumberTriageTests(unittest.TestCase):
     def test_flags_only_suspect_numeric_serial_without_auto_fix(self):
-        self.assertEqual(suspicious_flags("Số: 1H9 /QĐ", {"baseline": "Số: 1H9 /QĐ"}),
+        self.assertEqual(suspicious_flags("Số: 4H7 /QĐ", {"baseline": "Số: 4H7 /QĐ"}),
                          ["non_digit_serial"])
-        self.assertEqual(suspicious_flags("Số: RU6/B", {"baseline": "Số: RU6/B"}),
+        self.assertEqual(suspicious_flags("Số: RU8/B", {"baseline": "Số: RU8/B"}),
                          ["non_digit_serial"])
-        self.assertEqual(suspicious_flags("Số: 2 1/A", {"baseline": "Số: 2 1/A"}),
+        self.assertEqual(suspicious_flags("Số: 3 7/A", {"baseline": "Số: 3 7/A"}),
                          ["split_digits"])
-        self.assertEqual(suspicious_flags("Số: 76 /TT-BXD",
-                                          {"baseline": "Số: 76 /TT-BXD"}), [])
-        self.assertEqual(suspicious_flags("Số: 324/NQ-CP",
-                                          {"baseline": "Số: 324/NQ-CP"}), [])
+        self.assertEqual(suspicious_flags("Số: 59 /TT-BXD",
+                                          {"baseline": "Số: 59 /TT-BXD"}), [])
+        self.assertEqual(suspicious_flags("Số: 336/NQ-CP",
+                                          {"baseline": "Số: 336/NQ-CP"}), [])
         self.assertEqual(
-            suspicious_flags("Số: 149/D",
-                             {"baseline": "Số: 149/D",
-                              "contrast_1p15": "Số: 1H9/D"}),
+            suspicious_flags("Số: 147/D",
+                             {"baseline": "Số: 147/D",
+                              "contrast_1p15": "Số: 4H7/D"}),
             ["variant_disagreement"],
         )
         self.assertEqual(suspicious_flags("Căn cứ số 20/2026", {}), [])
@@ -113,7 +113,7 @@ class NumberTriageTests(unittest.TestCase):
             with self.subTest(key=key), self.assertRaisesRegex(ValueError, "STOP"):
                 build_triage(record)
         record = fixture()
-        record["all_predicted_lines"]["holdout"][0]["reference"] = "Số: 1H9/D"
+        record["all_predicted_lines"]["holdout"][0]["reference"] = "Số: 4H7/D"
         with self.assertRaisesRegex(ValueError, "metrics"):
             build_triage(record)
         record = fixture()
@@ -128,7 +128,7 @@ class NumberTriageTests(unittest.TestCase):
             build_triage(record)
 
     def test_ground_truth_or_doc_name_can_never_drive_flag_function(self):
-        raw = "Số: 1H9/D"
+        raw = "Số: 4H7/D"
         before = suspicious_flags(raw, {"baseline": raw})
         self.assertEqual(before, ["non_digit_serial"])
         record = fixture()

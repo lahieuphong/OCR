@@ -16,15 +16,15 @@ function sample({withDate=true,extraTitle=false}={}){
       page:1,width:1191,height:1685,
       lines:[
         L(5,"BỘ XÂY DỰNG",210,120),
-        L(8,"Số: 10314/VPCP-KGVX",213,232,267),
-        ...(withDate?[L(9,"Hà Nội, ngày 08 tháng 10 năm 2026",636,233,431)]:[]),
-        ...(extraTitle?[L(10,"V/v kết thúc thực hiện Đề án",222,248,350)]:[]),
-        L(21,"Căn cứ số 1H9/QĐ-TTg",177,800,450),
+        L(8,"Số: 10427/VPCP-KGVX",213,232,267),
+        ...(withDate?[L(9,"Hà Nội, ngày 15 tháng 9 năm 2025",636,233,431)]:[]),
+        ...(extraTitle?[L(10,"V/v triển khai nhiệm vụ mẫu",222,248,350)]:[]),
+        L(21,"Căn cứ số 4H7/QĐ-TTg",177,800,450),
       ],
     }],
   };
 }
-test("replay finds exact number crop despite 10314 V/v same-row collision",()=>{
+test("replay finds exact number crop despite a V/v same-row collision",()=>{
   const doc=sample({extraTitle:true});
   const old=JSON.stringify(doc);
   const replay=replayDocument(doc);
@@ -44,7 +44,7 @@ test("without recognizable issue date, no invented number crop; review entire fi
 test("source wrong mode or ambiguous header must stop without using filename",()=>{
   const doc=sample();
   assert.throws(()=>replayDocument({...doc,method:"native_text"}),/Not a VietOCR/);
-  doc.pages[0].lines.push(L(11,"Số: 216/TB-VPCP",180,320));
+  doc.pages[0].lines.push(L(11,"Số: 218/TB-VPCP",180,320));
   assert.throws(()=>replayDocument(doc),/exactly one original/);
 });
 test("file SHA provenance and source bytes remain unchanged in offline replay",()=>{
