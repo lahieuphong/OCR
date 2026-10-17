@@ -37,7 +37,8 @@ class BakeoffRegression(unittest.TestCase):
 
     def test_file_is_the_one_that_was_frozen(self):
         path = dataset.frozen_path(BAKEOFF_REGRESSION)
-        self.assertEqual(dataset.sha256_file(path), FROZEN_SHA256)
+        # Content as git stores it; a CRLF checkout on Windows changes no label.
+        self.assertEqual(dataset.text_sha256(path), FROZEN_SHA256)
         self.assertEqual(path.with_suffix(".sha256").read_text(encoding="utf-8").split()[0], FROZEN_SHA256)
 
     def test_labels_are_those_verified_in_the_bakeoff(self):

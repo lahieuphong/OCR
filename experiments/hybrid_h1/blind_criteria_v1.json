@@ -1,0 +1,56 @@
+{
+  "schema": "h1_blind_criteria_v1",
+  "candidate": "h1_v1 (experiments/hybrid_h1/gates.py + hybrid.py, gates sha256 227a2a272661b86077c47b230d7977e63e802fe276ecdc86336275ce2c5e672f)",
+  "baseline": "A0 = frozen B1024 pipeline: phase4_exp_b_width1024 (checkpoint a2f9d737edca...), PP-OCRv6_medium_det, header split on, produced by demo.local_pdf_ocr.quality.e2e_regression --rerun-only",
+  "documents": {
+    "allowed": "PDFs never used for H1 design or for any earlier evaluation (registration refuses every PDF whose SHA-256 is in experiment_sources.json)",
+    "reserved": "30.signed.pdf may enter only an authorized blind round; nothing in this repository opens it before that",
+    "born_digital_definition": "a PDF whose pages are native_text (H1 page class) for at least half of its pages"
+  },
+  "selection": {
+    "changed_lines": "every line whose H1 text differs from A0 (census, no cap)",
+    "representative": "per PDF a uniform random sample of min(30, line count) lines; seed = int(sha256('h1-blind-v1|' + pdf_sha256))",
+    "representative_lines_per_pdf": 30,
+    "queue": "one queue per source PDF holding the union of both sets, shuffled with seed = int(sha256('h1-blind-v1-order|' + pdf_sha256)); set membership is never shown to the reviewer",
+    "max_items_per_round": 2000
+  },
+  "references": {
+    "source": "independent human transcriptions only, from experiments.hybrid_h1.blind queues: the page shows the line image and nothing a machine read (no A0, no H1, no PDF text layer, no label)",
+    "primary": "final text of items whose final status is verified (blind entry, then the reviewer's own second look at the image; a change needs a written reason)",
+    "sensitivity": "the blind-locked text of the same items",
+    "excluded": "uncertain, not_text and unreadable items (counted, never scored)",
+    "never": "the PDF text layer is never a reference"
+  },
+  "normalization": "Unicode NFC; micro Levenshtein CER/WER; no case folding; no punctuation removal",
+  "key_fields": ["doc_number", "email", "agency_name", "date"],
+  "sufficiency": {
+    "min_pdfs": 10,
+    "min_born_digital_pdfs": 6,
+    "min_changed_lines_scored": 150,
+    "min_representative_lines_scored": 300,
+    "max_excluded_share": 0.10
+  },
+  "go": {
+    "B1": "changed lines: H1 character errors < A0, improved lines > regressed lines, one-sided exact sign test p < B1_sign_test_alpha",
+    "B1_sign_test_alpha": 0.05,
+    "B2": "changed lines: exact one-sided 95% upper bound of regressed/changed <= B2_max_regression_rate_upper95",
+    "B2_max_regression_rate_upper95": 0.05,
+    "B3": "zero key-field instances (document number, e-mail, agency name, date) that are correct under A0 and wrong under H1, on every scored line",
+    "B4": "scanned PDFs: H1 character errors <= A0 and zero regressed lines",
+    "B5": "no PDF with more H1 than A0 character errors on its scored lines",
+    "B6": "representative set: H1 micro CER <= A0 micro CER",
+    "B7": "integrity: freeze verified; every fallback line byte-identical to A0; line order and polygons identical to A0; exports valid and complete",
+    "B8": "B1 and B3 also hold with the blind-locked transcriptions"
+  },
+  "verdicts": {
+    "INSUFFICIENT_DATA": "any sufficiency rule fails: no verdict on H1",
+    "NO_GO": "sufficiency met and any of B1-B7 fails",
+    "INCONCLUSIVE": "sufficiency met, B1-B7 hold, B8 fails",
+    "GO_CANDIDATE_FOR_USER_DECISION": "sufficiency met and B1-B8 hold; deployment still needs an explicit decision by the user"
+  },
+  "reported_not_gating": [
+    "cluster bootstrap 95% interval of (A0 - H1) CER on changed lines, resampling PDFs (10,000 resamples, seed 20261017)",
+    "per-PDF and per-group metrics, WER, exact-line rate, selection and fallback rates"
+  ],
+  "one_shot": "the blind round is scored once; no threshold, gate or code changes after any blind label exists; a changed candidate is a new candidate and needs a new blind set"
+}

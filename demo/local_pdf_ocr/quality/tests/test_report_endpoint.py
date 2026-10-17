@@ -35,8 +35,8 @@ class LocalReportEndpointTests(unittest.TestCase):
             crop = self.folder / "crops" / f"crop{i:02}.png"
             Image.new("RGB", (85, 25), "white").save(crop)
             digest = hashlib.sha256(crop.read_bytes()).hexdigest()
-            reference = "Số: 216/TB-VPCP" if i == 0 else f"Dòng số {i}"
-            prediction = "Số: RU6/TB-VPCP" if i == 0 else reference
+            reference = "Số: 218/TB-VPCP" if i == 0 else f"Dòng số {i}"
+            prediction = "Số: RU8/TB-VPCP" if i == 0 else reference
             manifest.append({
                 "id": f"crop{i:02}", "document": "synthetic.pdf",
                 "page": 1, "line_index": i + 1,
@@ -75,12 +75,12 @@ class LocalReportEndpointTests(unittest.TestCase):
                 "candidate_inference_performed": True,
             },
             "lines": [{
-                "id": "crop00", "reference": "Số: 216/TB-VPCP",
-                "baseline": "Số: RU6/TB-VPCP",
+                "id": "crop00", "reference": "Số: 218/TB-VPCP",
+                "baseline": "Số: RU8/TB-VPCP",
                 "crop_sha256": manifest[0]["crop_sha256"],
                 "variants": {
                     "contrast_1p15": {
-                        "prediction": "Số: 216/TB-VPCP",
+                        "prediction": "Số: 218/TB-VPCP",
                         "char_errors": 0, "word_errors": 0,
                     },
                 },
@@ -102,7 +102,7 @@ class LocalReportEndpointTests(unittest.TestCase):
         self.assertFalse(summary["merge_approved"])
         self.assertEqual(before, (self.folder / "labels.jsonl").read_bytes())
         self.assertIn(b'"verified_lines": 20', self.store.report_asset("zone_audit.json"))
-        self.assertIn("Số: RU6/TB-VPCP", self.store.report_asset("zone_audit.html").decode("utf-8"))
+        self.assertIn("Số: RU8/TB-VPCP", self.store.report_asset("zone_audit.html").decode("utf-8"))
         self.store.save("crop01", "classify", region_type="stamp_artifact")
         with self.assertRaisesRegex(RuntimeError, "stale"):
             self.store.report_asset("zone_audit.json")

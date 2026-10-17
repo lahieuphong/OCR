@@ -454,8 +454,9 @@ class TerminalFrontEnd(TableFile):
 
     def test_screen_shows_the_fields_and_the_menu(self):
         _, screen, _ = self.run_cli(["q"])
+        # The screen shows the path as the operating system writes it (crops\a.png on Windows).
         for expected in ("ID:\na", "Document:\nd", "Page:\n1", "PP-OCRv6:\nVit Nam", "VietOCR:\nViệt Nam",
-                         "Image:\ncrops/a.png", "[p] accept PP-OCRv6 text", "[v] accept VietOCR text",
+                         f"Image:\n{Path('crops', 'a.png')}", "[p] accept PP-OCRv6 text", "[v] accept VietOCR text",
                          "[e] enter/edit exact ground truth", "[s] skip this line", "[q] save and quit"):  # fmt: skip
             self.assertIn(expected, screen)
 

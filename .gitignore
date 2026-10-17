@@ -96,3 +96,29 @@ __pycache__/
 # VietOCR builds its LMDB caches in the directory training is started from.
 /train_vi_admin*/
 /valid_vi_admin*/
+
+# Local-only material at the repository root and around the OCR demo: source
+# PDFs with their OCR exports, review packs with document crops, label exports,
+# prediction dumps, archives and virtual environments. None of it may be
+# committed (benchmarks/vietnamese/tests/test_repository.py checks this).
+/.venv-*/
+/sources/
+/vietdoc_*/
+/*.zip
+/*.tgz
+/*.tar.gz
+/predictions_*.jsonl
+/predictions_*.meta.json
+/eval_inputs.jsonl
+/blind_inputs_*.jsonl
+/preflight_*.json
+/*.[pP][dD][fF]
+/demo/**/*.[pP][dD][fF]
+/experiments/**/*.[pP][dD][fF]
+/experiments/**/*.[pP][nN][gG]
+/experiments/**/*.[jJ][pP][gG]
+**/*_vietocr_ocr*.json
+**/*_vietocr_ocr*.txt
+**/*verified_labels*.json
+**/*blind_review_export*.json
+**/*correction_addendum*.json

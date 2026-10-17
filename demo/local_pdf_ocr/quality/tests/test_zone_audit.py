@@ -30,8 +30,8 @@ class ZoneAuditTests(unittest.TestCase):
         self.root = Path(tmp.name)
         (self.root / "crops").mkdir()
         specs = [
-            ("a", "Số: RU6/TB-VPCP", "Số: 216/TB-VPCP"),
-            ("b", "CÓNG", "TƯỚNG"),
+            ("a", "Số: RU8/TB-VPCP", "Số: 218/TB-VPCP"),
+            ("b", "DẤU", "MỘC"),
             ("c", "4", "4"),
         ]
         self.samples = []
@@ -60,16 +60,16 @@ class ZoneAuditTests(unittest.TestCase):
                 "candidate_inference_performed": True,
             },
             "lines": [{
-                "id": "a", "reference": "Số: 216/TB-VPCP",
-                "baseline": "Số: RU6/TB-VPCP",
+                "id": "a", "reference": "Số: 218/TB-VPCP",
+                "baseline": "Số: RU8/TB-VPCP",
                 "crop_sha256": self.samples[0]["crop_sha256"],
                 "variants": {
                     "contrast_1p15": {
-                        "prediction": "Số: 216/TB-VPCP",
+                        "prediction": "Số: 218/TB-VPCP",
                         "char_errors": 0, "word_errors": 0,
                     },
                     "unsharp_light": {
-                        "prediction": "Số: 216/TB-VPCP",
+                        "prediction": "Số: 218/TB-VPCP",
                         "char_errors": 0, "word_errors": 0,
                     },
                 },
@@ -173,7 +173,7 @@ class ZoneAuditTests(unittest.TestCase):
         self.assertTrue(result["summary"]["no_automatic_recognition_replacement"])
         self.assertFalse(result["summary"]["merge_approved"])
         markup = render_html(result)
-        self.assertIn("Số: RU6/TB-VPCP", markup)
+        self.assertIn("Số: RU8/TB-VPCP", markup)
         self.assertIn('src="crops/a.png"', markup)
 
 

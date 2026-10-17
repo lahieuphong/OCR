@@ -1,0 +1,238 @@
+{
+  "schema": "h1_freeze_manifest_v2",
+  "frozen_at": "2026-10-17T10:04:16+00:00",
+  "candidate": "h1_v1",
+  "candidate_registered_at": "2026-10-16T17:38:14+00:00",
+  "preregistration_sha256": "4fb75f1869b84331c52f577842f0b36e44f67c3e4e2c5fa216e14b3d1a40c8cf",
+  "blind_labels_existing_at_freeze": "none",
+  "blind_documents_registered_at_freeze": "none",
+  "hashing": {
+    "text_files": "sha256 of the bytes with every CRLF replaced by LF",
+    "other_files": "sha256 of the raw bytes",
+    "text_suffixes": [
+      ".json",
+      ".py",
+      ".txt",
+      ".yml"
+    ],
+    "raw_sha256": "raw-byte sha256 of the text files, for information"
+  },
+  "files": {
+    "candidate": {
+      "experiments/hybrid_h1/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "experiments/hybrid_h1/gates.py": "11d1648d338a5f5dbc987b83f1c212d4bbfe0283d245698cdc58d906c4a4da41",
+      "experiments/hybrid_h1/hybrid.py": "e867b37c2c3993f02ba60021f1aba587e17e2637920b27cb80a021f35f84b395"
+    },
+    "criteria": {
+      "experiments/hybrid_h1/blind_criteria_v1.json": "2acf85cd2eccb1f95da2cac529d2923900d85ee288f00d04adfdbd2b24124542"
+    },
+    "evaluation_tools": {
+      "experiments/hybrid_h1/evaluate_h1.py": "e09b902043a1dbe5a6d880183a4ddc8cbf8ead74d20516931750b6b380391fdd",
+      "experiments/hybrid_h1/score_paired.py": "35977fa94dd281b37d6a5c933476b6a9dd9f40a3aada61f3b360733c8ba288d2",
+      "experiments/hybrid_h1/blind.py": "e786a8d50b40b108649e212fd734f85bcfeb6e2a2089d983ccc633f58088bf24",
+      "experiments/hybrid_h1/freeze.py": "d7441f0d467c68dd50d667e881d5d1f86f761d3026734f7b74c87acc77aa5004"
+    },
+    "tests": {
+      "experiments/hybrid_h1/tests/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "experiments/hybrid_h1/tests/test_gates.py": "fafc1da53cf9fe3ba0de953cead83fc92dc9157c49b72e302f1c779874ff6df5",
+      "experiments/hybrid_h1/tests/test_hybrid.py": "dd5f2b829200943ffdbb192ee3220a7d465ddd3ec7cedc4f14be14fe880cb99a",
+      "experiments/hybrid_h1/tests/test_evaluate_h1.py": "df2b8d9796a4448b7c713d11ab284e78e4e2847929ea8e6368c365750a23e583",
+      "experiments/hybrid_h1/tests/test_score_paired.py": "56460e453c861d8be930675b968defa1cd78b296869b9a8d1916ad8f0a4004b8",
+      "experiments/hybrid_h1/tests/test_blind.py": "7b49e7c91d966a0847c06d26e126fe1e42bc6ac7a615512b9083e9808259c19d",
+      "experiments/hybrid_h1/tests/test_freeze.py": "67a3e7c404305f0ca42ad4da41829730ac7c0bcf32f957a1a93f15289493be44"
+    },
+    "reused_modules": {
+      "demo/local_pdf_ocr/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "demo/local_pdf_ocr/quality/__init__.py": "30b58091dab78b49cd1df4893c94e22695f37a1ca05149da0ddb197b60b42fa6",
+      "demo/local_pdf_ocr/quality/gt_v2.py": "2c5241ff24a2046084d482cb8f1ebd27f4406d3bac7e95f717de35dcb86332dc",
+      "demo/local_pdf_ocr/quality/benchmark.py": "cd66f95c3017c14b70a775b2f049f207a26e61e003fb51a73bc8dc30c3eed822",
+      "demo/local_pdf_ocr/quality/vietdoc_review40.py": "a04d8258279f1d13c2dbdd18229d85729e5c0e70baca8116f903cfa8768f4e6e",
+      "demo/local_pdf_ocr/quality/error_analysis.py": "c0e1f55aee9a2ce96795102ecd510b9ab3635759cb6391795045d6291b610fe8",
+      "demo/local_pdf_ocr/quality/e2e_regression.py": "9daba6d9e649d9828ab164bbcb262e2646712351222efa535e13c2bc87035ea6",
+      "experiments/crop_geometry/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "experiments/crop_geometry/evaluate.py": "2c75e4650ca0371ddca8c99b600c9c75e82cd27ba5a34a211acd42dc242b508b"
+    },
+    "a0_pipeline": {
+      "demo/local_pdf_ocr/backend/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "demo/local_pdf_ocr/backend/engine.py": "564b1b0ec7a0b5f7725dcc6b087da1c2862f6403ec2311ebe8a056b975134cbd",
+      "demo/local_pdf_ocr/backend/contract.py": "5257f40a781737f531b059f59bf50052bf5d5f476766f69da92a12cd3a21a84f",
+      "demo/local_pdf_ocr/backend/header_split.py": "258fe94a878cb2781d6cd26d6f9546873b132cfea0c1afae668ac3f1811b360f",
+      "demo/local_pdf_ocr/backend/ocr_layout_v2.py": "f5bab19285b5ce09f735225c4743670ef35e1b20035fe9750e7e86244a8ad24c"
+    },
+    "reference_data": {
+      "datasets/vietnamese_recognition/lexicon/administrative.txt": "026abc7745aa5211e29efd66786cb5635b9980d46e0515011bb4b86bafa2dba2",
+      "datasets/vietnamese_recognition/manifests/hard_cases.txt": "c9cae538599932bd22205b212c2a5d04043c0e00e585061ae880a61f2183526d"
+    },
+    "models": {
+      "models/vietocr/onnx/exp_b_width1024/metadata.json": "89dd74539b70c8efaa6336a765d2b97454ebd8cf27bbce3958173238be61541b",
+      "models/vietocr/onnx/exp_b_width1024/encoder.onnx": "f20d629ad81171267b517794d9f23cbf48bd74d3b45c9747aa5a0930433c40f1",
+      "models/vietocr/onnx/exp_b_width1024/decoder_step.onnx": "67029da541d1904ab04d6de3aec0b0cbe9ab3d2efca15108f155b4c5e4abeb51"
+    },
+    "detector": {
+      "~/.paddlex/official_models/PP-OCRv6_medium_det/inference.json": "0f1a7ec35da36173529c7a60238b7f7919e3831929c3f700ad90ad4896adecd5",
+      "~/.paddlex/official_models/PP-OCRv6_medium_det/inference.pdiparams": "85218d2e3d98f5a21c58b4220627be923a97aee5db3cc71f39536ab31ac53960",
+      "~/.paddlex/official_models/PP-OCRv6_medium_det/inference.yml": "7298d5ead546584af2504d03355f881ac7a7bc0eb1e282d3e159277c1d0af871"
+    }
+  },
+  "raw_sha256": {
+    "candidate": {
+      "experiments/hybrid_h1/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "experiments/hybrid_h1/gates.py": "11d1648d338a5f5dbc987b83f1c212d4bbfe0283d245698cdc58d906c4a4da41",
+      "experiments/hybrid_h1/hybrid.py": "e867b37c2c3993f02ba60021f1aba587e17e2637920b27cb80a021f35f84b395"
+    },
+    "criteria": {
+      "experiments/hybrid_h1/blind_criteria_v1.json": "2acf85cd2eccb1f95da2cac529d2923900d85ee288f00d04adfdbd2b24124542"
+    },
+    "evaluation_tools": {
+      "experiments/hybrid_h1/evaluate_h1.py": "e09b902043a1dbe5a6d880183a4ddc8cbf8ead74d20516931750b6b380391fdd",
+      "experiments/hybrid_h1/score_paired.py": "35977fa94dd281b37d6a5c933476b6a9dd9f40a3aada61f3b360733c8ba288d2",
+      "experiments/hybrid_h1/blind.py": "e786a8d50b40b108649e212fd734f85bcfeb6e2a2089d983ccc633f58088bf24",
+      "experiments/hybrid_h1/freeze.py": "d7441f0d467c68dd50d667e881d5d1f86f761d3026734f7b74c87acc77aa5004"
+    },
+    "tests": {
+      "experiments/hybrid_h1/tests/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "experiments/hybrid_h1/tests/test_gates.py": "fafc1da53cf9fe3ba0de953cead83fc92dc9157c49b72e302f1c779874ff6df5",
+      "experiments/hybrid_h1/tests/test_hybrid.py": "dd5f2b829200943ffdbb192ee3220a7d465ddd3ec7cedc4f14be14fe880cb99a",
+      "experiments/hybrid_h1/tests/test_evaluate_h1.py": "df2b8d9796a4448b7c713d11ab284e78e4e2847929ea8e6368c365750a23e583",
+      "experiments/hybrid_h1/tests/test_score_paired.py": "56460e453c861d8be930675b968defa1cd78b296869b9a8d1916ad8f0a4004b8",
+      "experiments/hybrid_h1/tests/test_blind.py": "7b49e7c91d966a0847c06d26e126fe1e42bc6ac7a615512b9083e9808259c19d",
+      "experiments/hybrid_h1/tests/test_freeze.py": "67a3e7c404305f0ca42ad4da41829730ac7c0bcf32f957a1a93f15289493be44"
+    },
+    "reused_modules": {
+      "demo/local_pdf_ocr/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "demo/local_pdf_ocr/quality/__init__.py": "30b58091dab78b49cd1df4893c94e22695f37a1ca05149da0ddb197b60b42fa6",
+      "demo/local_pdf_ocr/quality/gt_v2.py": "2c5241ff24a2046084d482cb8f1ebd27f4406d3bac7e95f717de35dcb86332dc",
+      "demo/local_pdf_ocr/quality/benchmark.py": "cd66f95c3017c14b70a775b2f049f207a26e61e003fb51a73bc8dc30c3eed822",
+      "demo/local_pdf_ocr/quality/vietdoc_review40.py": "a04d8258279f1d13c2dbdd18229d85729e5c0e70baca8116f903cfa8768f4e6e",
+      "demo/local_pdf_ocr/quality/error_analysis.py": "c0e1f55aee9a2ce96795102ecd510b9ab3635759cb6391795045d6291b610fe8",
+      "demo/local_pdf_ocr/quality/e2e_regression.py": "9daba6d9e649d9828ab164bbcb262e2646712351222efa535e13c2bc87035ea6",
+      "experiments/crop_geometry/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "experiments/crop_geometry/evaluate.py": "2c75e4650ca0371ddca8c99b600c9c75e82cd27ba5a34a211acd42dc242b508b"
+    },
+    "a0_pipeline": {
+      "demo/local_pdf_ocr/backend/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "demo/local_pdf_ocr/backend/engine.py": "564b1b0ec7a0b5f7725dcc6b087da1c2862f6403ec2311ebe8a056b975134cbd",
+      "demo/local_pdf_ocr/backend/contract.py": "5257f40a781737f531b059f59bf50052bf5d5f476766f69da92a12cd3a21a84f",
+      "demo/local_pdf_ocr/backend/header_split.py": "258fe94a878cb2781d6cd26d6f9546873b132cfea0c1afae668ac3f1811b360f",
+      "demo/local_pdf_ocr/backend/ocr_layout_v2.py": "f5bab19285b5ce09f735225c4743670ef35e1b20035fe9750e7e86244a8ad24c"
+    },
+    "reference_data": {
+      "datasets/vietnamese_recognition/lexicon/administrative.txt": "026abc7745aa5211e29efd66786cb5635b9980d46e0515011bb4b86bafa2dba2",
+      "datasets/vietnamese_recognition/manifests/hard_cases.txt": "c9cae538599932bd22205b212c2a5d04043c0e00e585061ae880a61f2183526d"
+    },
+    "models": {
+      "models/vietocr/onnx/exp_b_width1024/metadata.json": "1ee8d053e257b137d6eb387b452cb2c4b4659beb59dcb4710049b0023c09f57b"
+    },
+    "detector": {
+      "~/.paddlex/official_models/PP-OCRv6_medium_det/inference.json": "0f1a7ec35da36173529c7a60238b7f7919e3831929c3f700ad90ad4896adecd5",
+      "~/.paddlex/official_models/PP-OCRv6_medium_det/inference.yml": "7298d5ead546584af2504d03355f881ac7a7bc0eb1e282d3e159277c1d0af871"
+    }
+  },
+  "gates": {
+    "native_min_visible_chars": 200,
+    "native_min_line_coverage": 0.5,
+    "hidden_min_share": 0.5,
+    "min_inside_share": 0.5,
+    "ambiguous_share": 0.3,
+    "single_line_spread": 0.6,
+    "duplicate_iou": 0.6,
+    "overlap_iou": 0.3,
+    "space_gap_pt": 0.5,
+    "cover_share": 0.5,
+    "ink_luminance_drop": 40,
+    "min_ink_pixels_per_char": 3,
+    "word_box_dilation_px": 3,
+    "max_unexplained_ink_share": 0.1,
+    "require_same_token_count": true,
+    "max_distance_to_b1024": 0.5,
+    "trusted_simple_encodings": [
+      "WinAnsiEncoding",
+      "MacRomanEncoding",
+      "StandardEncoding"
+    ],
+    "legacy_vietnamese_font_pattern": "^\\.?(vn|vps)",
+    "mupdf_font_name_max_chars": 31,
+    "reject_superscript": true
+  },
+  "gates_sha256": "227a2a272661b86077c47b230d7977e63e802fe276ecdc86336275ce2c5e672f",
+  "libraries": {
+    "python": "3.12.10",
+    "pymupdf": "1.28.2",
+    "numpy": "2.3.5",
+    "pillow": "12.3.0",
+    "onnxruntime": "1.31.0",
+    "paddlex": "3.7.2",
+    "paddlepaddle": "3.2.0",
+    "opencv-contrib-python": "4.10.0.84",
+    "opencv-python": null
+  },
+  "b1024": {
+    "selected": "phase4_exp_b_width1024",
+    "checkpoint_sha256": "a2f9d737edca1b2d5d45231b34601a0eb573aafd0fde3202cf6d20601de3edb3",
+    "encoder_sha256": "f20d629ad81171267b517794d9f23cbf48bd74d3b45c9747aa5a0930433c40f1",
+    "decoder_sha256": "67029da541d1904ab04d6de3aec0b0cbe9ab3d2efca15108f155b4c5e4abeb51",
+    "config_sha256": "48b1b348783381f4e080916839f114380e9d6d55f77d9055e3eb10589cc56802"
+  },
+  "criteria": {
+    "schema": "h1_blind_criteria_v1",
+    "candidate": "h1_v1 (experiments/hybrid_h1/gates.py + hybrid.py, gates sha256 227a2a272661b86077c47b230d7977e63e802fe276ecdc86336275ce2c5e672f)",
+    "baseline": "A0 = frozen B1024 pipeline: phase4_exp_b_width1024 (checkpoint a2f9d737edca...), PP-OCRv6_medium_det, header split on, produced by demo.local_pdf_ocr.quality.e2e_regression --rerun-only",
+    "documents": {
+      "allowed": "PDFs never used for H1 design or for any earlier evaluation (registration refuses every PDF whose SHA-256 is in experiment_sources.json)",
+      "reserved": "30.signed.pdf may enter only an authorized blind round; nothing in this repository opens it before that",
+      "born_digital_definition": "a PDF whose pages are native_text (H1 page class) for at least half of its pages"
+    },
+    "selection": {
+      "changed_lines": "every line whose H1 text differs from A0 (census, no cap)",
+      "representative": "per PDF a uniform random sample of min(30, line count) lines; seed = int(sha256('h1-blind-v1|' + pdf_sha256))",
+      "representative_lines_per_pdf": 30,
+      "queue": "one queue per source PDF holding the union of both sets, shuffled with seed = int(sha256('h1-blind-v1-order|' + pdf_sha256)); set membership is never shown to the reviewer",
+      "max_items_per_round": 2000
+    },
+    "references": {
+      "source": "independent human transcriptions only, from experiments.hybrid_h1.blind queues: the page shows the line image and nothing a machine read (no A0, no H1, no PDF text layer, no label)",
+      "primary": "final text of items whose final status is verified (blind entry, then the reviewer's own second look at the image; a change needs a written reason)",
+      "sensitivity": "the blind-locked text of the same items",
+      "excluded": "uncertain, not_text and unreadable items (counted, never scored)",
+      "never": "the PDF text layer is never a reference"
+    },
+    "normalization": "Unicode NFC; micro Levenshtein CER/WER; no case folding; no punctuation removal",
+    "key_fields": [
+      "doc_number",
+      "email",
+      "agency_name",
+      "date"
+    ],
+    "sufficiency": {
+      "min_pdfs": 10,
+      "min_born_digital_pdfs": 6,
+      "min_changed_lines_scored": 150,
+      "min_representative_lines_scored": 300,
+      "max_excluded_share": 0.1
+    },
+    "go": {
+      "B1": "changed lines: H1 character errors < A0, improved lines > regressed lines, one-sided exact sign test p < B1_sign_test_alpha",
+      "B1_sign_test_alpha": 0.05,
+      "B2": "changed lines: exact one-sided 95% upper bound of regressed/changed <= B2_max_regression_rate_upper95",
+      "B2_max_regression_rate_upper95": 0.05,
+      "B3": "zero key-field instances (document number, e-mail, agency name, date) that are correct under A0 and wrong under H1, on every scored line",
+      "B4": "scanned PDFs: H1 character errors <= A0 and zero regressed lines",
+      "B5": "no PDF with more H1 than A0 character errors on its scored lines",
+      "B6": "representative set: H1 micro CER <= A0 micro CER",
+      "B7": "integrity: freeze verified; every fallback line byte-identical to A0; line order and polygons identical to A0; exports valid and complete",
+      "B8": "B1 and B3 also hold with the blind-locked transcriptions"
+    },
+    "verdicts": {
+      "INSUFFICIENT_DATA": "any sufficiency rule fails: no verdict on H1",
+      "NO_GO": "sufficiency met and any of B1-B7 fails",
+      "INCONCLUSIVE": "sufficiency met, B1-B7 hold, B8 fails",
+      "GO_CANDIDATE_FOR_USER_DECISION": "sufficiency met and B1-B8 hold; deployment still needs an explicit decision by the user"
+    },
+    "reported_not_gating": [
+      "cluster bootstrap 95% interval of (A0 - H1) CER on changed lines, resampling PDFs (10,000 resamples, seed 20261017)",
+      "per-PDF and per-group metrics, WER, exact-line rate, selection and fallback rates"
+    ],
+    "one_shot": "the blind round is scored once; no threshold, gate or code changes after any blind label exists; a changed candidate is a new candidate and needs a new blind set"
+  },
+  "rule": "blind steps run only while `freeze verify` reports no difference; any change makes a new candidate"
+}

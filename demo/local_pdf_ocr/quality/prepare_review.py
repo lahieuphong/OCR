@@ -1,8 +1,8 @@
-"""Export auditable OCR line crops from EXISTING local PDF/JSON pairs.
+r"""Export auditable OCR line crops from EXISTING local PDF/JSON pairs.
 
 Run from repo root:
   python -m demo.local_pdf_ocr.quality.prepare_review \
-    --pair "E:\samples\21-bct.signed.pdf" "E:\samples\21-bct.signed_vietocr_ocr_header_split.json" \
+    --pair "<SAMPLES_DIR>\<document>.pdf" "<SAMPLES_DIR>\<document>_vietocr_ocr_header_split.json" \
     --output demo\local_pdf_ocr\quality_work\review_01 --per-page 8
 
 This never calls detection, recognition, training, or blind-test code.

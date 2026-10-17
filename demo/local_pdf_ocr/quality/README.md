@@ -8,7 +8,7 @@ It does **not** access frozen blind-test data or infer its labels.
 
 The independent 5-PDF test found **NO improvement** from contrast_1p15
 or unsharp_light on the only remaining header-number error (a handwritten
-`1H9` where a human read `149`). Both transforms correctly scored
+serial that OCR read with a letter). Both transforms correctly scored
 `NO_GO_FOR_LARGER_TRIAL`. Do not apply them automatically.
 
 `number_triage.py` is an additional **model-free, offline** QA utility:
@@ -17,15 +17,15 @@ suspicious numeric serials and disagreement between frozen OCR variants.
 The detector **never sees the reference label, PDF filename or external
 document number** when creating a flag.
 
-It flags cases such as `Số: 1H9/...`, `Số: RU6/...` and `Số: 2 1/...`;
-it does *not* mark `Số: 76 /2026/TT-BXD` suspicious just because there is
+It flags cases such as `Số: 4H7/...`, `Số: RU8/...` and `Số: 3 7/...`;
+it does *not* mark `Số: 59 /2025/TT-BXD` suspicious just because there is
 a space before the slash. It does not rewrite, normalize, replace or delete
 a single OCR character. Missing flags do **not** certify correctness.
 
 Run safely on the existing 3+5 independent-document report:
 
 ```bat
-cd /d E:\Phong_Nho_IT\OCR
+cd /d <REPO_ROOT>
 git fetch origin
 git checkout origin/feat/vietocr-number-review-triage -- demo/local_pdf_ocr/quality
 .venv-demo\Scripts\python.exe -m unittest discover -s demo\local_pdf_ocr\quality\tests -p "test_*.py" -v
@@ -51,7 +51,7 @@ Draft PR and is **not** a production feature or merge approval.
 ## Document-number-only recognition probe (opt-in, no OCR output changes)
 
 The previous 72-crop verified dataset found one specific local improvement:
-"Số: RU6/TB-VPCP" recognized as "Số: 216/TB-VPCP" under BOTH mild
+one document-number crop whose serial OCR had misread as letters was read correctly under BOTH mild
 contrast and mild unsharp filtering. This does **not** justify global
 contrast or model corrections.
 
@@ -68,7 +68,7 @@ so this cannot measure document-number field recall.
 From Windows CMD, after closing any running QA server if needed:
 
 \`\`\`bat
-cd /d E:\Phong_Nho_IT\OCR
+cd /d <REPO_ROOT>
 git fetch origin
 git checkout origin/feat/vietocr-document-number-probe -- demo/local_pdf_ocr/quality
 .venv-demo\Scripts\python.exe -m unittest discover -s demo\local_pdf_ocr\quality\tests -p "test_*.py" -v
@@ -95,8 +95,8 @@ crops by using \`prepare_review\`'s new selection mode:
 
 \`\`\`bat
 .venv-demo\Scripts\python.exe -m demo.local_pdf_ocr.quality.prepare_review ^
-  --pair "E:\OCR_SAMPLES\new01.pdf" "E:\OCR_SAMPLES\new01_vietocr_ocr_header_split.json" ^
-  --pair "E:\OCR_SAMPLES\new02.pdf" "E:\OCR_SAMPLES\new02_vietocr_ocr_header_split.json" ^
+  --pair "<SAMPLES_DIR>\new01.pdf" "<SAMPLES_DIR>\new01_vietocr_ocr_header_split.json" ^
+  --pair "<SAMPLES_DIR>\new02.pdf" "<SAMPLES_DIR>\new02_vietocr_ocr_header_split.json" ^
   --output demo\local_pdf_ocr\quality_work\review_numbers_02 ^
   --selection document_number ^
   --per-page 8
@@ -154,7 +154,7 @@ The new editor works on these exact existing crop PNGs and labels.
 From Windows CMD at the repository root:
 
 ```bat
-cd /d E:\Phong_Nho_IT\OCR
+cd /d <REPO_ROOT>
 git fetch origin
 git checkout origin/feat/vietocr-recognition-quality-exp -- demo/local_pdf_ocr/quality
 .venv-demo\Scripts\python.exe -m unittest discover -s demo\local_pdf_ocr\quality\tests -p "test_*.py" -v
@@ -196,7 +196,7 @@ and JSON export. Only the running Windows machine can access them.
 1. Stop review_server with Ctrl+C, fetch the updated branch, and restart:
 
 ```bat
-cd /d E:\Phong_Nho_IT\OCR
+cd /d <REPO_ROOT>
 git fetch origin
 git checkout origin/feat/vietocr-zone-aware-qa -- demo/local_pdf_ocr/quality
 .venv-demo\Scripts\python.exe -m unittest discover -s demo\local_pdf_ocr\quality\tests -p "test_*.py" -v
@@ -234,7 +234,7 @@ Keep the original 72 verified lines and 13 corrected labels unchanged.
 2. Update only the offline QA tools:
 
 ```bat
-cd /d E:\Phong_Nho_IT\OCR
+cd /d <REPO_ROOT>
 git fetch origin
 git checkout origin/feat/vietocr-zone-aware-qa -- demo/local_pdf_ocr/quality
 .venv-demo\Scripts\python.exe -m unittest discover -s demo\local_pdf_ocr\quality\tests -p "test_*.py" -v
@@ -246,11 +246,12 @@ git checkout origin/feat/vietocr-zone-aware-qa -- demo/local_pdf_ocr/quality
    **Phân loại vùng ảnh** dropdown and **Lưu phân loại vùng** button.
    Only tag images you have visually inspected; there are no automatic
    rules that decide a printed line is a stamp, or vice versa.
-   Suggested priority cases to VISUALLY REVIEW, not pre-label:
-   - `216-tb` page 1 line 9: document number over reception-stamp noise
-   - `216-tb` page 5 line 14: paragraph plus stamp-overprint fragment
-   - `738-ttg` page 1 lines 58 and 59: possible stamp/figure fragments
-   - `738-ttg` page 1 line 21: printed Vietnamese diacritic error
+   Suggested priority cases to VISUALLY REVIEW, not pre-label (`scan-B`, `scan-C`
+   are the local calibration scans of the example command below):
+   - `scan-B` page 1 line 9: document number over reception-stamp noise
+   - `scan-B` page 5 line 14: paragraph plus stamp-overprint fragment
+   - `scan-C` page 1 lines 58 and 59: possible stamp/figure fragments
+   - `scan-C` page 1 line 21: printed Vietnamese diacritic error
    Human reviewers choose among printed_text, stamp_overlap,
    stamp_artifact, handwriting, uncertain. Do not retype or silently
    delete existing references merely to alter the score.
@@ -261,7 +262,7 @@ git checkout origin/feat/vietocr-zone-aware-qa -- demo/local_pdf_ocr/quality
 ```bat
 .venv-demo\Scripts\python.exe -m demo.local_pdf_ocr.quality.zone_audit ^
   --work-dir demo\local_pdf_ocr\quality_work\review_01
-start "" "E:\Phong_Nho_IT\OCR\demo\local_pdf_ocr\quality_work\review_01\zone_audit.html"
+start "" "<REPO_ROOT>\demo\local_pdf_ocr\quality_work\review_01\zone_audit.html"
 ```
 
    The script reads already saved prediction variants; it DOES NOT
@@ -283,7 +284,7 @@ Important evaluation contract:
 - Printed-only CER/WER is **optional sensitivity analysis** on
   *explicitly reviewed* printed_text rows, not a new official baseline.
 - Unreviewed rows remain **unreviewed**, not automatically printed.
-- Candidate ledger highlights local improvements such as `RU6 -> 216`
+- Candidate ledger highlights local improvements such as a corrected document-number serial
   but **automatic_choice_approved=false for every line**.
 - Stale/modified labels or altered candidate predictions cause a hard stop.
 - A 1-line improvement does not justify a general preprocessing rule.
@@ -297,7 +298,7 @@ candidate regressions in the previous benchmark. No new PDF OCR or crop
 export is needed.
 
 ```bat
-cd /d E:\Phong_Nho_IT\OCR
+cd /d <REPO_ROOT>
 git fetch origin
 git checkout origin/feat/vietocr-recognition-quality-exp -- demo/local_pdf_ocr/quality
 .venv-demo\Scripts\python.exe -m unittest discover -s demo\local_pdf_ocr\quality\tests -p "test_*.py" -v
@@ -312,7 +313,7 @@ REM Step B: OPTIONAL — recompute original + 3 variants ONLY on selected crops
   --with-variants
 ```
 
-Open `E:\Phong_Nho_IT\OCR\demo\local_pdf_ocr\quality_work\review_01\error_analysis.html`
+Open `<REPO_ROOT>\demo\local_pdf_ocr\quality_work\review_01\error_analysis.html`
 in Chrome. Each error displays the actual cropped image, verified text,
 original VietOCR output, character edit spans, and (with Step B) predictions
 and per-line CER/WER error deltas from each transform.
@@ -363,25 +364,25 @@ production quality or permission to merge into main.
 Stop neither website nor models; no PDF OCR rerun is required.
 From the repository root, fetch only the new QA source:
 
-    cd /d E:\Phong_Nho_IT\OCR
+    cd /d <REPO_ROOT>
     git fetch origin
     git checkout origin/feat/vietocr-recognition-quality-exp -- demo/local_pdf_ocr/quality
     git checkout origin/feat/vietocr-recognition-quality-exp -- demo/local_pdf_ocr/.gitignore
     .venv-demo\Scripts\python.exe -m unittest discover -s demo\local_pdf_ocr\quality\tests -p "test_*.py" -v
 
 Put the three PDFs and their exported experimental JSON files in
-E:\OCR_SAMPLES. The paths below are EXAMPLES; replace them if needed:
+<SAMPLES_DIR>. The paths below are EXAMPLES; replace them if needed:
 
     .venv-demo\Scripts\python.exe -m demo.local_pdf_ocr.quality.prepare_review ^
-      --pair "E:\OCR_SAMPLES\21-bct.signed.pdf" "E:\OCR_SAMPLES\21-bct.signed_vietocr_ocr_header_split.json" ^
-      --pair "E:\OCR_SAMPLES\216-tb.signed.pdf" "E:\OCR_SAMPLES\216-tb.signed_vietocr_ocr_header_split.json" ^
-      --pair "E:\OCR_SAMPLES\738-ttg.signed.pdf" "E:\OCR_SAMPLES\738-ttg.signed_vietocr_ocr_header_split.json" ^
+      --pair "<SAMPLES_DIR>\scan-A.pdf" "<SAMPLES_DIR>\scan-A_vietocr_ocr_header_split.json" ^
+      --pair "<SAMPLES_DIR>\scan-B.pdf" "<SAMPLES_DIR>\scan-B_vietocr_ocr_header_split.json" ^
+      --pair "<SAMPLES_DIR>\scan-C.pdf" "<SAMPLES_DIR>\scan-C_vietocr_ocr_header_split.json" ^
       --output demo\local_pdf_ocr\quality_work\review_01 --per-page 8 ^
-      --focus "Nghi đinh" --focus "RU6/TB"
+      --focus "<word>" --focus "<number pattern>"
 
 Open this local file in Chrome to review the crops:
 
-    E:\Phong_Nho_IT\OCR\demo\local_pdf_ocr\quality_work\review_01\index.html
+    <REPO_ROOT>\demo\local_pdf_ocr\quality_work\review_01\index.html
 
 Edit the corresponding labels.jsonl using UTF-8 encoding.
 Leave IDs and SHA unchanged. Set reference only after verifying the

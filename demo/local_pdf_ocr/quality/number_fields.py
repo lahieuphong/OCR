@@ -10,7 +10,7 @@ import re
 
 
 # Deliberately restrict to the left-hand document number header, such as
-# "Số: 216/TB-VPCP". Require separator: a bare "số điều..."\n# is BODY CONTENT, not a document number. Do not match references in body.
+# "Số: 218/TB-VPCP". Require separator: a bare "số điều..."\n# is BODY CONTENT, not a document number. Do not match references in body.
 NUMBER_HEADER = re.compile(r"^\s*s[ốo]\s*[:.\-]\s*(?=\S)", re.IGNORECASE)
 
 

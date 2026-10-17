@@ -1,0 +1,20 @@
+id	split	reason	status	opened	note
+doc_0ca4c9a484e2_p0001_l0020	real_train	diacritic_variant_screen	open	2026-10-16	blind re-check pending; local queue train_label_audit.csv
+doc_0ca4c9a484e2_p0001_l0032	real_train	diacritic_variant_screen	open	2026-10-16	blind re-check pending; local queue train_label_audit.csv
+doc_195f39a2b960_p0001_l0022	real_train	diacritic_variant_screen	open	2026-10-16	blind re-check pending; local queue train_label_audit.csv
+doc_362659c783f7_p0002_l0006	real_train	diacritic_variant_screen	open	2026-10-16	blind re-check pending; local queue train_label_audit.csv
+doc_362659c783f7_p0002_l0014	real_train	diacritic_variant_screen	open	2026-10-16	blind re-check pending; local queue train_label_audit.csv
+doc_80aae32b0d52_p0001_l0013	real_train	diacritic_variant_screen	open	2026-10-16	blind re-check pending; local queue train_label_audit.csv
+doc_80aae32b0d52_p0002_l0034	real_train	diacritic_variant_screen	open	2026-10-16	blind re-check pending; local queue train_label_audit.csv
+doc_80aae32b0d52_p0010_l0025	real_train	diacritic_variant_screen	open	2026-10-16	blind re-check pending; local queue train_label_audit.csv
+doc_917f882813e1_p0001_l0017	real_train	diacritic_variant_screen	open	2026-10-16	blind re-check pending; local queue train_label_audit.csv
+doc_94169caa17ff_p0003_l0009	real_train	diacritic_variant_screen	open	2026-10-16	blind re-check pending; local queue train_label_audit.csv
+doc_94169caa17ff_p0014_l0024	real_train	diacritic_variant_screen	open	2026-10-16	blind re-check pending; local queue train_label_audit.csv
+doc_ad3024b79f90_p0002_l0031	real_train	diacritic_variant_screen	open	2026-10-16	blind re-check pending; local queue train_label_audit.csv
+doc_ad3024b79f90_p0003_l0013	real_train	diacritic_variant_screen	open	2026-10-16	blind re-check pending; local queue train_label_audit.csv
+doc_ad3024b79f90_p0006_l0038	real_train	diacritic_variant_screen	open	2026-10-16	blind re-check pending; local queue train_label_audit.csv
+doc_ad3024b79f90_p0014_l0071	real_train	diacritic_variant_screen	open	2026-10-16	blind re-check pending; local queue train_label_audit.csv
+doc_fde99fa254fe_p0001_l0011	real_train	diacritic_variant_screen	open	2026-10-16	blind re-check pending; local queue train_label_audit.csv
+doc_1ba244538921_p0001_l0012	real_val	diacritic_variant_screen	open	2026-10-16	blind re-check pending; local queue train_label_audit.csv
+doc_319fe42aad73_p0003_l0003	real_val	diacritic_variant_screen	open	2026-10-16	blind re-check pending; local queue train_label_audit.csv
+doc_f6ce51930f94_p0001_l0031	real_val	diacritic_variant_screen	open	2026-10-16	blind re-check pending; local queue train_label_audit.csv
