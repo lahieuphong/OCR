@@ -1,15 +1,21 @@
 """Correction addendum for a locked blind-review export: synthetic PDF, queue and exports only."""
 import copy
 import hashlib
+import importlib.util
 import json
 import tempfile
 import unittest
 from pathlib import Path
 
-import pymupdf as fitz
-
 from demo.local_pdf_ocr.quality import gt_v2, gt_v2_addendum as addendum_tool
 from demo.local_pdf_ocr.quality.tests.test_gt_v2 import OCR, image, items, labels_v1
+
+# PyMuPDF renders the synthetic PDF behind the addendum page; the model-free CI job installs Pillow only.
+# Only its absence skips the page tests: an installed but broken PyMuPDF still fails at import.
+HAVE_PYMUPDF = importlib.util.find_spec("pymupdf") is not None
+if HAVE_PYMUPDF:
+    import pymupdf as fitz
+needs_pymupdf = unittest.skipUnless(HAVE_PYMUPDF, "optional dependency PyMuPDF is not installed")
 
 SECRETS = (OCR, "Căn cứ Nghị định số 12/2024/NĐ-CP", "C#Q")  # OCR / text layer of the synthetic queue
 
@@ -45,20 +51,21 @@ class AddendumTests(unittest.TestCase):
         self.export_path = self.root / "q1_blind_review_export.json"
         self.export_path.write_text(json.dumps(export_data(self.result), ensure_ascii=False, indent=2), encoding="utf-8")
         self.export_bytes = self.export_path.read_bytes()
-        pdf = self.root / "pdfs" / "d.pdf"
-        pdf.parent.mkdir()
-        doc = fitz.open()
-        for _ in range(3):
-            doc.new_page(width=300, height=200).insert_text((20, 40), "Dòng chữ mẫu để render", fontsize=11)
-        doc.save(pdf)
-        pdf_sha = hashlib.sha256(pdf.read_bytes()).hexdigest()
-        polygon = [[30, 50], [400, 50], [400, 90], [30, 90]]
-        self.pack = self.root / "pack"
-        self.pack.mkdir()
-        (self.pack / "manifest.json").write_text(json.dumps({"samples": [
-            {"id": i["id"], "document": "d.pdf", "page": i["page"], "line_index": i["line_index"], "polygon": polygon,
-             "pdf_sha256": pdf_sha} for i in items()]}), encoding="utf-8")
-        self.pdf_dir = pdf.parent
+        if HAVE_PYMUPDF:  # only the page tests read this PDF
+            pdf = self.root / "pdfs" / "d.pdf"
+            pdf.parent.mkdir()
+            doc = fitz.open()
+            for _ in range(3):
+                doc.new_page(width=300, height=200).insert_text((20, 40), "Dòng chữ mẫu để render", fontsize=11)
+            doc.save(pdf)
+            pdf_sha = hashlib.sha256(pdf.read_bytes()).hexdigest()
+            polygon = [[30, 50], [400, 50], [400, 90], [30, 90]]
+            self.pack = self.root / "pack"
+            self.pack.mkdir()
+            (self.pack / "manifest.json").write_text(json.dumps({"samples": [
+                {"id": i["id"], "document": "d.pdf", "page": i["page"], "line_index": i["line_index"], "polygon": polygon,
+                 "pdf_sha256": pdf_sha} for i in items()]}), encoding="utf-8")
+            self.pdf_dir = pdf.parent
 
     def page(self, ids=("a", "b"), name="addendum"):
         result = addendum_tool.write_page(self.queue_path, self.html, self.export_path, self.pack, self.pdf_dir, list(ids),
@@ -105,6 +112,7 @@ class AddendumTests(unittest.TestCase):
         self.export_path.write_text(json.dumps(broken), encoding="utf-8")
         self.assertFalse(addendum_tool.check_export(self.queue_path, self.export_path)["valid"])
 
+    @needs_pymupdf
     def test_page_holds_only_the_chosen_lines_and_no_machine_text(self):
         page_path, page, result = self.page()
         self.assertEqual([i["id"] for i in page["items"]], ["a", "b"])
@@ -119,6 +127,7 @@ class AddendumTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "distinct items"):
             self.page(ids=("a", "zzz"), name="other")
 
+    @needs_pymupdf
     def test_a_valid_addendum_builds_labels_v2_and_keeps_every_other_line(self):
         page_path, page, _ = self.page()
         path = self.addendum(page, page_path, {"a": ("correct", "Căn cứ Nghị định số 12/2024/NĐ-CP", "printed_text", "zoom 3x: dấu nặng"),
@@ -141,6 +150,7 @@ class AddendumTests(unittest.TestCase):
         self.assertEqual(labels["derived_from"]["export_sha256"], hashlib.sha256(self.export_bytes).hexdigest())
         self.assertEqual((labels["summary"]["addendum_corrected"], labels["summary"]["addendum_uncertain"]), (1, 1))
 
+    @needs_pymupdf
     def test_confirm_keeps_the_final_decision(self):
         page_path, page, _ = self.page()
         path = self.addendum(page, page_path, {"a": ("confirm", None, "printed_text", "đúng như đã gõ"),
@@ -150,6 +160,7 @@ class AddendumTests(unittest.TestCase):
         self.assertEqual(rows["a"]["reference"], "Căn cứ Nghị đinh số 12/2024/NĐ-CP")
         self.assertEqual(rows["a"]["correction_addendum"]["action"], "confirm")
 
+    @needs_pymupdf
     def test_invalid_addenda_build_nothing(self):
         page_path, page, _ = self.page()
         good = {"a": ("correct", "Căn cứ Nghị định số 12/2024/NĐ-CP", "printed_text", "lý do"),
