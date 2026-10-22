@@ -130,8 +130,13 @@ class DesktopGuard:
 
 
 def build(repo_root: Path, frontend_dist: Path, lock: dict, paddlex_home: Path, token: str, port: int):
-    """The wrapped ASGI app and its mutable state; imports the backend from repo_root."""
-    sys.path.insert(0, str(repo_root))
+    """The wrapped ASGI app and its mutable state; imports the backend from repo_root.
+
+    A frozen (packaged) server carries the backend inside its bundle: it never adds a folder from the
+    command line to sys.path, so no module can be picked up from outside the bundle.
+    """
+    if not getattr(sys, "frozen", False):
+        sys.path.insert(0, str(repo_root))
     os.environ["PADDLE_PDX_CACHE_HOME"] = str(paddlex_home)  # PaddleX reads it at import: same dir as checked
     os.environ.setdefault("PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK", "True")
     from fastapi import HTTPException
@@ -173,7 +178,8 @@ def build(repo_root: Path, frontend_dist: Path, lock: dict, paddlex_home: Path, 
                 "native_text_allowed": True, "recognizer": state["recognizer"], "detector": state["detector"],
                 "limits": {"max_upload_bytes": contract.MAX_UPLOAD_BYTES, "max_pdf_pages": contract.MAX_PDF_PAGES,
                            "max_image_pixels": contract.MAX_IMAGE_PIXELS},
-                "frontend_dist": str(frontend_dist), "versions": versions(), "model_downloads": "disabled"}
+                "frontend_dist": str(frontend_dist), "versions": versions(), "model_downloads": "disabled",
+                "runtime": {"frozen": bool(getattr(sys, "frozen", False)), "utf8_mode": bool(sys.flags.utf8_mode)}}
 
     def shutdown():
         server = state["server"]

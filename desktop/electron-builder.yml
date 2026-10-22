@@ -1,0 +1,61 @@
+# electron-builder configuration: Windows Packaging Phase 1 (internal prototype, NOT for distribution).
+#
+# Build from desktop/ after the PyInstaller backend and the frontend build exist, with the output
+# folder OUTSIDE the repository (see packaging/README.md):
+#
+#   (place or link the PyInstaller output at desktop\out\backend\vietdoc-backend; out\ is git-ignored)
+#   npx electron-builder --win dir --x64 --config electron-builder.yml --config.directories.output=<out>
+#
+# This is the release configuration: the smoke test is refused (see electron/lib/smoke-gate.js).
+# electron-builder.smoke.yml makes the internal test build that allows it.
+#
+# The app carries code, the frontend build, the packaged backend and model_lock.json (hashes only).
+# It never carries the VietOCR model, the PaddleOCR detector, documents or a token: models are read
+# from a verified external folder and checked by SHA-256 at run time.
+appId: vn.vietdoc.ocr.desktop.internal
+productName: VietDoc OCR
+copyright: Internal prototype, not for distribution
+electronVersion: 44.6.0
+electronDist: node_modules/electron/dist   # the checksum-verified binary already installed; no download
+asar: true
+npmRebuild: false
+nodeGypRebuild: false
+buildDependenciesFromSource: false
+includePdb: false
+# The UI is Vietnamese; Chromium falls back to en-US for any other system language.
+electronLanguages:
+  - vi
+  - en-US
+afterPack: scripts/after-pack.js   # removes the unused default_app.asar
+extraMetadata:
+  vietdocSmokeTest: false
+directories:
+  buildResources: build-resources
+files:
+  - package.json
+  - electron/**/*
+  - "!**/*.map"
+extraResources:
+  - from: out/backend/vietdoc-backend   # electron-builder joins "from" to this folder: absolute paths fail
+    to: backend/vietdoc-backend
+  - from: ../demo/local_pdf_ocr/frontend/dist
+    to: frontend
+  - from: model_lock.json
+    to: model_lock.json
+electronFuses:
+  runAsNode: false
+  enableCookieEncryption: true
+  enableNodeOptionsEnvironmentVariable: false
+  enableNodeCliInspectArguments: false
+  enableEmbeddedAsarIntegrityValidation: true
+  onlyLoadAppFromAsar: true
+  loadBrowserProcessSpecificV8Snapshot: false
+  grantFileProtocolExtraPrivileges: false
+forceCodeSigning: false
+win:
+  target:
+    - target: dir
+      arch: [x64]
+  # No certificate in Phase 1: the build is unsigned, and the Electron executable is not edited.
+  signAndEditExecutable: false
+  requestedExecutionLevel: asInvoker

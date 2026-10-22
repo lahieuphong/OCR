@@ -40,11 +40,14 @@ class BackendProcess extends EventEmitter {
     const log = fs.createWriteStream(this.logFile, { flags: 'a' });
     this.log = log;
     this.emit('status', { step: 'starting', message: 'Đang khởi động backend OCR…' });
-    const child = this.spawnImpl(this.config.python, serverArgs(this.config), {
+    const env = { ...process.env, PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK: 'True' };
+    delete env.VIETDOC_MODEL_ROOT;  // only the validated config value reaches the server
+    if (this.config.modelRoot) env.VIETDOC_MODEL_ROOT = this.config.modelRoot;
+    const child = this.spawnImpl(this.config.command || this.config.python, serverArgs(this.config), {
       cwd: this.config.repoRoot,
       windowsHide: true,
       stdio: ['pipe', 'pipe', 'pipe'],
-      env: { ...process.env, PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK: 'True' },
+      env,
     });
     this.child = child;
     child.stdin.on('error', () => { /* the server already exited; reported through 'exit' */ });

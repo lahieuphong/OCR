@@ -9,14 +9,17 @@ const { app, BrowserWindow, Menu, ipcMain, session, shell } = require('electron'
 const { resolveConfig } = require('./lib/config');
 const { BackendProcess } = require('./lib/backend');
 const security = require('./lib/security');
+const { smokeArgs, smokeAllowed } = require('./lib/smoke-gate');
 
 const STATUS_PAGE = path.join(__dirname, 'status.html');
 const STATUS_URL = pathToFileURL(STATUS_PAGE).href;
 const STATIC_PREFIX = pathToFileURL(__dirname + path.sep).href;
 const DEV = !app.isPackaged;
-const ARGS = Object.fromEntries(process.argv.filter((a) => a.startsWith('--smoke-'))
-  .map((a) => { const [k, ...v] = a.slice(2).split('='); return [k, v.join('=')]; }));
-const SMOKE_DIR = ARGS['smoke-test'] || null;
+const ARGS = smokeArgs(process.argv);
+// A release build refuses the smoke options (see lib/smoke-gate.js): it starts nothing and exits with code 2.
+const SMOKE_REFUSED = Object.keys(ARGS).length > 0
+  && !smokeAllowed({ packaged: app.isPackaged, packageJson: require('../package.json') });
+const SMOKE_DIR = SMOKE_REFUSED ? null : ARGS['smoke-test'] || null;
 
 let backend = null;
 let statusWindow = null;
@@ -142,7 +145,7 @@ async function startBackend() {
   sendStatus({ state: 'starting', step: 'config', message: 'Đang kiểm tra cấu hình…', error: null, desktop: null, log: null });
   let config;
   try {
-    config = resolveConfig();
+    config = resolveConfig({ packaged: app.isPackaged, resourcesPath: process.resourcesPath, userConfigDir: app.getPath('userData') });
   } catch (error) {
     sendStatus({ state: 'error', step: 'config', message: error.message });
     return false;
@@ -472,7 +475,10 @@ async function runSmoke() {
 
 // --------------------------------------------------------------- start
 
-if (!app.requestSingleInstanceLock()) {
+if (SMOKE_REFUSED) {
+  process.stderr.write('VietDoc OCR: --smoke-* options are not available in this build.\n');
+  app.exit(2);
+} else if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
   app.on('second-instance', () => {

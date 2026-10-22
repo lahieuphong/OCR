@@ -3,11 +3,20 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-MODEL_DIR = REPO_ROOT / "models/vietocr/onnx/exp_b_width1024"
-WEIGHTS = REPO_ROOT / "models/vietocr/finetuned/exp_b_width1024/weights.pth"
+# <repo>/models by default. VIETDOC_MODEL_ROOT may name a model folder kept outside the checkout, with the
+# same layout (vietocr/onnx/exp_b_width1024, vietocr/finetuned/exp_b_width1024/weights.pth). Only the
+# location changes: every SHA-256 and parity check below applies unchanged, and nothing falls back to the
+# default when the variable is set.
+_MODEL_ROOT_ENV = os.environ.get("VIETDOC_MODEL_ROOT", "")
+if _MODEL_ROOT_ENV and not Path(_MODEL_ROOT_ENV).is_absolute():
+    raise ValueError("VIETDOC_MODEL_ROOT must be an absolute path.")
+MODEL_ROOT = Path(_MODEL_ROOT_ENV) if _MODEL_ROOT_ENV else REPO_ROOT / "models"
+MODEL_DIR = MODEL_ROOT / "vietocr/onnx/exp_b_width1024"
+WEIGHTS = MODEL_ROOT / "vietocr/finetuned/exp_b_width1024/weights.pth"
 CHECKPOINT_SHA256 = "a2f9d737edca1b2d5d45231b34601a0eb573aafd0fde3202cf6d20601de3edb3"
 EXPECTED_ENCODER_SHA256 = "f20d629ad81171267b517794d9f23cbf48bd74d3b45c9747aa5a0930433c40f1"
 EXPECTED_DECODER_SHA256 = "67029da541d1904ab04d6de3aec0b0cbe9ab3d2efca15108f155b4c5e4abeb51"

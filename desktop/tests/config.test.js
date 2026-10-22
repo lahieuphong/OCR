@@ -82,5 +82,17 @@ test('server arguments: isolated, no bytecode, UTF-8, no token on the command li
 
 test('the example config names only keys the shell reads', () => {
   const example = JSON.parse(fs.readFileSync(path.join(DESKTOP_DIR, 'desktop.config.example.json'), 'utf8'));
-  assert.deepEqual(Object.keys(example).filter((k) => !k.startsWith('_')).sort(), ['paddlexHome', 'python']);
+  assert.deepEqual(Object.keys(example).filter((k) => !k.startsWith('_')).sort(), ['modelRoot', 'paddlexHome', 'python']);
+});
+
+test('model root: optional, absolute existing folder only', (t) => {
+  const f = fixture(t);
+  const base = { VIETDOC_PYTHON: f.pythonExe, VIETDOC_PADDLEX_HOME: path.join(f.root, 'px') };
+  assert.equal(resolveConfig({ env: base, repoRoot: f.repoRoot, desktopDir: f.desktopDir }).modelRoot, null);
+  const models = path.join(f.root, 'models');
+  fs.mkdirSync(models);
+  assert.equal(resolveConfig({ env: { ...base, VIETDOC_MODEL_ROOT: models }, repoRoot: f.repoRoot, desktopDir: f.desktopDir }).modelRoot, models);
+  for (const bad of ['models', path.join(f.root, 'missing'), f.pythonExe]) {
+    assert.throws(() => resolveConfig({ env: { ...base, VIETDOC_MODEL_ROOT: bad }, repoRoot: f.repoRoot, desktopDir: f.desktopDir }), /modelRoot/);
+  }
 });
