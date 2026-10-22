@@ -1,0 +1,97 @@
+name: B1024 app (model-free)
+
+# Pull requests into main. These jobs are model-free by design: they never
+# download the frozen VietOCR B1024 files or the PaddleOCR detector, so they
+# cannot verify real OCR output. Real OCR is checked separately against the A0
+# baseline with the private model files (demo/local_pdf_ocr/README.md).
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: b1024-app-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  tracked-files:
+    name: Sensitive tracked files
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check tracked files and every commit of this pull request
+        env:
+          BASE_REF: ${{ github.base_ref || 'main' }}
+        run: python .github/scripts/check_tracked_files.py --history-base "origin/$BASE_REF"
+
+  backend:
+    name: Backend tests (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: demo/local_pdf_ocr/requirements-demo.txt
+      - name: Install backend dependencies (no PaddlePaddle, no models)
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r demo/local_pdf_ocr/requirements-demo.txt
+          python -m pip check
+      - name: Python syntax (warnings are errors)
+        run: python -W error -m compileall -q -f demo/local_pdf_ocr .github/scripts
+      - name: Backend unit and frozen-contract tests (model-free, skips fail the job)
+        run: python .github/scripts/run_backend_tests.py
+      - name: No model or detector files were needed or fetched
+        run: |
+          test ! -e models
+          test ! -e "$HOME/.paddlex"
+
+  frontend:
+    name: Frontend build (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: demo/local_pdf_ocr/frontend/package-lock.json
+      # The imported app has no frontend unit tests; the production build is the gate.
+      - name: Install from the lockfile
+        working-directory: demo/local_pdf_ocr/frontend
+        run: npm ci --no-audit --no-fund
+      - name: Production build
+        working-directory: demo/local_pdf_ocr/frontend
+        run: |
+          npm run build
+          test -f dist/index.html

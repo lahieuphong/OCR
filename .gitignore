@@ -6,3 +6,72 @@
 
 # Local backup of the upstream PaddleOCR git history
 /.paddleocr-upstream.git/
+
+# ---------------------------------------------------------------------------
+# VietDoc B1024 app: local-only material that must never be committed.
+# .gitignore does not untrack files that are already tracked, so CI also checks
+# the tracked file list (.github/scripts/check_tracked_files.py).
+
+# Python virtual environments and caches
+/.venv/
+/.venv-*/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+
+# Frozen models, training checkpoints and other weights: kept outside Git and
+# checked by SHA-256 at runtime (demo/local_pdf_ocr/backend/contract.py).
+/models/
+*.onnx
+*.pth
+*.pt
+*.ckpt
+*.safetensors
+*.pdparams
+*.pdiparams
+*.pdmodel
+
+# Quality-lab outputs next to the demo: document crops, OCR text, labels, reviews
+/demo/local_pdf_ocr/quality_work/
+/demo/local_pdf_ocr/quality_outputs/
+
+# Source documents, review packs, label exports, predictions and archives
+/sources/
+/vietdoc_*/
+/*.[pP][dD][fF]
+/*.zip
+/*.tgz
+/*.tar.gz
+/*.7z
+/predictions_*.jsonl
+/predictions_*.meta.json
+/eval_inputs.jsonl
+/blind_inputs_*.jsonl
+/preflight_*.json
+# TXT/JSON downloaded from the app (<document>_<method>.txt|json)
+**/*_vietocr_ocr*.json
+**/*_vietocr_ocr*.txt
+**/*_native_text*.json
+**/*_native_text*.txt
+# Human labels and their corrections
+**/*verified_labels*.json
+**/*blind_review_export*.json
+**/*correction_addendum*.json
+
+# Secrets and machine-specific environment files (demo/ has its own .env* rule;
+# the vendored PaddleOCR tree keeps its upstream docker .env templates)
+/.env
+/.env.*
+!/.env.example
+*.pem
+*.key
+*.pfx
+*.p12
+
+# Node dependencies, build output, caches, logs
+node_modules/
+/build/
+/dist/
+.cache/
+*.log
