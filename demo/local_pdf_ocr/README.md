@@ -1,8 +1,15 @@
 # VietDoc OCR — Local Windows demo (experimental)
 
-**Branch only:** feat/local-pdf-ocr-demo. **Not approved for production.**
-This is a first runnable end-to-end PDF/PNG/JPEG demo, not a validated
-integration. Main, frozen training files and blind test remain unchanged.
+**Not approved for production.** This is a runnable end-to-end
+PDF/PNG/JPEG demo of the frozen VietOCR B1024 recognizer, not a validated
+release.
+
+**On main** only the application is versioned: `demo/local_pdf_ocr`
+(imported unchanged from `feat/local-pdf-ocr-demo` @ `19e07e5`, without that
+branch's history). The research that produced the frozen model — benchmark,
+datasets and labels, training, ONNX export and parity tooling — stays on the
+`feat/*` research branches and is not part of main. The model files are never
+in Git; they live in the ignored `models/` folder and are checked by SHA-256.
 
 ## What it does
 
@@ -50,17 +57,16 @@ the checkpoint SHA-256:
 a2f9d737edca1b2d5d45231b34601a0eb573aafd0fde3202cf6d20601de3edb3.
 Never replace B weights or re-open blind test.
 
-## 1. Fetch ONLY new demo files (Windows CMD)
+## 1. Get the code (Windows CMD)
 
-    cd /d E:\Phong_Nho_IT\OCR
-    git fetch origin
-    git checkout origin/feat/local-pdf-ocr-demo -- demo/local_pdf_ocr
-    git status --short
+Use a checkout of main (a fresh clone or a separate `git worktree`), not the
+research worktree that holds local training data:
 
-Do NOT run git pull/reset/switch to avoid overwriting frozen training
-inputs with local newline normalization. The checkout above updates only
-new demo files, and intentionally leaves your current worktree branch
-unchanged. No push or merge to main is required.
+    git clone https://github.com/lahieuphong/OCR.git
+    cd OCR
+
+Then place a verified copy of the frozen model files in `models\` as listed
+above. Never commit them; `models/` is ignored.
 
 ## 2. Create a NEW environment — DO NOT modify .venv-vietocr
 
@@ -78,14 +84,12 @@ If Windows/Python has no compatible PaddlePaddle wheel, stop and send the
 pip error; do not modify the existing training env or randomly upgrade
 the detector. The detection model may need a first-run download.
 
-Model-free tests, then frozen data guard:
+Model-free tests (the same runner CI uses; it fails on any skipped test):
 
-    .venv-demo\Scripts\python.exe -m unittest discover -s demo\local_pdf_ocr\backend\tests -p "test_*.py" -v
-    .venv-demo\Scripts\python.exe datasets\vietnamese_recognition\training_inputs.py --check
+    .venv-demo\Scripts\python.exe .github\scripts\run_backend_tests.py
 
 ## 3. Run backend — CMD terminal A, leave running
 
-    cd /d E:\Phong_Nho_IT\OCR
     .venv-demo\Scripts\python.exe -m uvicorn demo.local_pdf_ocr.backend.app:app --host 127.0.0.1 --port 8765
 
 Verify http://127.0.0.1:8765/api/health returns
@@ -97,10 +101,12 @@ the first OCR request loads/checks models. If state says
 
 Requires Node.js >=20.19 (prefer 22+):
 
-    cd /d E:\Phong_Nho_IT\OCR\demo\local_pdf_ocr\frontend
+    cd demo\local_pdf_ocr\frontend
     node --version
-    npm install
+    npm ci
     npm run dev
+
+`npm ci` installs exactly the versions in `package-lock.json`.
 
 Open http://127.0.0.1:5175/ in Chrome.
 
@@ -125,21 +131,14 @@ error, and STOP: do not claim the end-to-end gate passed.
 
 ## Existing Windows demo: update code only and restart
 
-If the old local demo already runs, **do not reinstall or retrain**. In
-the repo's CMD window, fetch only the changed demo source:
+If the local demo already runs from a checkout of main, **do not reinstall
+or retrain**. Update that checkout, then run the model-free tests:
 
-    cd /d E:\Phong_Nho_IT\OCR
-    git fetch origin
-    git checkout origin/feat/local-pdf-ocr-demo -- demo/local_pdf_ocr
+    git pull --ff-only
+    .venv-demo\Scripts\python.exe .github\scripts\run_backend_tests.py
 
-Run updated tests:
-
-    .venv-demo\Scripts\python.exe -m unittest discover -s demo\local_pdf_ocr\backend\tests -p "test_*.py" -v
-    .venv-vietocr\Scripts\python.exe datasets\vietnamese_recognition\training_inputs.py --check
-
-Restart the FastAPI process (Ctrl+C, run the uvicorn command again).
-Vite normally reloads the frontend after the selective checkout, but
-restart npm run dev (or Ctrl+Shift+R in Chrome) if the UI is stale.
+Restart the FastAPI process (Ctrl+C, run the uvicorn command again) and
+`npm run dev` (or Ctrl+Shift+R in Chrome) if the UI is stale.
 Neither model checkpoint nor ONNX graph needs to be regenerated.
 
 For sample 10333_vpcp-cn_09102026_1-signed.signed.pdf:
@@ -213,9 +212,35 @@ The previously exported TXT and JSON will not change retroactively.
 
 The heuristic is deliberately scoped to a split footer. It does not
 solve all multi-column layouts, forms, tables, stamps or warped scans.
-Keep main unchanged until a multi-document OCR layout regression passes.
+Any further layout change needs a multi-document OCR layout regression first.
 
-## Known limitations — NOT merge/deploy-ready
+## What CI checks, and what it cannot
+
+`.github/workflows/b1024-app-ci.yml` runs on pull requests into main, on
+Windows and Ubuntu: dependency installation from `requirements-demo.txt`
+(without PaddlePaddle), Python syntax with warnings as errors, the
+model-free backend and frozen-contract tests (a skipped test fails the job),
+`npm ci` and the production build, and a check that no model weights,
+documents, labels, predictions, private folders or secrets are tracked, in
+the tree or in the pull request's commits.
+
+CI never has the frozen model files or the detector, so it does **not**
+verify OCR output. That is done locally before merging:
+
+## OCR regression with the private model files (not in CI)
+
+1. Check that `models\` holds the frozen files: `verify_frozen_onnx()` must
+   pass (checkpoint, encoder and decoder SHA-256 above), and the detector
+   `PP-OCRv6_medium_det` must be the cached copy already used for the A0
+   baseline. Nothing may be downloaded.
+2. Run `vietocr_ocr` through `/api/ocr` on the permitted DEV PDFs only
+   (`10333_vpcp-cn_09102026_1-signed.signed.pdf`, `137-vbhn-bxd.signed.pdf`).
+   Never use blind documents.
+3. Compare every line with the A0 baseline JSON of the same PDF (same
+   polygon, same text). The accepted result is 305/305 lines identical
+   (50 + 255), with identical page text and 0 decoder-limit hits.
+
+## Known limitations — NOT deploy-ready
 
 - CPUExecutionProvider only in this local FastAPI demo. Browser WebGPU
   parity 752/752 was a separate experiment and not yet PDF integration.
@@ -229,9 +254,10 @@ Keep main unchanged until a multi-document OCR layout regression passes.
   substitutions (diacritics are left untouched).
 - 15 MB/6-page/12MP caps; no streaming progress, no API authentication.
   Both processes should remain bound to localhost only.
-- Need comparison to frozen page-level baseline and complete PDF
-  regression before any merge or deployment.
+- The DEV regression above covers two born-digital documents only; a
+  complete PDF regression is still needed before any deployment.
+- PyMuPDF is AGPL-3.0 (or commercial): resolve its license before
+  distributing the app.
 
-Success for this branch means "real one-page OCR demo starts and returns
-correct-looking output" and an initial PDF regression report, not a
-production release.
+Success for this app means "real OCR demo starts and returns the frozen
+B1024 output", not a production release.
