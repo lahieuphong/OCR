@@ -1,0 +1,23 @@
+{
+  "name": "vietocr-local-pdf-demo",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 5175 --strictPort",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1 --port 5175 --strictPort"
+  },
+  "dependencies": {
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "lucide-react": "^0.468.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.7.0",
+    "vite": "^6.3.5"
+  },
+  "engines": {
+    "node": ">=20.19.0"
+  }
+}
