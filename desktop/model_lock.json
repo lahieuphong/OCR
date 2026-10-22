@@ -1,0 +1,18 @@
+{
+  "schema": "vietdoc_desktop_model_lock_v1",
+  "note": "Files the desktop server checks before OCR is allowed. Nothing is ever downloaded: a missing or different file blocks OCR. Recognizer hashes repeat the constants of demo/local_pdf_ocr/backend/contract.py, which verify_frozen_onnx still enforces; detector hashes come from the H1 freeze v2 manifest (detector group, frozen 2026-10-17).",
+  "recognizer": {
+    "selected": "phase4_exp_b_width1024",
+    "checkpoint_sha256": "a2f9d737edca1b2d5d45231b34601a0eb573aafd0fde3202cf6d20601de3edb3",
+    "encoder_sha256": "f20d629ad81171267b517794d9f23cbf48bd74d3b45c9747aa5a0930433c40f1",
+    "decoder_sha256": "67029da541d1904ab04d6de3aec0b0cbe9ab3d2efca15108f155b4c5e4abeb51"
+  },
+  "detector": {
+    "model_name": "PP-OCRv6_medium_det",
+    "files": {
+      "inference.json": "0f1a7ec35da36173529c7a60238b7f7919e3831929c3f700ad90ad4896adecd5",
+      "inference.pdiparams": "85218d2e3d98f5a21c58b4220627be923a97aee5db3cc71f39536ab31ac53960",
+      "inference.yml": "7298d5ead546584af2504d03355f881ac7a7bc0eb1e282d3e159277c1d0af871"
+    }
+  }
+}
