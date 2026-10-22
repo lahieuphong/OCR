@@ -44,6 +44,20 @@ runs real OCR through the UI and saves the UI's TXT/JSON export, to compare line
 A0 baseline (`demo/local_pdf_ocr/README.md`). The watchdog stops a run after `--smoke-timeout`
 seconds (default 300; a 6-page PDF needs about 900).
 
+The smoke test only records what it saw; `scripts/check-smoke-report.js` decides PASS/FAIL
+(screenshots and preview pixels are warnings only):
+
+```bat
+node scripts\check-smoke-report.js <output dir>\smoke_report.json --expect=no-models --with-pdf
+node scripts\check-smoke-report.js <output dir>\smoke_report.json --expect=ocr --with-pdf
+```
+
+CI (`.github/workflows/vietdoc-electron-ci.yml`, pull requests into main, Windows and Ubuntu) runs
+the backend, desktop server and Node tests (a skipped test fails the job), the frontend build, the
+tracked-file check and this smoke test with a synthetic PDF made by `scripts/make_synthetic_pdf.py`
+(`--expect=no-models`: no model exists on the runners and nothing downloads one). Real OCR is only
+verified on a Windows DEV machine with the private model files.
+
 `scripts/launch.js` removes `ELECTRON_RUN_AS_NODE` (set by the VS Code extension host), which would
 otherwise make `electron.exe` run as plain Node.
 

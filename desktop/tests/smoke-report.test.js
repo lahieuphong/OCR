@@ -1,0 +1,87 @@
+'use strict';
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const { checkReport } = require('../scripts/check-smoke-report');
+
+function passingNoModels() {
+  return {
+    checks: {
+      ui: { title: 'VietDoc OCR', pill_class: 'server-pill not-ready' },
+      renderer_has_node: false, external_fetch_blocked: true, external_navigation_blocked: true,
+      request_without_token_status: 403, request_localhost_host_status: 403,
+      ui_file_selected: 'synthetic.pdf', ui_preview: { rendered: true },
+      ui_native_text: { ok: true },
+      export: { both_saved: true, txt_equals_json_text: true, json_method: 'native_text' },
+      ocr_allowed: false, ui_ocr_run_button_disabled: true,
+      api_vietocr_ocr: { status: 503, detail: 'Bản desktop chặn OCR: Missing/invalid ONNX files.' },
+      images: { 'synthetic_ui.png': { preview_px: [800, 500], run_disabled: true }, 'synthetic_ui.jpg': { preview_px: [800, 500], run_disabled: true } },
+      ui_oversize: 'Giới hạn kích thước tệp là 15 MB.', api_oversize: { status: 400 },
+      backend_status: { ocr_allowed: false, model_downloads: 'disabled' },
+      crash: { detected: true, server_alive_after: false, port_closed_after: true },
+      recovery: { restarted: true, port_changed: true, ui: { title: 'VietDoc OCR' } },
+      shutdown: { graceful: true, exit: { code: 0 }, launcher_alive_after: false, server_alive_after: false, port_closed_after: true },
+    },
+  };
+}
+
+test('a complete model-free run passes', () => {
+  const result = checkReport(passingNoModels(), { expect: 'no-models', withPdf: true });
+  assert.deepEqual(result.failures, []);
+  assert.equal(result.ok, true);
+});
+
+test('OCR that is not refused without models fails', () => {
+  const r = passingNoModels();
+  r.checks.api_vietocr_ocr = { status: 200, detail: null };
+  r.checks.ui_ocr_run_button_disabled = false;
+  const result = checkReport(r, { expect: 'no-models', withPdf: true });
+  assert.equal(result.ok, false);
+  assert.ok(result.failures.some((f) => f.includes('503')));
+  assert.ok(result.failures.some((f) => f.includes('OCR button is enabled')));
+});
+
+test('security, crash and shutdown regressions fail', () => {
+  for (const [key, value] of [['request_without_token_status', 200], ['renderer_has_node', true], ['external_fetch_blocked', false],
+    ['crash', { detected: true, server_alive_after: true, port_closed_after: true }],
+    ['shutdown', { graceful: true, exit: { code: 0 }, launcher_alive_after: false, server_alive_after: false, port_closed_after: false }]]) {
+    const r = passingNoModels();
+    r.checks[key] = value;
+    assert.equal(checkReport(r, { expect: 'no-models', withPdf: true }).ok, false, key);
+  }
+  const r = passingNoModels();
+  r.error = 'watchdog: smoke test did not finish in 300 s';
+  assert.equal(checkReport(r, { expect: 'no-models' }).ok, false);
+});
+
+test('a missing image check or a downloads flag other than disabled fails', () => {
+  const r = passingNoModels();
+  delete r.checks.images['synthetic_ui.jpg'];
+  assert.equal(checkReport(r, { expect: 'no-models' }).ok, false);
+  const s = passingNoModels();
+  s.checks.backend_status.model_downloads = 'enabled';
+  assert.equal(checkReport(s, { expect: 'no-models' }).ok, false);
+});
+
+test('screenshots and preview pixels are warnings, never failures', () => {
+  const r = passingNoModels();
+  r.capture_errors = [{ name: '04_ui_after_restart.png', error: 'UnknownVizError' }];
+  r.checks.ui_preview = { rendered: false };
+  const result = checkReport(r, { expect: 'no-models', withPdf: true });
+  assert.equal(result.ok, true);
+  assert.equal(result.warnings.length, 2);
+});
+
+test('the OCR mode requires a real OCR run and export through the UI', () => {
+  const r = passingNoModels();
+  Object.assign(r.checks, {
+    ui: { title: 'VietDoc OCR', pill_class: 'server-pill connected' }, ocr_allowed: true, ui_ocr_run_button_disabled: false,
+    backend_status: { ocr_allowed: true, model_downloads: 'disabled' },
+    ui_vietocr_ocr: { ok: true },
+    ocr_export: { both_saved: true, txt_equals_json_text: true, json_method: 'vietocr_ocr', decoder_limit_hits: 0, model: 'phase4_exp_b_width1024' },
+  });
+  for (const name of Object.keys(r.checks.images)) r.checks.images[name].run_disabled = false;
+  assert.deepEqual(checkReport(r, { expect: 'ocr', withPdf: true }).failures, []);
+  r.checks.ocr_export.decoder_limit_hits = 2;
+  assert.equal(checkReport(r, { expect: 'ocr', withPdf: true }).ok, false);
+  assert.equal(checkReport(passingNoModels(), { expect: 'ocr', withPdf: true }).ok, false);
+});

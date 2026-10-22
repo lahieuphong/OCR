@@ -1,0 +1,178 @@
+name: VietDoc Electron (model-free)
+
+# Pull requests into main. Model-free by design: no frozen VietOCR B1024 file and no
+# PaddleOCR detector exists on the runners and nothing downloads them, so the desktop
+# app must start, serve the UI, extract a text layer and REFUSE OCR. Real OCR through
+# Electron is verified separately on a Windows DEV machine against the A0 baseline
+# (desktop/README.md). The only download is the checksum-verified Electron binary.
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vietdoc-electron-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  tracked-files:
+    name: Sensitive tracked files
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: No model weights, documents, labels, private folders or secrets (tree and every PR commit)
+        env:
+          BASE_REF: ${{ github.base_ref || 'main' }}
+        run: python .github/scripts/check_tracked_files.py --history-base "origin/$BASE_REF"
+
+  tests:
+    name: Unit tests (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: demo/local_pdf_ocr/requirements-demo.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            desktop/package-lock.json
+            demo/local_pdf_ocr/frontend/package-lock.json
+      - name: Install Python dependencies (no PaddlePaddle, no models)
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r demo/local_pdf_ocr/requirements-demo.txt
+          python -m pip check
+      - name: Install desktop dependencies from the lockfile (unit tests need no Electron binary)
+        working-directory: desktop
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Python syntax (warnings are errors)
+        run: python -W error -m compileall -q -f demo/local_pdf_ocr desktop/python desktop/scripts .github/scripts
+      - name: JavaScript syntax
+        run: |
+          for f in desktop/electron/*.js desktop/electron/lib/*.js desktop/scripts/*.js desktop/tests/*.js; do
+            node --check "$f"
+          done
+      - name: Backend model-free tests (skips fail the job)
+        run: python .github/scripts/run_backend_tests.py
+      - name: Desktop server tests - guard, token, host, origin, limits, shutdown, stdin hand-over (skips fail)
+        run: |
+          python -m unittest discover -v -s desktop/python/tests -p "test_*.py" 2>&1 | tee desktop-python-tests.log
+          if grep -q "skipped=" desktop-python-tests.log; then
+            echo "::error::desktop server tests were skipped"; exit 1
+          fi
+      - name: Electron Node tests - config, security rules, backend process, smoke checker (skips fail)
+        working-directory: desktop
+        run: |
+          node --test --test-reporter=spec "tests/*.test.js" 2>&1 | tee ../desktop-node-tests.log
+          grep -Eq "^ℹ fail 0$" ../desktop-node-tests.log
+          if ! grep -Eq "^ℹ skipped 0$" ../desktop-node-tests.log || ! grep -Eq "^ℹ todo 0$" ../desktop-node-tests.log; then
+            echo "::error::desktop Node tests were skipped or left as todo"; exit 1
+          fi
+      - name: Frontend production build
+        working-directory: demo/local_pdf_ocr/frontend
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+          test -f dist/index.html
+
+  smoke:
+    name: Electron smoke, model-free (${{ matrix.os }})
+    needs: tests
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: demo/local_pdf_ocr/requirements-demo.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            desktop/package-lock.json
+            demo/local_pdf_ocr/frontend/package-lock.json
+      - name: Install Python dependencies (no PaddlePaddle, no models)
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r demo/local_pdf_ocr/requirements-demo.txt
+      - name: Linux display server and Electron libraries
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends xvfb libgtk-3-0t64 libnss3 libgbm1 libasound2t64 libxss1 libxtst6
+      - name: Build the frontend
+        working-directory: demo/local_pdf_ocr/frontend
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+      - name: Install desktop dependencies and the checksum-verified Electron binary
+        working-directory: desktop
+        run: |
+          npm ci --no-audit --no-fund
+          node node_modules/electron/install.js
+      - name: Linux - configure Chromium's SUID sandbox helper (renderers keep sandbox=true)
+        if: runner.os == 'Linux'
+        working-directory: desktop
+        run: |
+          sudo chown root:root node_modules/electron/dist/chrome-sandbox
+          sudo chmod 4755 node_modules/electron/dist/chrome-sandbox
+      - name: Smoke test - models absent, OCR must be refused, nothing downloaded
+        working-directory: desktop
+        run: |
+          export VIETDOC_PYTHON="$(python -c 'import sys; print(sys.executable)')"
+          out="$(python -c 'import os; print(os.path.join(os.environ["RUNNER_TEMP"], "electron-smoke"))')"
+          pdf="$(python -c 'import os; print(os.path.join(os.environ["RUNNER_TEMP"], "synthetic.pdf"))')"
+          python scripts/make_synthetic_pdf.py "$pdf"
+          args=("--smoke-test=$out" "--smoke-pdf=$pdf" "--smoke-timeout=300")
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            xvfb-run -a node scripts/launch.js "${args[@]}"
+          else
+            node scripts/launch.js "${args[@]}"
+          fi
+          node scripts/check-smoke-report.js "$out/smoke_report.json" --expect=no-models --with-pdf
+          if [ -e "$HOME/.paddlex/official_models" ]; then
+            echo "::error::a PaddleX model folder appeared on the runner"; exit 1
+          fi
+      - name: Upload smoke evidence (report, screenshots, backend logs; synthetic input only)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: electron-smoke-${{ matrix.os }}
+          path: ${{ runner.temp }}/electron-smoke
+          if-no-files-found: warn
+          retention-days: 7
