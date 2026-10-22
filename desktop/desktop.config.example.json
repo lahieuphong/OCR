@@ -1,0 +1,5 @@
+{
+  "_comment": "Copy to desktop.config.json (git-ignored) and fill in absolute paths. Environment variables VIETDOC_PYTHON and VIETDOC_PADDLEX_HOME take precedence. Nothing is downloaded: files under paddlexHome must match model_lock.json.",
+  "python": "<ABSOLUTE PATH TO>\\.venv-demo\\Scripts\\python.exe",
+  "paddlexHome": "<HOME>\\.paddlex"
+}

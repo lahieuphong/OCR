@@ -1,0 +1,33 @@
+# Dependencies, build output, caches, logs
+node_modules/
+out/
+dist/
+build/
+release/
+.cache/
+__pycache__/
+*.pyc
+*.log
+# Machine-specific paths (Python, models, detector); copy desktop.config.example.json.
+desktop.config.json
+# Environment files and secrets (code-signing certificates, keys)
+.env
+.env.*
+*.pem
+*.key
+*.pfx
+*.p12
+# Binaries and archives
+*.exe
+*.dll
+*.pyd
+*.asar
+*.zip
+*.7z
+*.tgz
+# Model weights and documents never belong here
+*.onnx
+*.pth
+*.pdiparams
+*.pdmodel
+*.pdf

@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8"/>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'"/>
+  <title>VietDoc OCR · Trạng thái</title>
+  <link rel="stylesheet" href="status.css"/>
+</head>
+<body>
+  <main>
+    <h1>VietDoc OCR</h1>
+    <p id="message" class="message">Đang khởi động…</p>
+    <dl id="facts"></dl>
+    <ul id="problems"></ul>
+    <p id="log" class="log"></p>
+    <div class="actions">
+      <button id="retry" type="button">Khởi động lại</button>
+      <button id="logs" type="button">Mở thư mục log</button>
+      <button id="quit" type="button">Thoát</button>
+    </div>
+  </main>
+  <script src="status.js"></script>
+</body>
+</html>

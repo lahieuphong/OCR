@@ -1,0 +1,16 @@
+:root { color-scheme: dark; }
+body { margin: 0; font: 14px/1.5 "Segoe UI", system-ui, sans-serif; background: #101726; color: #e6ebf5; }
+main { padding: 24px 28px; }
+h1 { margin: 0 0 12px; font-size: 20px; }
+.message { margin: 0 0 16px; padding: 10px 12px; border-radius: 8px; background: #1b2438; }
+.message.ready { background: #123524; }
+.message.limited { background: #3a2f12; }
+.message.error { background: #3d1717; }
+dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 0 0 12px; }
+dt { color: #9aa7bf; }
+dd { margin: 0; word-break: break-all; }
+ul { margin: 0 0 12px; padding-left: 18px; color: #f2c46d; }
+.log { color: #9aa7bf; font-size: 12px; word-break: break-all; }
+.actions { display: flex; gap: 8px; }
+button { padding: 6px 14px; border: 1px solid #3a4763; border-radius: 6px; background: #1b2438; color: inherit; font: inherit; cursor: pointer; }
+button:hover { background: #26324d; }
