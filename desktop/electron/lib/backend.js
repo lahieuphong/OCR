@@ -6,16 +6,18 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { spawn, execFile } = require('node:child_process');
 const { serverArgs } = require('./config');
+const { backendEnv } = require('./backend-env');
 
 const READY_TIMEOUT_MS = 120_000;
 const GRACEFUL_STOP_MS = 8_000;
 
 class BackendProcess extends EventEmitter {
-  constructor(config, { logDir, spawnImpl = spawn } = {}) {
+  constructor(config, { logDir, spawnImpl = spawn, sourceEnv = process.env } = {}) {
     super();
     this.config = config;
     this.logDir = logDir;
     this.spawnImpl = spawnImpl;
+    this.sourceEnv = sourceEnv;
     this.child = null;
     this.port = null;
     this.token = null;
@@ -40,9 +42,9 @@ class BackendProcess extends EventEmitter {
     const log = fs.createWriteStream(this.logFile, { flags: 'a' });
     this.log = log;
     this.emit('status', { step: 'starting', message: 'Đang khởi động backend OCR…' });
-    const env = { ...process.env, PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK: 'True' };
-    delete env.VIETDOC_MODEL_ROOT;  // only the validated config value reaches the server
-    if (this.config.modelRoot) env.VIETDOC_MODEL_ROOT = this.config.modelRoot;
+    // A minimal environment built from scratch (see backend-env.js), never the user's whole environment;
+    // VIETDOC_MODEL_ROOT reaches the server only as the validated config value.
+    const env = backendEnv(this.config, { sourceEnv: this.sourceEnv });
     const child = this.spawnImpl(this.config.command || this.config.python, serverArgs(this.config), {
       cwd: this.config.repoRoot,
       windowsHide: true,

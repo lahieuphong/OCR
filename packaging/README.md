@@ -86,3 +86,35 @@ cmd /c rmdir out\backend\vietdoc-backend
 Unit tests (backend, desktop server, desktop Node), the model-free smoke test, real OCR through the packaged
 app on the development documents compared with the A0 baseline, a scan of the build for models, documents
 and machine paths, and the license review. Blind documents are never used for any of this.
+
+The model-free part is automated in `.github/workflows/vietdoc-packaging-ci.yml` (Windows, pull requests into
+`main`), with the tools in `packaging/ci/`, which also run locally:
+
+```
+<packaging venv python> packaging\ci\scan_bundle.py <out>\electron-out\win-unpacked <report dir> --forbid-string <checkout> --forbid-string %USERPROFILE%
+<packaging venv python> packaging\ci\probe_backend.py <out>\electron-out-smoke\win-unpacked\resources <report>\backend-probe.json <synthetic.pdf>
+<packaging venv python> packaging\ci\watch_run.py --strict --system32-path --exe "<out>\electron-out-smoke\win-unpacked\VietDoc OCR.exe" ^
+    --out <report>\smoke --set VIETDOC_PADDLEX_HOME=<empty dir> -- --user-data-dir=<report>\smoke\userData ^
+    --smoke-test=<report>\smoke\smoke --smoke-pdf=<synthetic.pdf>
+```
+
+- `scan_bundle.py` fails on model weights, documents, OCR exports, local config, logs, key files, secret-looking
+  content or the given machine paths, and writes `manifest.tsv` (path, size, SHA-256 of every file).
+- `probe_backend.py` starts the packaged backend alone with the minimal environment and checks the request guard
+  (token, `Host`, `Origin`, method), the security headers, the loopback-only listener, the OCR refusal without
+  models, the malformed-token refusal, the graceful shutdown and the stdin watchdog.
+- `watch_run.py` runs the app once and fails (`--strict`) on any non-loopback connection, any process left after
+  exit, a timeout or an unexpected exit code (`--expect-exit 2` for the release build's smoke gate).
+
+CI never has a model, so real OCR stays a manual check on a development machine (`VIETDOC_MODEL_ROOT` pointing at
+a verified model folder, the smoke build with `--smoke-pdf=<DEV document>`, the export compared with A0).
+
+## 6. Backend environment
+
+The Electron main process starts the backend with an environment built from scratch
+(`desktop/electron/lib/backend-env.js`), never with the user's environment: the Windows essentials (system folders,
+temp folders, user profile folders, CPU description), `PATH` = the backend's own folder and `_internal`, then
+`System32`, the Windows folder and `Wbem`, `PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK=True`, and `VIETDOC_MODEL_ROOT`
+only from the validated configuration. `PYTHON*`, `NODE_OPTIONS`, `PADDLE_PDX_*` sources and caches, `FLAGS_*`,
+threading knobs, proxies and every unrelated variable are dropped. Windows itself adds `USERNAME`, `USERDOMAIN` and
+`LOGONSERVER` to every child process (libuv), and the PyInstaller bootloader adds its `_PYI_*` variables.

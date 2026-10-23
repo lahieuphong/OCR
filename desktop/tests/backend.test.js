@@ -61,6 +61,30 @@ test('token goes over stdin, never argv or env; READY sets the loopback origin',
   child.emit('exit', 0, null);
 });
 
+test('the spawned server gets the minimal environment, not the parent environment', async (t) => {
+  const logDir = fs.mkdtempSync(path.join(os.tmpdir(), 'vietdoc-desktop-backend-'));
+  const fake = fakeSpawn();
+  const sourceEnv = { SystemRoot: 'C:\\WINDOWS', TEMP: 'C:\\t', PYTHONPATH: 'C:\\evil', NODE_OPTIONS: '--inspect',
+    PADDLE_PDX_MODEL_SOURCE: 'huggingface', VIETDOC_MODEL_ROOT: 'C:\\attacker', GITHUB_TOKEN: 'ghp_secret' };
+  const backend = new BackendProcess({ backendExe: 'C:\\app\\resources\\backend\\vietdoc-backend\\vietdoc-backend.exe',
+    command: 'C:\\app\\resources\\backend\\vietdoc-backend\\vietdoc-backend.exe', repoRoot: 'C:\\app\\resources',
+    frontendDist: 'C:\\app\\resources\\frontend', modelLock: 'C:\\app\\resources\\model_lock.json', paddlexHome: 'C:\\px',
+    modelRoot: 'D:\\models' }, { logDir, spawnImpl: fake.spawnImpl, sourceEnv });
+  backend.on('error', () => {});
+  t.after(async () => {
+    if (fake.calls[0] && !backend.exitInfo) fake.calls[0].child.emit('exit', 0, null);
+    if (backend.log && !backend.log.closed) await once(backend.log, 'close');
+    fs.rmSync(logDir, { recursive: true, force: true });
+  });
+  backend.start().catch(() => {});
+  const { env } = fake.calls[0].options;
+  for (const name of ['PYTHONPATH', 'NODE_OPTIONS', 'PADDLE_PDX_MODEL_SOURCE', 'GITHUB_TOKEN']) assert.equal(env[name], undefined, name);
+  assert.equal(env.VIETDOC_MODEL_ROOT, 'D:\\models', 'the validated config value, not the environment value');
+  assert.equal(env.TEMP, 'C:\\t');
+  assert.equal(env.PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK, 'True');
+  assert.ok(!Object.values(env).includes(backend.token));
+});
+
 test('VIETDOC_ERROR rejects start with the server message', async (t) => {
   const { backend, fake } = makeBackend(t);
   const ready = backend.start();
