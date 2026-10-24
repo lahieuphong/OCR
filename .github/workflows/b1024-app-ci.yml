@@ -86,12 +86,12 @@ jobs:
           node-version: '22'
           cache: npm
           cache-dependency-path: demo/local_pdf_ocr/frontend/package-lock.json
-      # The imported app has no frontend unit tests; the production build is the gate.
       - name: Install from the lockfile
         working-directory: demo/local_pdf_ocr/frontend
         run: npm ci --no-audit --no-fund
       - name: Production build
         working-directory: demo/local_pdf_ocr/frontend
         run: |
+          npm test
           npm run build
           test -f dist/index.html

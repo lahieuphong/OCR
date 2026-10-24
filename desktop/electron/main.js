@@ -441,6 +441,66 @@ async function runSmoke() {
     c.ui_native_text = await waitFor(() => js(`(() => { const s = document.querySelector('.results-stats'), e = document.querySelector('.error-box');
       return s ? { ok: true, stats: s.textContent.replace(/\\s+/g, ' ').trim() } : e ? { ok: false, error: e.textContent.trim() } : null; })()`), 120_000);
     if (c.ui_native_text) c.ui_native_text.elapsed_ms = Date.now() - t0;
+    assert.equal(await js(`document.querySelector('[role=tab][data-state=active]')?.textContent`), 'Thông tin văn bản', 'successful extraction must open metadata');
+    c.metadata = await js(`({ fields: document.querySelectorAll('.metadata-field input, .metadata-field select, .metadata-field textarea').length,
+      doc_id: document.querySelector('#metadata-docId').value,
+      page_count: document.querySelector('#metadata-numberOfPage').value,
+      stamp: document.querySelector('#metadata-isCan').value,
+      confidence: document.querySelector('#metadata-confidenceLevel').value })`);
+    assert.equal(c.metadata.fields, 22);
+    assert.equal(c.metadata.doc_id, '');
+    assert.equal(c.metadata.stamp, '');
+    assert.equal(c.metadata.confidence, '02');
+    await screenshot('03a_ui_metadata.png');
+    const metadataBounds = mainWindow.getBounds();
+    mainWindow.setSize(960, 720);
+    await sleep(350);
+    c.metadata.compact_no_overflow = await js(`document.documentElement.scrollWidth <= innerWidth
+      && document.querySelector('.document-metadata').scrollWidth <= document.querySelector('.document-metadata').clientWidth`);
+    assert.equal(c.metadata.compact_no_overflow, true, 'metadata form must not overflow a compact window');
+    await screenshot('03d_ui_metadata_compact.png');
+    mainWindow.setBounds(metadataBounds);
+    await sleep(350);
+    const metadataFile = path.join(downloads, path.basename(pdf).replace(/\.[^.]+$/, '').replace(/[\\/:*?"<>|]/g, '_') + '_native_text_metadata.json');
+    await js(`document.querySelector('button[title="Xuất JSON 22 trường"]').click(); true`);
+    assert.ok(await waitFor(() => js(`document.querySelector('dialog[open]')?.textContent.includes('Công khai')`), 5000), 'unclassified access mode must warn before export');
+    await js(`document.querySelector('dialog .confirm-actions button:last-child').click(); true`);
+    assert.ok(await waitFor(async () => fs.existsSync(metadataFile), 5000), 'metadata export was not saved');
+    const metadata = JSON.parse(fs.readFileSync(metadataFile, 'utf8'));
+    const metadataKeys = ['docId','arcDocCode','maintenance','typeName','codeNumber','codeNotation','issuedDate','organName','subject','language','numberOfPage','inforSign','keyword','mode','confidenceLevel','autograph','format','process','riskRecovery','riskRecoveryStatus','description','isCan'];
+    assert.deepEqual(Object.keys(metadata), metadataKeys);
+    assert.ok(Object.values(metadata).every(value => typeof value === 'string'));
+    assert.equal(metadata.docId, ''); assert.equal(metadata.mode, '');
+    assert.equal(metadata.numberOfPage, c.metadata.page_count);
+    c.metadata.export_exact_schema = true;
+    const manualSubject = 'Metadata tổng hợp – đã chỉnh sửa thủ công.';
+    await js(`(() => { const field = document.querySelector('#metadata-subject');
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(field, ${JSON.stringify(manualSubject)});
+      field.dispatchEvent(new Event('input', {bubbles:true})); })()`);
+    await clickResultTab('Toàn văn');
+    await clickResultTab('Thông tin văn bản');
+    assert.equal(await js(`document.querySelector('#metadata-subject').value`), manualSubject, 'tabs must preserve manual edits');
+    const clipboardBeforeMetadata = await clipboard.readText();
+    try {
+      mainWindow.focus(); wc.focus();
+      await js(`Array.from(document.querySelectorAll('.metadata-actions button')).find(b => b.textContent.includes('Sao chép JSON')).click(); true`);
+      assert.ok(await waitFor(() => js(`Boolean(document.querySelector('dialog[open]'))`), 5000));
+      await js(`document.querySelector('dialog .confirm-actions button:last-child').click(); true`);
+      c.metadata.copy_exact = Boolean(await waitFor(async () => {
+        try { const copied = JSON.parse(await clipboard.readText()); return Object.keys(copied).length === 22 && copied.subject === manualSubject && copied.mode === ''; }
+        catch { return false; }
+      }, 5000));
+      assert.equal(c.metadata.copy_exact, true, 'metadata clipboard JSON must preserve edits and schema');
+    } finally { await clipboard.writeText(clipboardBeforeMetadata); }
+    await js(`Array.from(document.querySelectorAll('.metadata-actions button')).find(b => b.textContent.includes('Khôi phục')).click(); true`);
+    assert.ok(await waitFor(() => js(`Boolean(document.querySelector('dialog[open]'))`), 5000), 'reset must confirm loss of manual edits');
+    await js(`document.querySelector('dialog .confirm-actions button:first-child').click(); true`);
+    assert.equal(await js(`document.querySelector('#metadata-subject').value`), manualSubject, 'cancel reset must preserve the draft');
+    await js(`Array.from(document.querySelectorAll('.metadata-actions button')).find(b => b.textContent.includes('Khôi phục')).click(); true`);
+    await js(`document.querySelector('dialog .confirm-actions button:last-child').click(); true`);
+    assert.equal(await js(`document.querySelector('#metadata-subject').value`), metadata.subject, 'accepted reset must restore automatic values');
+    c.metadata.manual_edits_and_reset = true;
+    await clickResultTab('Toàn văn');
     await screenshot('03_ui_native_text_result.png');
     await js(`document.querySelector('button[title="Tải TXT"]').click(); true`);
     await sleep(800);

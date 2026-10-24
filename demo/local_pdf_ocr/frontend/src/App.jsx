@@ -12,6 +12,9 @@ import {Alert, AlertTitle, AlertDescription} from "@/components/ui/alert";
 import {Tooltip, TooltipContent, TooltipProvider, TooltipTrigger} from "@/components/ui/tooltip";
 import {Separator} from "@/components/ui/separator";
 import {Progress} from "@/components/ui/progress";
+import DocumentMetadata from "@/components/DocumentMetadata.jsx";
+import ConfirmDialog from "@/components/ConfirmDialog.jsx";
+import {createDocumentDraft, editDocumentField, confirmDocumentField} from "@/lib/documentFields.js";
 
 const MAX_MB = 15;
 const EXTENSIONS = /\.(pdf|png|jpe?g)$/i;
@@ -65,6 +68,8 @@ export default function App() {
   const [hoverUpload, setHoverUpload] = useState(false);
   const [selectedMode, setSelectedMode] = useState("vietocr_ocr");
   const [resultsByMode, setResultsByMode] = useState({});
+  const [metadataByMode, setMetadataByMode] = useState({});
+  const [pendingDiscard, setPendingDiscard] = useState(null);
   const [page, setPage] = useState(1);
   const [working, setWorking] = useState(false);
   const [elapsed, setElapsed] = useState(0);
@@ -91,7 +96,7 @@ export default function App() {
   }, []);
   useEffect(() => () => {if (preview) URL.revokeObjectURL(preview);}, [preview]);
 
-  function chooseFile(file) {
+  function chooseFile(file, discardConfirmed = false) {
     if (working || !file) return;
     setError("");
     if (!EXTENSIONS.test(file.name)) {
@@ -106,7 +111,12 @@ export default function App() {
       setError("Tệp rỗng.");
       return;
     }
+    if (!discardConfirmed && Object.values(metadataByMode).some(draft => draft.dirty)) {
+      setPendingDiscard({run: () => chooseFile(file, true), message: "Chọn tài liệu mới sẽ xóa các bản nháp metadata đã chỉnh sửa của cả hai phương pháp."});
+      return;
+    }
     setResultsByMode({});
+    setMetadataByMode({});
     setActiveView("text");
     setPage(1);
     setCopied(false);
@@ -117,8 +127,13 @@ export default function App() {
     setPreview(URL.createObjectURL(file));
   }
 
-  async function runOcr() {
+  async function runOcr(discardConfirmed = false) {
     if (!document || working || !canRun) return;
+    if (!discardConfirmed && metadataByMode[selectedMode]?.dirty) {
+      setPendingDiscard({run: () => runOcr(true), message: "Chạy lại sẽ thay thế bản nháp metadata đã chỉnh sửa của phương pháp đang chọn nếu xử lý thành công."});
+      return;
+    }
+    const previousResult = resultsByMode[selectedMode];
     setWorking(true);
     setError("");
     if (activeView === "compare") setActiveView("text");
@@ -148,8 +163,11 @@ export default function App() {
         throw Error("Định dạng phản hồi từ backend không hợp lệ.");
       }
       setResultsByMode(previous => ({...previous, [selectedMode]: data}));
+      setMetadataByMode(previous => ({...previous, [selectedMode]: createDocumentDraft(data, {sourceKind: /\.pdf$/i.test(document.name) ? "pdf" : "image"})}));
+      setActiveView("metadata");
       setPage(1);
     } catch (exception) {
+      if (previousResult) setResultsByMode(previous => ({...previous, [selectedMode]: previousResult}));
       setError(exception?.message || String(exception));
     } finally {
       window.clearInterval(elapsedTimer.current);
@@ -172,7 +190,13 @@ export default function App() {
     setPage(1);
     setCopied(false);
     setError("");
-    if (activeView === "compare") setActiveView("text");
+    setActiveView(metadataByMode[mode] ? "metadata" : "text");
+  }
+
+  function restoreMetadata() {
+    const restore = () => setMetadataByMode(previous => ({...previous, [selectedMode]: createDocumentDraft(result, {sourceKind: isPDF ? "pdf" : "image"})}));
+    if (metadataByMode[selectedMode]?.dirty) setPendingDiscard({run: restore, message: "Khôi phục sẽ xóa các giá trị metadata bạn đã chỉnh sửa hoặc xác nhận. Văn bản OCR gốc được giữ nguyên."});
+    else restore();
   }
 
   async function copyText() {
@@ -269,7 +293,7 @@ export default function App() {
               </Alert>}
 
               <div className="input-actions">
-              <Button className="run-button" size="lg" onClick={runOcr} disabled={!document || working || !canRun}>
+              <Button className="run-button" size="lg" onClick={() => runOcr()} disabled={!document || working || !canRun}>
                 {working ? <LoaderCircle className="spin" size={18}/> : <ScanText size={18}/>}
                 {working ? "Đang bóc tách…" : "Bóc tách văn bản"}{!working && <ArrowRight size={17}/>}
               </Button>
@@ -291,6 +315,7 @@ export default function App() {
             <Tabs className="result-tabs" value={activeView} onValueChange={value => {setActiveView(value); setCopied(false);}}>
               <div className="result-toolbar">
                 <TabsList aria-label="Cách xem kết quả">
+                  <TabsTrigger value="metadata" disabled={!result}>Thông tin văn bản</TabsTrigger>
                   <TabsTrigger value="text">Toàn văn</TabsTrigger>
                   <TabsTrigger value="page">Theo trang</TabsTrigger>
                   {bothReady && <TabsTrigger value="compare">So sánh</TabsTrigger>}
@@ -320,8 +345,12 @@ export default function App() {
               <Button variant="outline" size="icon" aria-label="Trang sau" disabled={page === result.pages.at(-1)?.page} onClick={() => setPage(result.pages[result.pages.findIndex(item => item.page === page) + 1]?.page ?? page)}><ChevronRight size={16}/></Button>
             </nav>}
 
-            <TabsContent value={activeView} className={"text-output " + (!result ? "empty-result" : "")} aria-label="Nội dung văn bản">
-              {result && activeView === "compare" && bothReady ? <div className="comparison-columns">
+            <TabsContent value={activeView} className={"text-output " + (!result ? "empty-result" : "") + (result && activeView === "metadata" ? " metadata-output" : "")} aria-label="Nội dung văn bản">
+              {result && activeView === "metadata" && metadataByMode[selectedMode] ? <DocumentMetadata key={selectedMode} draft={metadataByMode[selectedMode]}
+                onEdit={(key, value) => setMetadataByMode(previous => ({...previous, [selectedMode]: editDocumentField(previous[selectedMode], key, value)}))}
+                onConfirmField={key => setMetadataByMode(previous => ({...previous, [selectedMode]: confirmDocumentField(previous[selectedMode], key)}))}
+                onReset={restoreMetadata} onExport={json => downloadText(shortName(document.name) + "_" + selectedMode + "_metadata.json", json, "application/json;charset=utf-8")}/>
+                : result && activeView === "compare" && bothReady ? <div className="comparison-columns">
                 <section><h3>Văn bản có sẵn trong PDF</h3><pre>{resultsByMode.native_text.text}</pre></section>
                 <section><h3>Nhận dạng từ ảnh/PDF</h3><pre>{resultsByMode.vietocr_ocr.text}</pre></section>
               </div> : result ? <pre>{shownText || "Không phát hiện được dòng văn bản. Hãy kiểm tra ảnh/PDF gốc."}</pre>
@@ -333,6 +362,8 @@ export default function App() {
         </section>
         <footer className="footer"><span><LockKeyhole size={13}/> Tài liệu được xử lý trên máy tính của bạn</span><span>Bản thử nghiệm nội bộ</span></footer>
       </main>
+      {pendingDiscard && <ConfirmDialog title="Giữ hay thay thế chỉnh sửa?" confirmLabel="Thay thế bản nháp" onCancel={() => setPendingDiscard(null)}
+        onConfirm={() => {const action = pendingDiscard.run; setPendingDiscard(null); action();}}><p>{pendingDiscard.message}</p></ConfirmDialog>}
     </div>
   </TooltipProvider>;
 }

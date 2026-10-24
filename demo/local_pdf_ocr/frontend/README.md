@@ -4,6 +4,7 @@ React/JSX in the existing Vite project, with Tailwind CSS 4, shadcn/ui and Lucid
 
 ```sh
 npm ci
+npm test
 npm run build
 ```
 
@@ -57,3 +58,9 @@ frozen-model checks, size/page limits and Electron security settings are unchang
 Model-free smoke verifies that OCR is refused without models; it does not certify
 recognition accuracy. The frontend and status window retain the internal-prototype
 notice, and no installer or public release is created by this UI work.
+
+The separate **Thông tin văn bản** tab now supports the 22-field administrative
+metadata draft. See [METADATA.md](METADATA.md) for the exact string-valued schema,
+verified catalogs, conservative extraction, manual review, export warnings,
+synthetic examples and real-OCR regression limits. These drafts never replace
+or modify the existing TXT/raw JSON exports.
