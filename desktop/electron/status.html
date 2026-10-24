@@ -2,22 +2,31 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'"/>
   <title>VietDoc OCR · Trạng thái</title>
   <link rel="stylesheet" href="status.css"/>
 </head>
 <body>
   <main>
-    <h1>VietDoc OCR</h1>
-    <p id="message" class="message">Đang khởi động…</p>
-    <dl id="facts"></dl>
-    <ul id="problems"></ul>
-    <p id="log" class="log"></p>
+    <header class="status-header"><span class="brand-mark" aria-hidden="true">V</span><div><h1>VietDoc OCR</h1><p>Bóc tách văn bản hành chính</p></div><span class="offline-label">Trên máy tính</span></header>
+    <section class="status-card" aria-labelledby="status-title">
+      <h2 id="status-title">Trạng thái ứng dụng</h2>
+      <p id="message" class="message" role="status">Đang khởi động…</p>
+      <dl id="summary" class="summary"></dl>
+      <details>
+        <summary>Chi tiết chẩn đoán</summary>
+        <dl id="facts"></dl>
+        <ul id="problems"></ul>
+        <p id="log" class="log"></p>
+      </details>
+    </section>
     <div class="actions">
-      <button id="retry" type="button">Khởi động lại</button>
-      <button id="logs" type="button">Mở thư mục log</button>
+      <button id="retry" type="button" class="primary">Thử lại</button>
+      <button id="logs" type="button">Mở log</button>
       <button id="quit" type="button">Thoát</button>
     </div>
+    <p class="privacy-note">Tài liệu được xử lý trên máy. Ứng dụng không tự tải model.</p>
   </main>
   <script src="status.js"></script>
 </body>

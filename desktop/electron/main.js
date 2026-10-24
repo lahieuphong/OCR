@@ -80,7 +80,7 @@ function createStatusWindow() {
   });
   if (!statusSession.protocol.isProtocolHandled(STATUS_SCHEME)) statusSession.protocol.handle(STATUS_SCHEME, statusHandler(__dirname));
   statusWindow = new BrowserWindow({
-    width: 680, height: 680, minHeight: 420, title: 'VietDoc OCR · Trạng thái', autoHideMenuBar: true, backgroundColor: '#101726',
+    width: 680, height: 680, minHeight: 420, title: 'VietDoc OCR · Trạng thái', autoHideMenuBar: true, backgroundColor: '#ffffff',
     webPreferences: {
       contextIsolation: true, nodeIntegration: false, sandbox: true, session: statusSession, spellcheck: false,
       preload: path.join(__dirname, 'preload-status.js'), devTools: DEV,
@@ -93,6 +93,9 @@ function createStatusWindow() {
     }
   });
   statusWindow.on('closed', () => { statusWindow = null; });
+  statusWindow.webContents.on('console-message', (event) => {
+    if (SMOKE_DIR) smoke.console.push({ level: event.level, message: event.message, source: event.sourceId, phase: smoke.step, window: 'status' });
+  });
   statusWindow.loadURL(STATUS_URL);
 }
 
@@ -123,7 +126,7 @@ function createMainWindow() {
   }
   if (!mainWindow) {
     mainWindow = new BrowserWindow({
-      width: 1360, height: 900, show: false, title: 'VietDoc OCR', backgroundColor: '#101726',
+      width: 1360, height: 900, show: false, title: 'VietDoc OCR', backgroundColor: '#ffffff',
       // plugins: Chromium's built-in PDF viewer (PDFium) for the existing PDF preview; it is the only plugin left.
       webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true, session: appSession, spellcheck: false, devTools: DEV, plugins: true },
     });
@@ -132,7 +135,7 @@ function createMainWindow() {
       if (statusWindow && lastStatus.desktop && lastStatus.desktop.ocr_allowed) statusWindow.hide();
     });
     mainWindow.webContents.on('console-message', (event) => {
-      if (SMOKE_DIR) smoke.console.push({ level: event.level, message: event.message, source: event.sourceId });
+      if (SMOKE_DIR) smoke.console.push({ level: event.level, message: event.message, source: event.sourceId, phase: smoke.step });
     });
     mainWindow.on('closed', () => {
       mainWindow = null;
@@ -161,8 +164,8 @@ async function startBackend() {
     const ocr = desktop.data.ocr_allowed;
     sendStatus({
       state: ocr ? 'ready' : 'limited', step: 'ready', health: health.data, desktop: desktop.data, log: backend.logFile,
-      message: ocr ? 'Sẵn sàng: OCR (PaddleOCR + VietOCR B1024) và text layer PDF.'
-        : 'Backend đang chạy. OCR bị chặn vì thiếu hoặc sai model/detector; trích text layer PDF vẫn dùng được.',
+      message: ocr ? 'Sẵn sàng bóc tách văn bản từ PDF và ảnh.'
+        : 'OCR chưa sẵn sàng. Bạn vẫn có thể trích xuất văn bản có sẵn trong PDF.',
     });
     return true;
   } catch (error) {
@@ -175,7 +178,7 @@ async function startBackend() {
 function onBackendExit(info) {
   if (quitting || info.expected) return;
   sendStatus({ state: 'error', step: 'crashed', desktop: null,
-    message: `Backend đã dừng bất ngờ (${describeExit(info.code)}). Bấm "Khởi động lại" hoặc xem log.` });
+    message: `Máy chủ xử lý đã dừng (${describeExit(info.code)}). Bấm "Thử lại" hoặc mở log để kiểm tra.` });
   showStatusWindow();
 }
 
@@ -320,15 +323,55 @@ async function uiState(js) {
 }
 
 async function runSmoke() {
+  const assert = require('node:assert/strict');
   const wc = mainWindow.webContents;
   const js = (code) => wc.executeJavaScript(code, true);
   const c = smoke.checks;
+  async function clickResultTab(label) {
+    const point = await js(`(() => { const tab = Array.from(document.querySelectorAll('[role=tab]')).find(t => t.textContent === ${JSON.stringify(label)});
+      if (!tab) return null; tab.scrollIntoView({block: 'nearest'}); const r = tab.getBoundingClientRect(); return {x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2)}; })()`);
+    assert.ok(point, 'missing result tab: ' + label);
+    // Radix tabs select on pointer-down/keyboard, so drive a real mouse gesture.
+    wc.sendInputEvent({ type: 'mouseDown', ...point, button: 'left', clickCount: 1 });
+    wc.sendInputEvent({ type: 'mouseUp', ...point, button: 'left', clickCount: 1 });
+    assert.ok(await waitFor(() => js(`document.querySelector('[role=tab][data-state=active]')?.textContent === ${JSON.stringify(label)}`), 5000));
+  }
   const downloads = path.join(SMOKE_DIR, 'downloads');
   fs.mkdirSync(downloads, { recursive: true });
 
   c.ui = await waitFor(() => uiState(js), 20_000);
+  smoke.step = 'ui-review';
   await screenshot('01_ui_start.png');
+  // UI acceptance checks supplement the existing OCR/security smoke; no original assertion is removed.
+  const layout = () => js(`(() => {
+    const left = document.querySelector('.left-pane').getBoundingClientRect();
+    const right = document.querySelector('.right-pane').getBoundingClientRect();
+    const run = document.querySelector('.run-button').getBoundingClientRect();
+    return { width: innerWidth, height: innerHeight, scroll_width: document.documentElement.scrollWidth,
+      left_width: left.width, right_width: right.width, stacked: right.top >= left.bottom,
+      run_bottom: run.bottom, background: getComputedStyle(document.querySelector('.right-pane')).backgroundColor,
+      font: getComputedStyle(document.body).fontFamily };
+  })()`);
+  c.ui_layout = { default: await layout() };
+  assert.equal(c.ui_layout.default.background, 'rgb(255, 255, 255)', 'result card must be white');
+  assert.ok(c.ui_layout.default.scroll_width <= c.ui_layout.default.width, 'default layout overflows horizontally');
+  assert.ok(c.ui_layout.default.run_bottom <= c.ui_layout.default.height, 'run button must be visible at the default size');
+  assert.ok(c.ui_layout.default.left_width / c.ui_layout.default.right_width > 0.78
+    && c.ui_layout.default.left_width / c.ui_layout.default.right_width < 0.86, 'workspace must be about 45/55');
+  assert.equal(await js(`document.querySelector('.run-button').disabled`), true, 'no file must disable processing');
+  const originalBounds = mainWindow.getBounds();
+  for (const [name, width, height] of [['compact', 960, 720], ['narrow', 760, 860]]) {
+    mainWindow.setSize(width, height);
+    await sleep(350);
+    c.ui_layout[name] = await layout();
+    assert.ok(c.ui_layout[name].scroll_width <= c.ui_layout[name].width, name + ' layout overflows horizontally');
+    if (name === 'narrow') assert.equal(c.ui_layout[name].stacked, true, 'narrow workspace must stack');
+    await screenshot('01_ui_' + name + '.png');
+  }
+  mainWindow.setBounds(originalBounds);
+  await sleep(350);
   c.renderer_has_node = await js(`typeof require !== 'undefined' || typeof process !== 'undefined'`);
+  smoke.step = 'security-probes';
   c.external_fetch_blocked = await js(`fetch('https://example.com/').then(() => false, () => true)`);
   const before = wc.getURL();
   await js(`window.open('https://example.com/'); location.href = 'https://example.com/'; true`).catch(() => true);
@@ -339,10 +382,12 @@ async function runSmoke() {
     { headers: { 'X-VietDoc-Token': backend.token } }).then((r) => r.status, (e) => `error: ${e.cause?.code || e.message}`);
 
   const pdf = ARGS['smoke-pdf'];
+  smoke.step = 'document-flow';
   if (pdf) {
     // Real UI path: choose the file, run "Text có sẵn trong PDF", export TXT and JSON with the UI buttons.
     await setInputFile(wc, pdf);
     c.ui_file_selected = await waitFor(() => js(`document.querySelector('.selected-file strong')?.textContent || null`), 10_000);
+    assert.equal(await js(`document.querySelector('input[name=mode]:checked').value`), 'native_text', 'PDF must visibly default to native_text');
     await js(`document.querySelector('input[name=mode][value=native_text]').click(); true`);
     await sleep(1000);
     // PDF preview: scroll the iframe into view and measure how much of it is light (a rendered page) versus
@@ -366,7 +411,32 @@ async function runSmoke() {
     await screenshot('02_ui_pdf_preview.png');
     await js(`window.scrollTo(0, 0); true`);
     const t0 = Date.now();
-    await js(`document.querySelector('.run-button').click(); true`);
+    // Pause the real request briefly to inspect the busy state without fabricating progress or OCR output.
+    wc.debugger.attach('1.3');
+    try {
+      await wc.debugger.sendCommand('Fetch.enable', { patterns: [{ urlPattern: '*/api/ocr', requestStage: 'Request' }] });
+      const paused = new Promise((resolve) => {
+        const onMessage = (_event, method, params) => {
+          if (method === 'Fetch.requestPaused') { wc.debugger.off('message', onMessage); resolve(params); }
+        };
+        wc.debugger.on('message', onMessage);
+      });
+      await js(`document.querySelector('.run-button').click(); true`);
+      const request = await Promise.race([paused, sleep(5000).then(() => null)]);
+      assert.ok(request, 'processing request was not sent');
+      c.ui_working = await js(`({ run_disabled: document.querySelector('.run-button').disabled,
+        file_disabled: document.querySelector('input[type=file]').disabled,
+        modes_disabled: document.querySelector('.ocr-mode-selector').disabled,
+        busy: document.querySelector('.right-pane').getAttribute('aria-busy'),
+        indeterminate: document.querySelector('[role=progressbar]')?.getAttribute('data-state'),
+        progress_value: document.querySelector('[role=progressbar]')?.getAttribute('aria-valuenow') })`);
+      assert.deepEqual(c.ui_working, { run_disabled: true, file_disabled: true, modes_disabled: true,
+        busy: 'true', indeterminate: 'indeterminate', progress_value: null });
+      await screenshot('02b_ui_processing.png');
+      await wc.debugger.sendCommand('Fetch.continueRequest', { requestId: request.requestId });
+    } finally {
+      wc.debugger.detach();
+    }
     c.ui_native_text = await waitFor(() => js(`(() => { const s = document.querySelector('.results-stats'), e = document.querySelector('.error-box');
       return s ? { ok: true, stats: s.textContent.replace(/\\s+/g, ' ').trim() } : e ? { ok: false, error: e.textContent.trim() } : null; })()`), 120_000);
     if (c.ui_native_text) c.ui_native_text.elapsed_ms = Date.now() - t0;
@@ -385,6 +455,38 @@ async function runSmoke() {
       const text = fs.readFileSync(txt, 'utf8');
       Object.assign(c.export, { txt_bytes: fs.statSync(txt).size, json_bytes: fs.statSync(json).size, txt_sha256: sha256(txt),
         json_method: report.method, json_pages: report.pages?.length, txt_equals_json_text: text === report.text });
+      const lf = (value) => value.replace(/\r\n/g, '\n');
+      c.ui_native_views = { full_text_exact: await js(`document.querySelector('.text-output pre').textContent === ${JSON.stringify(report.text)}`) };
+      assert.equal(c.ui_native_views.full_text_exact, true, 'full text must match the unmodified API/export text');
+      assert.equal(await js(`Array.from(document.querySelectorAll('[role=tab]')).some(t => t.textContent === 'So sánh')`), false,
+        'comparison must only appear after both independent results exist');
+      mainWindow.focus();
+      wc.focus();
+      const clipboardBefore = await clipboard.readText();
+      try {
+        await js(`document.querySelector('button[title="Sao chép văn bản"]').click(); true`);
+        c.native_copy = { full_text_exact: Boolean(await waitFor(async () => lf(await clipboard.readText()) === report.text, 5000)) };
+        assert.equal(c.native_copy.full_text_exact, true, 'copy must preserve full text and Unicode');
+        for (const item of report.pages) {
+          await clickResultTab('Theo trang');
+          await sleep(150);
+          await js(`Array.from(document.querySelectorAll('.page-tabs button')).find(b => b.textContent === ${JSON.stringify('Trang ' + item.page)}).click(); true`);
+          await sleep(150);
+          const exact = await js(`document.querySelector('.text-output pre').textContent === ${JSON.stringify(item.text)}`);
+          (c.ui_native_views.pages ||= []).push({ page: item.page, exact });
+          assert.equal(exact, true, 'page view must preserve page text');
+        }
+        if (report.pages.length) {
+          const lastPage = report.pages.at(-1);
+          await js(`document.querySelector('button[title="Sao chép văn bản"]').click(); true`);
+          c.native_copy.page_text_exact = Boolean(await waitFor(async () => lf(await clipboard.readText()) === lastPage.text, 5000));
+          assert.equal(c.native_copy.page_text_exact, true, 'copy must use the selected page');
+          await screenshot('03c_ui_page_result.png');
+        }
+        await clickResultTab('Toàn văn');
+      } finally {
+        await clipboard.writeText(clipboardBefore);
+      }
     }
     await js(`document.querySelector('input[name=mode][value=vietocr_ocr]').click(); true`);
     await sleep(300);
@@ -418,12 +520,12 @@ async function runSmoke() {
         // so it is compared with LF ends. The clipboard is overwritten by this test run.
         const lf = (text) => text.replace(/\r\n/g, '\n');
         const expected = [report.text, ...(report.pages || []).map((p) => p.text)];
-        clipboard.writeText(`vietdoc-smoke-${Date.now()}`);
+        await clipboard.writeText(`vietdoc-smoke-${Date.now()}`);
         mainWindow.focus();
         wc.focus();
         await js(`document.querySelector('button[title="Sao chép văn bản"]').click(); true`);
         let last = '';
-        const copied = await waitFor(async () => { last = lf(clipboard.readText()); return expected.includes(last) ? last : null; }, 5_000);
+        const copied = await waitFor(async () => { last = lf(await clipboard.readText()); return expected.includes(last) ? last : null; }, 5_000);
         c.ocr_copy = { copied: Boolean(copied), chars: last.length, equals_full_text: last === report.text,
           equals_page_text: (report.pages || []).some((p) => p.text === last),
           ui_error: await js(`document.querySelector('.error-box')?.textContent.trim() || null`) };
@@ -471,9 +573,25 @@ async function runSmoke() {
     if (!statusWindow.isVisible()) statusWindow.showInactive();
     await sleep(500);
     await screenshot('05_status_window.png', statusWindow);
+    c.status_ui = await statusWindow.webContents.executeJavaScript(`({
+      summary: document.querySelector('#summary').textContent,
+      background: getComputedStyle(document.body).backgroundColor,
+      actions: Array.from(document.querySelectorAll('.actions button')).map(b => b.textContent),
+      diagnostics: Boolean(document.querySelector('details #facts dd') && document.querySelector('details #problems li')),
+      csp: document.querySelector('meta[http-equiv="Content-Security-Policy"]').content
+    })`);
+    assert.deepEqual(c.status_ui.actions, ['Thử lại', 'Mở log', 'Thoát']);
+    assert.ok(c.status_ui.summary.includes('Văn bản có sẵn trong PDF') && c.status_ui.summary.includes('Sẵn sàng'));
+    assert.ok(c.status_ui.csp.includes("default-src 'none'") && c.status_ui.csp.includes("script-src 'self'"));
   }
 
+  c.ui_console_errors = smoke.console.filter(entry => entry.level === 'error' && entry.phase !== 'security-probes');
+  assert.equal(c.ui_console_errors.length, 0, 'unexpected UI console error');
+  c.ui_external_requests = (smoke.blocked_requests || []).filter(url => !url.startsWith('https://example.com/'));
+  assert.equal(c.ui_external_requests.length, 0, 'the app must not request external fonts, CDN assets or models');
+
   // Failure handling: kill the server behind the app's back, expect the error state, then recover.
+  smoke.step = 'crash-recovery';
   const oldPid = backend.child.pid;
   const oldServerPid = backend.serverPid;
   const oldPort = backend.port;

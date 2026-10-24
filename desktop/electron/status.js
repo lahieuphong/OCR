@@ -18,6 +18,11 @@ function render(status) {
   const facts = $('facts');
   facts.replaceChildren();
   const desk = status.desktop;
+  const summary = $('summary');
+  summary.replaceChildren();
+  row(summary, 'Máy chủ xử lý', desk ? 'Đang chạy' : status.state === 'error' ? 'Chưa sẵn sàng' : 'Đang khởi động…');
+  row(summary, 'Nhận dạng OCR', desk ? (desk.ocr_allowed ? 'Sẵn sàng' : 'Thiếu model hoặc model chưa hợp lệ') : 'Chưa sẵn sàng');
+  row(summary, 'Văn bản có sẵn trong PDF', desk?.native_text_allowed ? 'Sẵn sàng' : 'Chưa sẵn sàng');
   if (desk) {
     row(facts, 'Backend', `đang chạy · 127.0.0.1:${desk.port} · PID ${desk.pid}`);
     row(facts, 'OCR (VietOCR B1024)', desk.ocr_allowed ? 'sẵn sàng' : 'bị chặn');
