@@ -1,0 +1,7 @@
+# INTERNAL TEST build: the release configuration plus the smoke test (--smoke-test drives the UI through
+# the Chromium debugger). Used only to run the packaged-app regression; never distribute its output.
+#
+#   npx electron-builder --win dir --x64 --config electron-builder.smoke.yml --config.directories.output=<out>
+extends: electron-builder.yml
+extraMetadata:
+  vietdocSmokeTest: true

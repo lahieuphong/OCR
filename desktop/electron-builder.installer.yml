@@ -1,0 +1,66 @@
+# electron-builder configuration: OFFLINE INSTALLER proof of concept (INTERNAL / NOT FOR DISTRIBUTION).
+#
+# One NSIS file, "VietDoc OCR Setup.exe" (Windows x64, full offline installer, per-user, no admin), that
+# carries everything OCR needs: Electron, the frontend build, the PyInstaller backend (Python runtime
+# included) and the verified models from the PRIVATE INTERNAL MODEL STAGING folder outside the repository.
+# Nothing is downloaded at install or run time: no nsis-web, no auto-update, no model download.
+#
+# Release behaviour is inherited from electron-builder.yml (fuses, smoke test refused, locales, asar).
+# Build from desktop/ with the backend AND the staged models linked into the ignored out\ folder
+# (electron-builder only accepts relative extraResources paths; see packaging/README.md, section 7):
+#
+#   mklink /J out\backend\vietdoc-backend <out>\backend-dist\vietdoc-backend
+#   mklink /J out\models  <staging>\models
+#   mklink /J out\paddlex <staging>\paddlex
+#   npx electron-builder --win nsis --x64 --config electron-builder.installer.yml --config.directories.output=<out>
+#   (then remove the three links with rmdir, which removes the link only)
+#
+# The models are never committed, never in Git LFS, never a CI artifact or a GitHub Release asset.
+# The installer is unsigned: an internal proof of concept only, kept outside the repository.
+extends: electron-builder.yml
+copyright: INTERNAL / NOT FOR DISTRIBUTION
+extraMetadata:
+  vietdocSmokeTest: false
+  # Written into the executables' version information (rcedit). Without an author, VietDoc OCR.exe would keep
+  # Electron's own CompanyName ("GitHub, Inc."): the app must never claim to come from someone else.
+  author:
+    name: VietDoc OCR project (internal)
+  description: VietDoc OCR - offline Vietnamese OCR (INTERNAL / NOT FOR DISTRIBUTION)
+# Added to electron-builder.yml's resources (extends concatenates the lists: backend, frontend and
+# model_lock.json come from the parent). config.js uses resources/models and resources/paddlex when nothing
+# else is configured; contract.py and model_lock.json check every SHA-256.
+extraResources:
+  - from: out/models
+    to: models
+  - from: out/paddlex
+    to: paddlex
+publish: null            # no update feed, no app-update.yml: auto-update is not part of this app
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  icon: build-resources/icon.ico
+  # No certificate: nothing is signed. This only lets electron-builder write the icon and version
+  # information into VietDoc OCR.exe (rcedit), as an installed Windows app shows them.
+  signAndEditExecutable: true
+  requestedExecutionLevel: asInvoker
+nsis:
+  oneClick: false              # assisted: notice page, Desktop-shortcut choice, progress, finish
+  perMachine: false            # per-user (%LOCALAPPDATA%\Programs); installer.nsh skips the mode page
+  allowElevation: false
+  allowToChangeInstallationDirectory: false
+  packElevateHelper: false
+  createStartMenuShortcut: true
+  createDesktopShortcut: false # installer.nsh asks the user instead (off by default)
+  shortcutName: VietDoc OCR
+  uninstallDisplayName: VietDoc OCR (INTERNAL)
+  artifactName: VietDoc OCR Setup.${ext}
+  installerIcon: build-resources/icon.ico
+  uninstallerIcon: build-resources/icon.ico
+  license: build-resources/INTERNAL_NOTICE.txt
+  include: build-resources/installer.nsh
+  deleteAppDataOnUninstall: false
+  differentialPackage: false   # no blockmap: nothing is updated over the network
+  runAfterFinish: true
+  unicode: true
+  warningsAsErrors: true

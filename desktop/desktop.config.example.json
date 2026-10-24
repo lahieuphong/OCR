@@ -1,5 +1,6 @@
 {
-  "_comment": "Copy to desktop.config.json (git-ignored) and fill in absolute paths. Environment variables VIETDOC_PYTHON and VIETDOC_PADDLEX_HOME take precedence. Nothing is downloaded: files under paddlexHome must match model_lock.json.",
+  "_comment": "Copy to desktop.config.json (git-ignored) and fill in absolute paths. Environment variables VIETDOC_PYTHON, VIETDOC_PADDLEX_HOME and VIETDOC_MODEL_ROOT take precedence. Nothing is downloaded: files under paddlexHome must match model_lock.json, files under modelRoot must match the SHA-256 pinned in contract.py.",
   "python": "<ABSOLUTE PATH TO>\\.venv-demo\\Scripts\\python.exe",
-  "paddlexHome": "<HOME>\\.paddlex"
+  "paddlexHome": "<HOME>\\.paddlex",
+  "modelRoot": "<ABSOLUTE PATH TO A VERIFIED COPY OF>\\models"
 }

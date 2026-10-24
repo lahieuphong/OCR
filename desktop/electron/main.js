@@ -4,19 +4,22 @@
 const fs = require('node:fs');
 const net = require('node:net');
 const path = require('node:path');
-const { pathToFileURL } = require('node:url');
-const { app, BrowserWindow, Menu, ipcMain, session, shell } = require('electron');
+const { app, BrowserWindow, Menu, clipboard, ipcMain, protocol, session, shell } = require('electron');
 const { resolveConfig } = require('./lib/config');
-const { BackendProcess } = require('./lib/backend');
+const { BackendProcess, describeExit } = require('./lib/backend');
 const security = require('./lib/security');
+const { smokeArgs, smokeAllowed } = require('./lib/smoke-gate');
+const { STATUS_SCHEME, STATUS_ORIGIN, STATUS_URL, STATUS_SCHEME_PRIVILEGES, statusHandler } = require('./lib/status-protocol');
 
-const STATUS_PAGE = path.join(__dirname, 'status.html');
-const STATUS_URL = pathToFileURL(STATUS_PAGE).href;
-const STATIC_PREFIX = pathToFileURL(__dirname + path.sep).href;
+// The status page is served over vietdoc-status://app/ (see lib/status-protocol.js), not file://.
+const STATIC_PREFIX = `${STATUS_ORIGIN}/`;
+protocol.registerSchemesAsPrivileged([STATUS_SCHEME_PRIVILEGES]);
 const DEV = !app.isPackaged;
-const ARGS = Object.fromEntries(process.argv.filter((a) => a.startsWith('--smoke-'))
-  .map((a) => { const [k, ...v] = a.slice(2).split('='); return [k, v.join('=')]; }));
-const SMOKE_DIR = ARGS['smoke-test'] || null;
+const ARGS = smokeArgs(process.argv);
+// A release build refuses the smoke options (see lib/smoke-gate.js): it starts nothing and exits with code 2.
+const SMOKE_REFUSED = Object.keys(ARGS).length > 0
+  && !smokeAllowed({ packaged: app.isPackaged, packageJson: require('../package.json') });
+const SMOKE_DIR = SMOKE_REFUSED ? null : ARGS['smoke-test'] || null;
 
 let backend = null;
 let statusWindow = null;
@@ -75,6 +78,7 @@ function createStatusWindow() {
   statusSession.webRequest.onBeforeRequest({ urls: ['<all_urls>'] }, (details, callback) => {
     callback({ cancel: !(details.url.startsWith(STATIC_PREFIX) || details.url.startsWith('devtools://')) });
   });
+  if (!statusSession.protocol.isProtocolHandled(STATUS_SCHEME)) statusSession.protocol.handle(STATUS_SCHEME, statusHandler(__dirname));
   statusWindow = new BrowserWindow({
     width: 680, height: 680, minHeight: 420, title: 'VietDoc OCR · Trạng thái', autoHideMenuBar: true, backgroundColor: '#101726',
     webPreferences: {
@@ -89,7 +93,7 @@ function createStatusWindow() {
     }
   });
   statusWindow.on('closed', () => { statusWindow = null; });
-  statusWindow.loadFile(STATUS_PAGE);
+  statusWindow.loadURL(STATUS_URL);
 }
 
 function showStatusWindow() {
@@ -142,7 +146,7 @@ async function startBackend() {
   sendStatus({ state: 'starting', step: 'config', message: 'Đang kiểm tra cấu hình…', error: null, desktop: null, log: null });
   let config;
   try {
-    config = resolveConfig();
+    config = resolveConfig({ packaged: app.isPackaged, resourcesPath: process.resourcesPath, userConfigDir: app.getPath('userData') });
   } catch (error) {
     sendStatus({ state: 'error', step: 'config', message: error.message });
     return false;
@@ -171,7 +175,7 @@ async function startBackend() {
 function onBackendExit(info) {
   if (quitting || info.expected) return;
   sendStatus({ state: 'error', step: 'crashed', desktop: null,
-    message: `Backend đã dừng bất ngờ (mã ${info.code}). Bấm "Khởi động lại" hoặc xem log.` });
+    message: `Backend đã dừng bất ngờ (${describeExit(info.code)}). Bấm "Khởi động lại" hoặc xem log.` });
   showStatusWindow();
 }
 
@@ -266,13 +270,20 @@ async function waitFor(fn, ms) {
 }
 
 // Screenshots are evidence only: a capture failure (e.g. Chromium's UnknownVizError right after the
-// window reloads behind the status window) is retried, then recorded instead of failing the run.
-async function screenshot(name) {
+// window reloads behind the status window, or a window that is hidden or gone) is retried, then recorded
+// in capture_errors (a warning for check-smoke-report.js) instead of failing the run. Only the capture
+// itself is caught here: every check of the backend, OCR, security, export and shutdown stays strict.
+// capturePage() never resolves for a hidden window, so the window is shown without focus first.
+async function screenshot(name, win = mainWindow) {
   let lastError = null;
   for (let attempt = 1; attempt <= 3; attempt += 1) {
     try {
-      if (!mainWindow.isVisible()) mainWindow.showInactive();
-      const image = await Promise.race([mainWindow.capturePage(), sleep(5000).then(() => null)]);
+      if (!win || win.isDestroyed()) {
+        lastError = 'window not available';
+        break;
+      }
+      if (!win.isVisible()) win.showInactive();
+      const image = await Promise.race([win.capturePage(), sleep(5000).then(() => null)]);
       if (image && !image.isEmpty()) {
         fs.writeFileSync(path.join(SMOKE_DIR, name), image.toPNG());
         return true;
@@ -402,6 +413,20 @@ async function runSmoke() {
         Object.assign(c.ocr_export, { json_sha256: sha256(ocrJson), json_method: report.method, pages: report.page_count,
           lines: report.line_count, decoder_limit_hits: report.decoder_limit_hits, model: report.model,
           txt_equals_json_text: fs.readFileSync(ocrTxt, 'utf8') === report.text });
+        // The UI's "copy text" button (navigator.clipboard, the session's only permission) copies the shown text:
+        // the current page or the whole document. The Windows clipboard returns that text with CRLF line ends,
+        // so it is compared with LF ends. The clipboard is overwritten by this test run.
+        const lf = (text) => text.replace(/\r\n/g, '\n');
+        const expected = [report.text, ...(report.pages || []).map((p) => p.text)];
+        clipboard.writeText(`vietdoc-smoke-${Date.now()}`);
+        mainWindow.focus();
+        wc.focus();
+        await js(`document.querySelector('button[title="Sao chép văn bản"]').click(); true`);
+        let last = '';
+        const copied = await waitFor(async () => { last = lf(clipboard.readText()); return expected.includes(last) ? last : null; }, 5_000);
+        c.ocr_copy = { copied: Boolean(copied), chars: last.length, equals_full_text: last === report.text,
+          equals_page_text: (report.pages || []).some((p) => p.text === last),
+          ui_error: await js(`document.querySelector('.error-box')?.textContent.trim() || null`) };
       }
     } else {
       // Models missing: the UI disables the button; the same request straight to the API must be refused.
@@ -442,13 +467,10 @@ async function runSmoke() {
   c.api_oversize = { status: r16.status, detail: r16.data && r16.data.detail };
   c.backend_status = (await backend.request('/__desktop__/status')).data;
   if (statusWindow) {
-    // The status window is hidden once OCR is allowed, and capturePage() never resolves for a hidden
-    // window: show it without focus first, and never wait more than 5 s.
+    // The status window is hidden once OCR is allowed: screenshot() shows it without focus first.
     if (!statusWindow.isVisible()) statusWindow.showInactive();
     await sleep(500);
-    const image = await Promise.race([statusWindow.capturePage(), sleep(5000).then(() => null)]);
-    if (image) fs.writeFileSync(path.join(SMOKE_DIR, '05_status_window.png'), image.toPNG());
-    else c.status_window_capture = 'timed out';
+    await screenshot('05_status_window.png', statusWindow);
   }
 
   // Failure handling: kill the server behind the app's back, expect the error state, then recover.
@@ -472,7 +494,10 @@ async function runSmoke() {
 
 // --------------------------------------------------------------- start
 
-if (!app.requestSingleInstanceLock()) {
+if (SMOKE_REFUSED) {
+  process.stderr.write('VietDoc OCR: --smoke-* options are not available in this build.\n');
+  app.exit(2);
+} else if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
   app.on('second-instance', () => {
@@ -498,9 +523,7 @@ if (!app.requestSingleInstanceLock()) {
       smoke.step = 'startup-failed';
       smoke.error = lastStatus.message;
       await sleep(1000);  // let the status page render the error before capturing it
-      const image = await Promise.race([statusWindow ? statusWindow.capturePage() : null, sleep(5000).then(() => null)]);
-      if (image) fs.writeFileSync(path.join(SMOKE_DIR, '00_status_error.png'), image.toPNG());
-      else smoke.status_capture = 'timed out';
+      await screenshot('00_status_error.png', statusWindow);
       app.quit();
     }
   }).catch((error) => {

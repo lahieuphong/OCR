@@ -6,16 +6,52 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { spawn, execFile } = require('node:child_process');
 const { serverArgs } = require('./config');
+const { backendEnv } = require('./backend-env');
 
 const READY_TIMEOUT_MS = 120_000;
 const GRACEFUL_STOP_MS = 8_000;
 
+// Windows reports a process killed by the loader or the CPU with an NTSTATUS exit code. The ones a missing
+// runtime, a damaged install or an unsupported CPU produce get an explanation the user can act on; the
+// detail stays in the backend log.
+const WINDOWS_EXIT_REASONS = new Map([
+  [0xC0000135, 'thiếu một thư viện DLL cần thiết (STATUS_DLL_NOT_FOUND). Hãy cài lại VietDoc OCR; nếu vẫn lỗi, '
+    + 'máy có thể thiếu thành phần Windows (Media Feature Pack trên bản N/KN) hoặc Microsoft Visual C++ Redistributable x64.'],
+  [0xC0000139, 'một DLL không có hàm cần thiết (STATUS_ENTRYPOINT_NOT_FOUND): phiên bản Windows hoặc DLL hệ thống không tương thích.'],
+  [0xC000007B, 'một DLL sai kiến trúc hoặc bị hỏng (STATUS_INVALID_IMAGE_FORMAT). Hãy cài lại VietDoc OCR (bản x64).'],
+  [0xC0000142, 'một DLL không khởi tạo được (STATUS_DLL_INIT_FAILED). Hãy cài lại VietDoc OCR.'],
+  [0xC000001D, 'CPU không hỗ trợ tập lệnh mà OCR cần (STATUS_ILLEGAL_INSTRUCTION, thường là AVX).'],
+  [0xC0000005, 'lỗi truy cập bộ nhớ (STATUS_ACCESS_VIOLATION).'],
+  [0xC0000409, 'tiến trình tự dừng khẩn cấp (STATUS_STACK_BUFFER_OVERRUN / fail-fast).'],
+  [0xC0000017, 'không đủ bộ nhớ (STATUS_NO_MEMORY).'],
+]);
+
+// "mã <code>" plus, for a known Windows status, what it means. code is null when a signal ended the process.
+function describeExit(code) {
+  if (code === null || code === undefined) return 'không có mã thoát';
+  const status = Number(code) >>> 0;
+  const reason = WINDOWS_EXIT_REASONS.get(status);
+  const hex = `0x${status.toString(16).toUpperCase().padStart(8, '0')}`;
+  return reason ? `mã ${code} = ${hex}: ${reason}` : `mã ${code}`;
+}
+
+// A backend executable that cannot be started at all (removed by an antivirus, damaged install).
+function describeSpawnError(error) {
+  if (error && (error.code === 'ENOENT' || error.code === 'EACCES' || error.code === 'EPERM')) {
+    return `Không chạy được backend (${error.code}): tệp backend bị thiếu hoặc bị chặn (ví dụ bởi phần mềm diệt virus). Hãy cài lại VietDoc OCR.`;
+  }
+  return String((error && error.message) || error);
+}
+
 class BackendProcess extends EventEmitter {
-  constructor(config, { logDir, spawnImpl = spawn } = {}) {
+  // sourceEnv/platform: the environment and OS the server's environment is built for (tests pass them explicitly).
+  constructor(config, { logDir, spawnImpl = spawn, sourceEnv = process.env, platform = process.platform } = {}) {
     super();
     this.config = config;
     this.logDir = logDir;
     this.spawnImpl = spawnImpl;
+    this.sourceEnv = sourceEnv;
+    this.platform = platform;
     this.child = null;
     this.port = null;
     this.token = null;
@@ -40,11 +76,14 @@ class BackendProcess extends EventEmitter {
     const log = fs.createWriteStream(this.logFile, { flags: 'a' });
     this.log = log;
     this.emit('status', { step: 'starting', message: 'Đang khởi động backend OCR…' });
-    const child = this.spawnImpl(this.config.python, serverArgs(this.config), {
+    // A minimal environment built from scratch (see backend-env.js), never the user's whole environment;
+    // VIETDOC_MODEL_ROOT reaches the server only as the validated config value.
+    const env = backendEnv(this.config, { sourceEnv: this.sourceEnv, platform: this.platform });
+    const child = this.spawnImpl(this.config.command || this.config.python, serverArgs(this.config), {
       cwd: this.config.repoRoot,
       windowsHide: true,
       stdio: ['pipe', 'pipe', 'pipe'],
-      env: { ...process.env, PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK: 'True' },
+      env,
     });
     this.child = child;
     child.stdin.on('error', () => { /* the server already exited; reported through 'exit' */ });
@@ -76,13 +115,13 @@ class BackendProcess extends EventEmitter {
       });
       child.on('error', (error) => {
         clearTimeout(timer);
-        reject(error);
+        reject(new Error(describeSpawnError(error)));
       });
       child.on('exit', (code, signal) => {
         clearTimeout(timer);
         this.exitInfo = { code, signal, expected: this.stopping };
         log.end();
-        reject(new Error(`Backend dừng trước khi sẵn sàng (mã ${code}).`));
+        reject(new Error(`Backend dừng trước khi sẵn sàng (${describeExit(code)}).`));
         this.emit('exit', this.exitInfo);
       });
     });
@@ -142,4 +181,4 @@ function killTree(pid) {
   });
 }
 
-module.exports = { BackendProcess };
+module.exports = { BackendProcess, describeExit, describeSpawnError };
