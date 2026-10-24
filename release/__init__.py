@@ -1,0 +1,1 @@
+"""VietDoc community release verifier."""
