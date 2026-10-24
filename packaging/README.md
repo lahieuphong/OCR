@@ -118,3 +118,40 @@ temp folders, user profile folders, CPU description), `PATH` = the backend's own
 only from the validated configuration. `PYTHON*`, `NODE_OPTIONS`, `PADDLE_PDX_*` sources and caches, `FLAGS_*`,
 threading knobs, proxies and every unrelated variable are dropped. Windows itself adds `USERNAME`, `USERDOMAIN` and
 `LOGONSERVER` to every child process (libuv), and the PyInstaller bootloader adds its `_PYI_*` variables.
+
+## 7. Offline installer (internal proof of concept)
+
+`desktop/electron-builder.installer.yml` turns the same build into one full offline NSIS installer,
+`VietDoc OCR Setup.exe` (Windows x64, per-user in `%LOCALAPPDATA%\Programs\VietDoc OCR`, no administrator
+rights, Start Menu shortcut, optional Desktop shortcut, uninstaller). It carries everything OCR needs, the
+verified models included, so the target machine needs no Python, Node.js, Git, PaddleOCR, model cache or
+`VIETDOC_MODEL_ROOT`. **Internal only and unsigned: never hand it to a third party** while the license review
+is open. Nothing is downloaded at install or run time (no `nsis-web`, no update feed, no model download).
+
+The models come from a private staging folder **outside every checkout**, filled from the owner-approved local
+sources and checked against the locked SHA-256 values (never committed, never in Git LFS, never a CI artifact or
+a GitHub Release asset):
+
+```
+<staging>\models\vietocr\onnx\exp_b_width1024\{encoder.onnx, decoder_step.onnx, metadata.json, parity_full.json}
+<staging>\models\vietocr\finetuned\exp_b_width1024\weights.pth
+<staging>\paddlex\official_models\PP-OCRv6_medium_det\{inference.json, inference.pdiparams, inference.yml}
+<staging>\paddlex\{func_ret, locks, temp}\   (empty folders PaddleX would otherwise create in the install folder)
+```
+
+Link the backend and both staging folders into the ignored `desktop\out\` folder, build, remove the links:
+
+```
+mklink /J desktop\out\backend\vietdoc-backend <out>\backend-dist\vietdoc-backend
+mklink /J desktop\out\models  <staging>\models
+mklink /J desktop\out\paddlex <staging>\paddlex
+cd desktop
+npx electron-builder --win nsis --x64 --config electron-builder.installer.yml --config.directories.output=<out>\installer
+cmd /c rmdir out\backend\vietdoc-backend & cmd /c rmdir out\models & cmd /c rmdir out\paddlex
+```
+
+The packaged app finds `resources\models` and `resources\paddlex` by itself (`desktop/electron/lib/config.js`);
+`VIETDOC_MODEL_ROOT`, `VIETDOC_PADDLEX_HOME` or `desktop.config.json` still take precedence when set. The
+SHA-256 checks of `contract.py` and `model_lock.json` apply unchanged: a missing or modified bundled file blocks
+OCR. `electron-builder.installer-smoke.yml` makes the internal test installer whose app accepts the smoke test,
+for the clean-profile regression only. Development and the model-free CI never look for bundled folders.

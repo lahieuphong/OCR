@@ -25,15 +25,37 @@ test('development allows the smoke test; a packaged build only with vietdocSmoke
   assert.equal(smokeAllowed({ packaged: true, packageJson: { vietdocSmokeTest: true } }), true);
 });
 
-test('release config refuses the smoke test; only the test config enables it; the checkout sets neither', () => {
-  const release = fs.readFileSync(path.join(DESKTOP, 'electron-builder.yml'), 'utf8');
-  const smoke = fs.readFileSync(path.join(DESKTOP, 'electron-builder.smoke.yml'), 'utf8');
+// A Windows checkout (core.autocrlf=true, the default of actions/checkout on windows-latest) has CRLF line
+// endings: compare the YAML text with LF endings so the same strict patterns apply on every OS.
+function checkSmokeConfigs(releaseText, smokeText) {
+  const release = releaseText.replace(/\r\n/g, '\n');
+  const smoke = smokeText.replace(/\r\n/g, '\n');
   assert.match(release, /^extraMetadata:\n {2}vietdocSmokeTest: false$/m);
   assert.doesNotMatch(release, /vietdocSmokeTest: true/);
   assert.match(smoke, /^extends: electron-builder\.yml$/m);
   assert.match(smoke, /^ {2}vietdocSmokeTest: true$/m);
+}
+
+test('release config refuses the smoke test; only the test config enables it; the checkout sets neither', () => {
+  checkSmokeConfigs(fs.readFileSync(path.join(DESKTOP, 'electron-builder.yml'), 'utf8'),
+    fs.readFileSync(path.join(DESKTOP, 'electron-builder.smoke.yml'), 'utf8'));
   const pkg = JSON.parse(fs.readFileSync(path.join(DESKTOP, 'package.json'), 'utf8'));
   assert.equal('vietdocSmokeTest' in pkg, false);
+});
+
+test('the config check gives the same verdict for LF and CRLF files and still rejects a smoke-enabled release', () => {
+  const lf = (text) => text.replace(/\r\n/g, '\n');
+  const crlf = (text) => lf(text).replace(/\n/g, '\r\n');
+  const release = fs.readFileSync(path.join(DESKTOP, 'electron-builder.yml'), 'utf8');
+  const smoke = fs.readFileSync(path.join(DESKTOP, 'electron-builder.smoke.yml'), 'utf8');
+  for (const eol of [lf, crlf]) {
+    checkSmokeConfigs(eol(release), eol(smoke));
+    const enabled = lf(release).replace('  vietdocSmokeTest: false', '  vietdocSmokeTest: true');
+    assert.throws(() => checkSmokeConfigs(eol(enabled), eol(smoke)), assert.AssertionError);
+    const unindented = lf(release).replace('  vietdocSmokeTest: false', 'vietdocSmokeTest: false');
+    assert.throws(() => checkSmokeConfigs(eol(unindented), eol(smoke)), assert.AssertionError);
+    assert.throws(() => checkSmokeConfigs(eol(release), eol(lf(smoke).replace('extends:', '# extends:'))), assert.AssertionError);
+  }
 });
 
 test('afterPack removes only default_app.asar', async (t) => {

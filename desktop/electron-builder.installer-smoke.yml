@@ -1,0 +1,9 @@
+# INTERNAL TEST INSTALLER: identical to electron-builder.installer.yml except that the packaged app accepts
+# the --smoke-* options, so the clean-profile test can drive the installed app's real UI (OCR, copy,
+# export). Never hand its output to anyone; the release installer refuses the smoke test (exit code 2).
+extends: electron-builder.installer.yml
+extraMetadata:
+  vietdocSmokeTest: true
+nsis:
+  artifactName: VietDoc OCR Setup INTERNAL-SMOKE-TEST.${ext}
+  uninstallDisplayName: VietDoc OCR (INTERNAL SMOKE TEST)

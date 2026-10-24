@@ -45,6 +45,14 @@ function checkReport(report, { expect = 'no-models', withPdf = false } = {}) {
       const e = c.ocr_export || {};
       need(e.both_saved && e.txt_equals_json_text && e.json_method === 'vietocr_ocr' && e.decoder_limit_hits === 0
         && e.model === 'phase4_exp_b_width1024', `OCR export: ${JSON.stringify(e)}`);
+      // Copy button: an error shown by the UI fails the run. What the main process reads back from the clipboard
+      // is evidence only: on Windows that read-back proved unreliable (empty or stale while another process saw the
+      // copied text), so a mismatch is a warning; verify the clipboard from outside (clipboard_watch) instead.
+      const copy = c.ocr_copy || {};
+      need(c.ocr_copy && !copy.ui_error, `copy button: ${JSON.stringify(copy)} (the UI reported a copy error or never ran the check)`);
+      if (!(copy.copied && (copy.equals_full_text || copy.equals_page_text))) {
+        warnings.push(`copy button: clipboard read-back not confirmed in-process (evidence only): ${JSON.stringify(copy)}`);
+      }
     } else {
       need(c.ui_ocr_run_button_disabled === true, 'the OCR button is enabled although models are missing');
       need(c.api_vietocr_ocr && c.api_vietocr_ocr.status === 503 && /chặn OCR/.test(c.api_vietocr_ocr.detail || ''),

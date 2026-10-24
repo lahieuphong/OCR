@@ -1,0 +1,15 @@
+﻿VIETDOC OCR - BẢN THỬ NGHIỆM NỘI BỘ
+INTERNAL / NOT FOR DISTRIBUTION
+
+Bộ cài này chỉ dùng để kiểm thử nội bộ của chủ dự án VietDoc OCR.
+KHÔNG được phát hành, gửi, tải lên hoặc chuyển cho bất kỳ bên thứ ba nào.
+
+Lý do: việc rà soát giấy phép phân phối chưa hoàn tất (PyMuPDF AGPL-3.0 hoặc
+giấy phép thương mại, quyền phân phối trọng số VietOCR B1024, thông báo
+giấy phép của Paddle/PaddleX và các thư viện phụ thuộc, quyền phân phối
+Microsoft Visual C++ runtime). Bộ cài chưa được ký số.
+
+Ứng dụng chạy hoàn toàn trên máy: không tải model, không cập nhật tự động,
+không gửi tài liệu ra Internet.
+
+Bấm "I Agree" chỉ để xác nhận bạn là người kiểm thử nội bộ được phép.

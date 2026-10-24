@@ -61,15 +61,12 @@ test('token goes over stdin, never argv or env; READY sets the loopback origin',
   child.emit('exit', 0, null);
 });
 
-test('the spawned server gets the minimal environment, not the parent environment', async (t) => {
+// Starts a backend with the given source environment and target platform; returns the spawned environment.
+// The platform is explicit so the expectations do not depend on the OS running the tests.
+function spawnedEnv(t, config, { sourceEnv, platform }) {
   const logDir = fs.mkdtempSync(path.join(os.tmpdir(), 'vietdoc-desktop-backend-'));
   const fake = fakeSpawn();
-  const sourceEnv = { SystemRoot: 'C:\\WINDOWS', TEMP: 'C:\\t', PYTHONPATH: 'C:\\evil', NODE_OPTIONS: '--inspect',
-    PADDLE_PDX_MODEL_SOURCE: 'huggingface', VIETDOC_MODEL_ROOT: 'C:\\attacker', GITHUB_TOKEN: 'ghp_secret' };
-  const backend = new BackendProcess({ backendExe: 'C:\\app\\resources\\backend\\vietdoc-backend\\vietdoc-backend.exe',
-    command: 'C:\\app\\resources\\backend\\vietdoc-backend\\vietdoc-backend.exe', repoRoot: 'C:\\app\\resources',
-    frontendDist: 'C:\\app\\resources\\frontend', modelLock: 'C:\\app\\resources\\model_lock.json', paddlexHome: 'C:\\px',
-    modelRoot: 'D:\\models' }, { logDir, spawnImpl: fake.spawnImpl, sourceEnv });
+  const backend = new BackendProcess(config, { logDir, spawnImpl: fake.spawnImpl, sourceEnv, platform });
   backend.on('error', () => {});
   t.after(async () => {
     if (fake.calls[0] && !backend.exitInfo) fake.calls[0].child.emit('exit', 0, null);
@@ -77,10 +74,39 @@ test('the spawned server gets the minimal environment, not the parent environmen
     fs.rmSync(logDir, { recursive: true, force: true });
   });
   backend.start().catch(() => {});
-  const { env } = fake.calls[0].options;
+  return { env: fake.calls[0].options.env, backend };
+}
+
+test('the spawned server gets the minimal environment, not the parent environment (Windows)', async (t) => {
+  const sourceEnv = { SystemRoot: 'C:\\WINDOWS', TEMP: 'C:\\t', PYTHONPATH: 'C:\\evil', NODE_OPTIONS: '--inspect',
+    PADDLE_PDX_MODEL_SOURCE: 'huggingface', VIETDOC_MODEL_ROOT: 'C:\\attacker', GITHUB_TOKEN: 'ghp_secret' };
+  const { env, backend } = spawnedEnv(t, { backendExe: 'C:\\app\\resources\\backend\\vietdoc-backend\\vietdoc-backend.exe',
+    command: 'C:\\app\\resources\\backend\\vietdoc-backend\\vietdoc-backend.exe', repoRoot: 'C:\\app\\resources',
+    frontendDist: 'C:\\app\\resources\\frontend', modelLock: 'C:\\app\\resources\\model_lock.json', paddlexHome: 'C:\\px',
+    modelRoot: 'D:\\models' }, { sourceEnv, platform: 'win32' });
   for (const name of ['PYTHONPATH', 'NODE_OPTIONS', 'PADDLE_PDX_MODEL_SOURCE', 'GITHUB_TOKEN']) assert.equal(env[name], undefined, name);
   assert.equal(env.VIETDOC_MODEL_ROOT, 'D:\\models', 'the validated config value, not the environment value');
   assert.equal(env.TEMP, 'C:\\t');
+  assert.equal(env.PATH, ['C:\\app\\resources\\backend\\vietdoc-backend', 'C:\\app\\resources\\backend\\vietdoc-backend\\_internal',
+    'C:\\WINDOWS\\System32', 'C:\\WINDOWS', 'C:\\WINDOWS\\System32\\Wbem'].join(';'));
+  assert.equal(env.PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK, 'True');
+  assert.ok(!Object.values(env).includes(backend.token));
+});
+
+test('the spawned server gets the minimal environment, not the parent environment (POSIX development run)', async (t) => {
+  const sourceEnv = { HOME: '/home/u', TMPDIR: '/tmp/u', TEMP: '/tmp/windows-only', LD_PRELOAD: '/evil.so',
+    PYTHONPATH: '/evil', NODE_OPTIONS: '--inspect', PADDLE_PDX_MODEL_SOURCE: 'huggingface', VIETDOC_MODEL_ROOT: '/attacker',
+    GITHUB_TOKEN: 'ghp_secret' };
+  const { env, backend } = spawnedEnv(t, { python: '/repo/.venv/bin/python', repoRoot: '/repo',
+    serverScript: '/repo/desktop/python/s.py', frontendDist: '/repo/dist', modelLock: '/repo/desktop/model_lock.json',
+    paddlexHome: '/px', modelRoot: '/models' }, { sourceEnv, platform: 'linux' });
+  for (const name of ['PYTHONPATH', 'NODE_OPTIONS', 'PADDLE_PDX_MODEL_SOURCE', 'GITHUB_TOKEN', 'LD_PRELOAD', 'TEMP']) {
+    assert.equal(env[name], undefined, name);
+  }
+  assert.equal(env.VIETDOC_MODEL_ROOT, '/models', 'the validated config value, not the environment value');
+  assert.equal(env.TMPDIR, '/tmp/u');
+  assert.equal(env.HOME, '/home/u');
+  assert.equal(env.PATH, '/repo/.venv/bin:/usr/local/bin:/usr/bin:/bin');
   assert.equal(env.PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK, 'True');
   assert.ok(!Object.values(env).includes(backend.token));
 });
@@ -122,4 +148,29 @@ test('stderr and stdout go to the log file; start twice is refused', async (t) =
 test('stop on an already stopped backend does nothing', async (t) => {
   const { backend } = makeBackend(t);
   assert.deepEqual(await backend.stop(), { graceful: true, alreadyStopped: true });
+});
+
+test('Windows loader/CPU exit codes get an explanation; other codes stay plain', async (t) => {
+  const { describeExit, describeSpawnError } = require('../electron/lib/backend');
+  assert.match(describeExit(3221225781), /0xC0000135: thiếu một thư viện DLL/);
+  assert.match(describeExit(-1073741515), /0xC0000135/, 'the same status as a signed 32-bit code');
+  assert.match(describeExit(3221225501), /0xC000001D: CPU không hỗ trợ/);
+  assert.match(describeExit(3221225595), /INVALID_IMAGE_FORMAT/);
+  assert.equal(describeExit(3), 'mã 3');
+  assert.equal(describeExit(null), 'không có mã thoát');
+  assert.match(describeSpawnError(Object.assign(new Error('spawn x ENOENT'), { code: 'ENOENT' })), /bị thiếu hoặc bị chặn/);
+  assert.equal(describeSpawnError(new Error('other')), 'other');
+  // Through the process: a DLL-not-found exit before READY rejects start with the explanation.
+  const { backend, fake } = makeBackend(t);
+  const ready = backend.start();
+  fake.calls[0].child.emit('exit', 3221225781, null);
+  await assert.rejects(ready, /dừng trước khi sẵn sàng \(mã 3221225781 = 0xC0000135: thiếu một thư viện DLL/);
+});
+
+test('a backend that cannot be spawned is reported as missing or blocked', async (t) => {
+  const { backend, fake } = makeBackend(t);
+  const ready = backend.start();
+  fake.calls[0].child.emit('error', Object.assign(new Error('spawn C:/x.exe ENOENT'), { code: 'ENOENT' }));
+  await assert.rejects(ready, /ENOENT.*bị thiếu hoặc bị chặn/);
+  fake.calls[0].child.emit('exit', -4058, null);
 });

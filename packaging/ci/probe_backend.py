@@ -147,7 +147,9 @@ C["stdin_watchdog"]["ok"] = exited and not C["stdin_watchdog"]["alive_after"]
 C["no_download_into_empty_paddlex_home"] = {"entries": os.listdir(EMPTY), "ok": not os.listdir(EMPTY)}
 results["all_ok"] = all(v.get("ok", True) for v in C.values() if isinstance(v, dict))
 json.dump(results, open(OUT, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+# Console lines stay ASCII (\u escapes): a Windows runner's piped stdout is cp1252, and the server's Vietnamese
+# messages would otherwise crash the probe after the checks ran. The JSON file above keeps the real text.
 for k, v in C.items():
-    print(f"{'PASS' if v.get('ok', True) else 'FAIL'} {k}: {json.dumps({x: y for x, y in v.items() if x != 'ok'}, ensure_ascii=False)[:160]}")
+    print(f"{'PASS' if v.get('ok', True) else 'FAIL'} {k}: {json.dumps({x: y for x, y in v.items() if x != 'ok'})[:160]}")
 print("ALL_OK" if results["all_ok"] else "SOME_FAILED")
 sys.exit(0 if results["all_ok"] else 1)

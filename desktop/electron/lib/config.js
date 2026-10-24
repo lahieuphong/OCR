@@ -8,7 +8,11 @@
 //
 // Machine-specific data locations (detector cache, model root) come from the environment or a
 // desktop.config.json (git-ignored in the checkout; in the user's app-data folder when packaged).
-// Nothing is downloaded, copied or linked here.
+// An offline installer build may also carry the verified models in its resources folder
+// (resources/models: the VietOCR B1024 files in the <repo>/models layout; resources/paddlex: a PaddleX
+// home holding official_models/PP-OCRv6_medium_det). A packaged app uses them when nothing else is
+// configured; development never looks there. The SHA-256 checks of contract.py and model_lock.json apply
+// unchanged to bundled files. Nothing is downloaded, copied or linked here.
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -16,6 +20,8 @@ const path = require('node:path');
 const DESKTOP_DIR = path.resolve(__dirname, '..', '..');
 const REPO_ROOT = path.resolve(DESKTOP_DIR, '..');
 const PACKAGED_BACKEND = path.join('backend', 'vietdoc-backend', 'vietdoc-backend.exe');
+const BUNDLED_MODEL_ROOT = 'models';
+const BUNDLED_PADDLEX_HOME = 'paddlex';
 
 class ConfigError extends Error {}
 
@@ -36,6 +42,12 @@ function absoluteFile(label, value) {
     throw new ConfigError(`${label} không tồn tại: ${value}`);
   }
   return value;
+}
+
+// A folder inside the packaged resources, or null when this build does not carry it.
+function bundledDir(resourcesPath, name) {
+  const dir = path.join(resourcesPath, name);
+  return fs.existsSync(dir) && fs.statSync(dir).isDirectory() ? dir : null;
 }
 
 function resolveConfig({ env = process.env, repoRoot = REPO_ROOT, desktopDir = DESKTOP_DIR,
@@ -59,11 +71,14 @@ function resolveConfig({ env = process.env, repoRoot = REPO_ROOT, desktopDir = D
     throw new ConfigError(packaged ? `Bản cài thiếu giao diện (${frontendDist}).`
       : `Chưa build frontend (${frontendDist}). Chạy: npm run build:frontend`);
   }
-  const paddlexHome = env.VIETDOC_PADDLEX_HOME || local.paddlexHome || path.join(os.homedir(), '.paddlex');
+  // Order: environment, desktop.config.json, the build's bundled folder (packaged only), the default.
+  const bundledPaddlex = packaged ? bundledDir(resourcesPath, BUNDLED_PADDLEX_HOME) : null;
+  const paddlexHome = env.VIETDOC_PADDLEX_HOME || local.paddlexHome || bundledPaddlex || path.join(os.homedir(), '.paddlex');
   if (!path.isAbsolute(paddlexHome)) throw new ConfigError(`Thư mục PaddleX phải tuyệt đối: ${paddlexHome}`);
   // Optional folder with the frozen VietOCR files outside the checkout (same layout as <repo>/models).
   // It only moves the location; contract.py still checks every SHA-256 and blocks OCR on any difference.
-  const modelRoot = env.VIETDOC_MODEL_ROOT || local.modelRoot || null;
+  const bundledModels = packaged ? bundledDir(resourcesPath, BUNDLED_MODEL_ROOT) : null;
+  const modelRoot = env.VIETDOC_MODEL_ROOT || local.modelRoot || bundledModels || null;
   if (modelRoot && (!path.isAbsolute(modelRoot) || !fs.existsSync(modelRoot) || !fs.statSync(modelRoot).isDirectory())) {
     throw new ConfigError(`Thư mục model (VIETDOC_MODEL_ROOT hoặc "modelRoot") phải là thư mục tuyệt đối đã tồn tại: ${modelRoot}`);
   }
@@ -79,6 +94,10 @@ function resolveConfig({ env = process.env, repoRoot = REPO_ROOT, desktopDir = D
     frontendDist,
     paddlexHome,
     modelRoot,
+    sources: {
+      paddlexHome: env.VIETDOC_PADDLEX_HOME ? 'env' : local.paddlexHome ? 'config' : bundledPaddlex ? 'bundled' : 'default',
+      modelRoot: env.VIETDOC_MODEL_ROOT ? 'env' : local.modelRoot ? 'config' : bundledModels ? 'bundled' : 'default',
+    },
   };
 }
 
@@ -91,4 +110,5 @@ function serverArgs(config) {
   return config.backendExe ? common : ['-I', '-B', '-X', 'utf8', config.serverScript, ...common];
 }
 
-module.exports = { ConfigError, resolveConfig, serverArgs, DESKTOP_DIR, REPO_ROOT, PACKAGED_BACKEND };
+module.exports = { ConfigError, resolveConfig, serverArgs, DESKTOP_DIR, REPO_ROOT, PACKAGED_BACKEND,
+  BUNDLED_MODEL_ROOT, BUNDLED_PADDLEX_HOME };
