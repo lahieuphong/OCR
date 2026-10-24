@@ -18,6 +18,9 @@ packages required by this UI. The upstream MIT license is included in
 The interface uses white/slate surfaces, blue actions, keyboard focus rings,
 accessible Radix tabs and tooltips. Two columns use approximately 45%/55% of the
 workspace; below 800 CSS pixels the panels stack and the document scrolls normally.
+The processing actions stay visible at the bottom of short windows while the
+document and options remain scrollable, including when Windows constrains the
+requested window size to a smaller display.
 Processing shows elapsed time and an **indeterminate** Progress component, with no
 invented percentage. All fonts, icons, scripts and styles resolve locally at runtime.
 

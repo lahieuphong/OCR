@@ -268,12 +268,14 @@ export default function App() {
                 <AlertDescription>Thiếu model hoặc model chưa hợp lệ. Bạn vẫn có thể trích xuất văn bản có sẵn trong PDF.</AlertDescription>
               </Alert>}
 
+              <div className="input-actions">
               <Button className="run-button" size="lg" onClick={runOcr} disabled={!document || working || !canRun}>
                 {working ? <LoaderCircle className="spin" size={18}/> : <ScanText size={18}/>}
                 {working ? "Đang bóc tách…" : "Bóc tách văn bản"}{!working && <ArrowRight size={17}/>}
               </Button>
               {working && <div className="processing-status" role="status"><Progress value={null} className="processing-progress" aria-label="Đang xử lý, chưa có tiến độ phần trăm"/><span><Clock3 size={14}/> Đang xử lý trên máy · {elapsed.toFixed(0)} giây</span></div>}
               {error && <Alert variant="destructive" className="error-box"><AlertTriangle size={17}/><AlertTitle>Không thể hoàn tất thao tác</AlertTitle><AlertDescription>{error}</AlertDescription></Alert>}
+              </div>
             </CardContent>
           </Card>
 

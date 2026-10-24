@@ -365,6 +365,7 @@ async function runSmoke() {
     await sleep(350);
     c.ui_layout[name] = await layout();
     assert.ok(c.ui_layout[name].scroll_width <= c.ui_layout[name].width, name + ' layout overflows horizontally');
+    assert.ok(c.ui_layout[name].run_bottom <= c.ui_layout[name].height, name + ' run button must stay visible');
     if (name === 'narrow') assert.equal(c.ui_layout[name].stacked, true, 'narrow workspace must stack');
     await screenshot('01_ui_' + name + '.png');
   }
