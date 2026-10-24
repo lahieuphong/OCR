@@ -18,6 +18,7 @@ import json
 import os
 import re
 import sys
+from pathlib import Path
 
 FORBIDDEN_FILES = [
     ("model weights or checkpoint", re.compile(r"\.(onnx|pth|pt|ckpt|safetensors|pdparams|pdiparams|pdmodel|pdopt|h5|tflite)$", re.I)),
@@ -47,6 +48,36 @@ SECRET_CONTENT = [
 PEM_ALLOWED = re.compile(r"\.pem$", re.I)  # .pem is checked by content (private key block), not by name
 
 
+# Only these six compiled wheel extensions were found to contain GitHub runner profile
+# paths in PE debug data. Even here, permit ONLY the explicitly supplied profile when
+# the bundled extension SHA-256 equals its original, unmodified installed wheel.
+# All other sensitive strings, other paths and modified binaries remain forbidden.
+VERIFIED_NATIVE_WHEELS = frozenset({
+    "bidi/bidi.cp312-win_amd64.pyd",
+    "cryptography/hazmat/bindings/_rust.pyd",
+    "pydantic_core/_pydantic_core.cp312-win_amd64.pyd",
+    "safetensors/_safetensors_rust.pyd",
+    "shapely/_geometry_helpers.cp312-win_amd64.pyd",
+    "shapely/_geos.cp312-win_amd64.pyd",
+})
+PACKAGED_NATIVE_PREFIX = "resources/backend/vietdoc-backend/_internal/"
+
+
+def encoded_variants(text: str) -> set[bytes]:
+    variants = {text, text.replace(chr(92), "/"), text.replace("/", chr(92)), text.lower()}
+    return {data for value in variants for data in (value.encode("utf-8"), value.encode("utf-16-le"))}
+
+
+def verified_upstream_native(rel: str, digest: str, wheel_root: str | None) -> bool:
+    if not wheel_root or not rel.startswith(PACKAGED_NATIVE_PREFIX):
+        return False
+    suffix = rel[len(PACKAGED_NATIVE_PREFIX):]
+    if suffix not in VERIFIED_NATIVE_WHEELS:
+        return False
+    original = Path(wheel_root).joinpath(*suffix.split("/"))
+    return original.is_file() and not original.is_symlink() and sha256(str(original)) == digest
+
+
 def sha256(path: str) -> str:
     h = hashlib.sha256()
     with open(path, "rb") as f:
@@ -55,13 +86,12 @@ def sha256(path: str) -> str:
     return h.hexdigest()
 
 
-def scan(root: str, forbid: list[str]) -> tuple[list[dict], list[tuple[str, int, str]]]:
+def scan(root: str, forbid: list[str], *, wheel_root: str | None = None,
+         wheel_profile: str | None = None) -> tuple[list[dict], list[tuple[str, int, str]], list[dict]]:
     findings, manifest = [], []
-    needles = []
-    for text in forbid:
-        if text:
-            for variant in {text, text.replace("\\", "/"), text.replace("/", "\\"), text.lower()}:
-                needles += [variant.encode("utf-8"), variant.encode("utf-16-le")]
+    needles = set().union(*(encoded_variants(value) for value in forbid if value))
+    profile_needles = (encoded_variants(wheel_profile) & needles) if wheel_root and wheel_profile in forbid else set()
+    verified_paths = set()
     for dirpath, dirnames, filenames in os.walk(root):
         for d in list(dirnames):
             if os.path.islink(os.path.join(dirpath, d)):
@@ -71,20 +101,29 @@ def scan(root: str, forbid: list[str]) -> tuple[list[dict], list[tuple[str, int,
             full = os.path.join(dirpath, name)
             rel = os.path.relpath(full, root).replace(os.sep, "/")
             size = os.path.getsize(full)
-            manifest.append((rel, size, sha256(full)))
+            digest = sha256(full)
+            manifest.append((rel, size, digest))
             if not any(rx.search("/" + rel) for rx in ALLOWED_FILES):
                 findings += [{"path": rel, "reason": reason} for reason, rx in FORBIDDEN_FILES if rx.search(rel)]
             with open(full, "rb") as f:
                 data = f.read()
             findings += [{"path": rel, "reason": reason} for reason, rx in SECRET_CONTENT if rx.search(data)]
-            findings += [{"path": rel, "reason": "machine path " + n.decode("utf-8", "replace").replace("\0", "")}
-                         for n in dict.fromkeys(needles) if n in data]
+            native_matches_wheel = bool(profile_needles) and verified_upstream_native(rel, digest, wheel_root)
+            for n in needles:
+                if n not in data:
+                    continue
+                if native_matches_wheel and n in profile_needles:
+                    verified_paths.add(rel)
+                    continue
+                findings.append({"path": rel, "reason": "machine path " + n.decode("utf-8", "replace").replace(chr(0), "")})
             if name == "model_lock.json":
                 lock = json.loads(data)
                 text = json.dumps(lock)
                 if re.search(r"[A-Za-z]:[\\/]|/home/|/Users/", text):
                     findings.append({"path": rel, "reason": "model_lock.json contains a path"})
-    return findings, sorted(manifest)
+    warnings = [{"path": rel, "reason": "byte-identical upstream wheel has CI profile debug data"}
+                for rel in sorted(verified_paths)]
+    return findings, sorted(manifest), warnings
 
 
 def main() -> int:
@@ -92,20 +131,27 @@ def main() -> int:
     ap.add_argument("root")
     ap.add_argument("out")
     ap.add_argument("--forbid-string", action="append", default=[])
+    ap.add_argument("--verified-wheel-root", help="site-packages directory of the installed wheels")
+    ap.add_argument("--verified-wheel-profile", help="CI account profile already in --forbid-string")
     a = ap.parse_args()
+    if bool(a.verified_wheel_root) != bool(a.verified_wheel_profile):
+        ap.error("both verified wheel arguments must be provided")
     os.makedirs(a.out, exist_ok=True)
-    findings, manifest = scan(a.root, a.forbid_string)
+    findings, manifest, warnings = scan(a.root, a.forbid_string,
+                                        wheel_root=a.verified_wheel_root, wheel_profile=a.verified_wheel_profile)
     with open(os.path.join(a.out, "manifest.tsv"), "w", encoding="utf-8", newline="\n") as f:
         f.write("path\tsize\tsha256\n")
         f.writelines(f"{p}\t{s}\t{h}\n" for p, s, h in manifest)
     summary = {"root": os.path.basename(os.path.abspath(a.root)), "files": len(manifest),
                "bytes": sum(s for _, s, _ in manifest), "forbid_strings": len(a.forbid_string),
-               "findings": findings, "result": "FAIL" if findings else "PASS"}
+               "findings": findings, "verified_wheel_warnings": warnings, "result": "FAIL" if findings else "PASS"}
     with open(os.path.join(a.out, "scan.json"), "w", encoding="utf-8", newline="\n") as f:
         json.dump(summary, f, ensure_ascii=False, indent=1)
     print(f"{summary['result']}: {summary['files']} files, {summary['bytes']} bytes, {len(findings)} finding(s)")
     for item in findings[:50]:
         print(f"  {item['reason']}: {item['path']}")
+    for item in warnings:
+        print(f"  NOTE: {item['reason']}: {item['path']}")
     return 1 if findings else 0
 
 

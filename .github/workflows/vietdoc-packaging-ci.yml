@@ -157,9 +157,14 @@ jobs:
 
       - name: Scan both builds - no models, documents, secrets, local config or machine paths; build manifests
         run: |
+          # Prebuilt third-party .pyd wheels can embed the hosted runner's profile as PE debug metadata.
+          # Only six explicitly identified, byte-identical wheel extensions may contain that one path.
+          # Other paths, secrets, model files and documents must still fail closed.
+          wheel_root="$("$VPY" -c 'import sysconfig; print(sysconfig.get_path("platlib"))')"
           for build in electron-release electron-smoke; do
             "$VPY" packaging/ci/scan_bundle.py "$OUT/$build/win-unpacked" "$OUT/report/scan-$build" \
-              --forbid-string "$GITHUB_WORKSPACE" --forbid-string "$USERPROFILE" --forbid-string "$RUNNER_TEMP"
+              --forbid-string "$GITHUB_WORKSPACE" --forbid-string "$USERPROFILE" --forbid-string "$RUNNER_TEMP" \
+              --verified-wheel-root "$wheel_root" --verified-wheel-profile "$USERPROFILE"
           done
 
       - name: Synthetic PDF (the only document used)

@@ -76,6 +76,51 @@ class ScanBundleTest(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertEqual({f["path"] for f in summary["findings"]}, {"p1.pyc", "p2.dll"})
 
+    def test_upstream_wheel_profile_acceptance_needs_identical_bytes(self):
+        rel = "resources/backend/vietdoc-backend/_internal/bidi/bidi.cp312-win_amd64.pyd"
+        wheel_suffix = "bidi/bidi.cp312-win_amd64.pyd"
+        profile = "C:" + chr(92) + "Users" + chr(92) + "runneradmin"
+        payload = b"MZ" + profile.encode() + b" benign PE debug content"
+        write(self.root, rel, payload)
+        with tempfile.TemporaryDirectory() as wheels:
+            write(wheels, wheel_suffix, payload)
+            args = ("--forbid-string", profile, "--verified-wheel-root", wheels,
+                    "--verified-wheel-profile", profile)
+            code, result, _ = run(self.root, *args)
+            self.assertEqual(code, 0, result)
+            self.assertEqual(result["findings"], [])
+            self.assertEqual([w["path"] for w in result["verified_wheel_warnings"]], [rel])
+
+            write(self.root, rel, payload + b" tampered")
+            code, result, _ = run(self.root, *args)
+            self.assertEqual(code, 1)
+            self.assertIn(rel, {f["path"] for f in result["findings"]})
+
+            write(self.root, rel, payload)
+            write(self.root, "resources/app.asar", profile)
+            code, result, _ = run(self.root, *args)
+            self.assertEqual(code, 1)
+            self.assertIn("resources/app.asar", {f["path"] for f in result["findings"]})
+
+            code, result, _ = run(self.root, "--forbid-string", profile)
+            self.assertEqual(code, 1)
+            self.assertIn(rel, {f["path"] for f in result["findings"]})
+
+    def test_verified_wheel_still_checks_secrets_and_other_paths(self):
+        rel = "resources/backend/vietdoc-backend/_internal/shapely/_geos.cp312-win_amd64.pyd"
+        profile = "C:" + chr(92) + "Users" + chr(92) + "runneradmin"
+        checkout = "D:" + chr(92) + "a" + chr(92) + "OCR"
+        token = "gh" + "p_" + "A" * 36
+        payload = ("MZ " + profile + " " + checkout + " " + token).encode()
+        write(self.root, rel, payload)
+        with tempfile.TemporaryDirectory() as wheels:
+            write(wheels, "shapely/_geos.cp312-win_amd64.pyd", payload)
+            code, result, _ = run(self.root, "--forbid-string", profile, "--forbid-string", checkout,
+                                  "--verified-wheel-root", wheels, "--verified-wheel-profile", profile)
+            self.assertEqual(code, 1)
+            self.assertIn("GitHub token", {f["reason"] for f in result["findings"]})
+            self.assertTrue(any(f["reason"].startswith("machine path") for f in result["findings"]))
+
     def test_model_lock_with_a_path_fails(self):
         write(self.root, "resources/model_lock.json", json.dumps({"root": "C:\\Users\\u\\models"}))
         code, summary, _ = run(self.root)
