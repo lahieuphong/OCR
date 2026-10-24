@@ -1,0 +1,34 @@
+name: VietDoc community release evidence gate (model-free)
+
+# Test verifier code only; no legal clearance or clean Windows OCR is certified.
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'release/**'
+      - '.github/workflows/vietdoc-community-release-gate.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verifier:
+    name: Release gate unit tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Python syntax
+        run: python -m py_compile release/check_release_candidate.py release/tests/test_check_release_candidate.py
+      - name: Positive and negative synthetic evidence tests
+        run: python -m unittest discover -v -s release/tests -p "test_*.py"
