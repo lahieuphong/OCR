@@ -306,7 +306,7 @@ async function setInputFile(wc, file) {
   try {
     const { root } = await wc.debugger.sendCommand('DOM.getDocument', { depth: 1 });
     const { nodeId } = await wc.debugger.sendCommand('DOM.querySelector', { nodeId: root.nodeId, selector: 'input[type=file]' });
-    await wc.debugger.sendCommand('DOM.setFileInputFiles', { nodeId, files: [file] });
+    await wc.debugger.sendCommand('DOM.setFileInputFiles', { nodeId, files: Array.isArray(file) ? file : [file] });
   } finally {
     wc.debugger.detach();
   }
@@ -628,6 +628,82 @@ async function runSmoke() {
   form16.append('file', new Blob([Buffer.alloc(16 * 1024 * 1024, 0x20)], { type: 'application/pdf' }), 'oversize.pdf');
   const r16 = await backend.request('/api/ocr', { method: 'POST', body: form16 });
   c.api_oversize = { status: r16.status, detail: r16.data && r16.data.detail };
+  if (pdf) {
+    smoke.step = 'batch-excel';
+    // Clear only this smoke session's synthetic inputs using the real UI.
+    while (await js(`document.querySelectorAll('.remove-document').length`)) {
+      const beforeCount = await js(`document.querySelectorAll('.remove-document').length`);
+      await js(`document.querySelector('.remove-document').click(); true`);
+      assert.ok(await waitFor(() => js(`document.querySelectorAll('.remove-document').length < ${beforeCount} || Boolean(document.querySelector('dialog[open]'))`), 5000));
+      if (await js(`Boolean(document.querySelector('dialog[open]'))`)) await js(`document.querySelector('dialog .confirm-actions button:last-child').click(); true`);
+      assert.ok(await waitFor(() => js(`document.querySelectorAll('.remove-document').length < ${beforeCount}`), 5000));
+    }
+    const fixtureNames = ['officialLetter', 'decision', 'resolution'];
+    const batchFiles = fixtureNames.map((name, index) => {
+      const file = path.join(inputs, `batch_${index + 1}.pdf`);
+      fs.copyFileSync(ARGS['smoke-batch-dir'] ? path.join(ARGS['smoke-batch-dir'], name + '.pdf') : pdf, file);
+      return file;
+    });
+    await setInputFile(wc, batchFiles);
+    assert.ok(await waitFor(() => js(`document.querySelectorAll('.input-queue li').length === 3`), 5000));
+    assert.deepEqual(await js(`Array.from(document.querySelectorAll('.input-queue select'), s => s.value)`), ['native_text','native_text','native_text']);
+    await js(`(() => {
+      const original = window.fetch;
+      window.__vietdocBatchQA = {original, active:0, peak:0, requests:[]};
+      window.fetch = async function(url, options) {
+        if (url !== '/api/ocr') return original.call(this,url,options);
+        const qa=window.__vietdocBatchQA;
+        qa.peak=Math.max(qa.peak,++qa.active);
+        const entry={name:options.body.get('file').name,mode:options.body.get('mode')}; qa.requests.push(entry);
+        try {const response=await original.call(this,url,options); entry.status=response.status; entry.text=(await response.clone().json()).text; return response;}
+        finally {qa.active--;}
+      };
+    })()`);
+    try {
+      assert.equal(await js(`document.querySelector('.batch-run-button').disabled`), false);
+      await js(`document.querySelector('.batch-run-button').click(); true`);
+      assert.ok(await waitFor(() => js(`document.querySelector('[role=tab][data-state=active]')?.textContent === 'Danh sách văn bản'
+        && document.querySelectorAll('.batch-table tbody tr').length === 3 && document.querySelectorAll('.batch-status.review, .batch-status.extracted').length === 3`), 120_000), 'three PDFs must finish successfully');
+      const requests = await js(`window.__vietdocBatchQA.requests.map(({name,mode,status})=>({name,mode,status}))`);
+      c.batch = {count:3, requests, max_concurrent:await js(`window.__vietdocBatchQA.peak`), progress:await js(`document.querySelector('.queue-progress').textContent`)};
+      assert.equal(c.batch.max_concurrent, 1, 'batch requests must be sequential');
+      assert.deepEqual(requests, batchFiles.map(file => ({name:path.basename(file),mode:'native_text',status:200})));
+      assert.ok(c.batch.progress.includes('3/3'));
+      const keys = ['docId','arcDocCode','maintenance','typeName','codeNumber','codeNotation','issuedDate','organName','subject','language','numberOfPage','inforSign','keyword','mode','confidenceLevel','autograph','format','process','riskRecovery','riskRecoveryStatus','description','isCan'];
+      const expected = [];
+      const editedSubject = '=VietDoc kiểm thử Excel – chỉnh sửa riêng tài liệu thứ nhất';
+      for (let index = 0; index < 3; index++) {
+        await js(`document.querySelectorAll('.open-document')[${index}].click(); true`);
+        assert.ok(await waitFor(() => js(`document.querySelectorAll('.metadata-field input, .metadata-field select, .metadata-field textarea').length === 22`), 5000));
+        if (index === 0) await js(`(() => { const field=document.querySelector('#metadata-subject');
+          Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(field,${JSON.stringify(editedSubject)});
+          field.dispatchEvent(new Event('input',{bubbles:true})); })()`);
+        expected.push(await js(`Object.fromEntries(${JSON.stringify(keys)}.map(key=>[key,document.querySelector('#metadata-'+key).value]))`));
+        await clickResultTab('Toàn văn');
+        assert.equal(await js(`document.querySelector('.text-output pre').textContent`), await js(`window.__vietdocBatchQA.requests[${index}].text`), 'metadata must not alter raw text');
+        await clickResultTab('Danh sách văn bản');
+      }
+      await js(`document.querySelector('.open-document').click(); true`);
+      assert.ok(await waitFor(() => js(`document.querySelector('#metadata-subject')?.value === ${JSON.stringify(editedSubject)}`), 5000), 'per-document edits must survive selection changes');
+      c.batch.edits_preserved = true; c.batch.raw_text_preserved = true;
+      fs.writeFileSync(path.join(SMOKE_DIR,'batch_expected.json'),JSON.stringify(expected,null,2),'utf8');
+      await clickResultTab('Danh sách văn bản');
+      await screenshot('06_batch_list.png');
+      const bounds = mainWindow.getBounds(); mainWindow.setSize(960,720); await sleep(350);
+      c.batch.compact_no_overflow = await js(`document.documentElement.scrollWidth <= innerWidth`);
+      assert.equal(c.batch.compact_no_overflow,true,'batch table must scroll inside its pane');
+      await screenshot('06b_batch_compact.png'); mainWindow.setBounds(bounds); await sleep(350);
+      await js(`document.querySelector('.excel-export-button').click(); true`);
+      assert.ok(await waitFor(() => js(`document.querySelector('dialog[open]')?.textContent.includes('Công khai')`), 5000),'draft export must warn about missing classification');
+      await js(`document.querySelector('dialog .confirm-actions button:last-child').click(); true`);
+      const workbook = path.join(downloads,'Danh_sach_van_ban.xlsx');
+      assert.ok(await waitFor(async () => fs.existsSync(workbook) && fs.statSync(workbook).size > 0, 20_000),'Excel download was not saved');
+      assert.equal(fs.readFileSync(workbook).subarray(0,2).toString(),'PK','export must be real XLSX, not renamed CSV');
+      c.batch.xlsx_saved = true; c.batch.xlsx_sha256 = sha256(workbook);
+    } finally {
+      await js(`window.fetch=window.__vietdocBatchQA.original; delete window.__vietdocBatchQA; true`);
+    }
+  }
   c.backend_status = (await backend.request('/__desktop__/status')).data;
   if (statusWindow) {
     // The status window is hidden once OCR is allowed: screenshot() shows it without focus first.

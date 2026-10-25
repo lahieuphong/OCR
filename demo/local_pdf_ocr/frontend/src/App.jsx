@@ -14,10 +14,12 @@ import {Separator} from "@/components/ui/separator";
 import {Progress} from "@/components/ui/progress";
 import DocumentMetadata from "@/components/DocumentMetadata.jsx";
 import ConfirmDialog from "@/components/ConfirmDialog.jsx";
-import {createDocumentDraft, editDocumentField, confirmDocumentField} from "@/lib/documentFields.js";
+import DocumentList from "@/components/DocumentList.jsx";
+import useDocumentBatch from "@/hooks/useDocumentBatch.js";
+import {batchDocumentStatus, BATCH_STATUS_LABELS} from "@/lib/documentBatch.js";
+import {EXCEL_FILENAME} from "@/lib/excelExport.js";
+import {editDocumentField, confirmDocumentField} from "@/lib/documentFields.js";
 
-const MAX_MB = 15;
-const EXTENSIONS = /\.(pdf|png|jpe?g)$/i;
 function formatTime(ms) {
   if (!Number.isFinite(ms)) return "—";
   return ms >= 60000 ? (ms / 60000).toFixed(1) + " phút" : (ms / 1000).toFixed(1) + " giây";
@@ -62,142 +64,35 @@ function EmptyResult({working, documentSelected, nativeText}) {
 
 export default function App() {
   const fileInput = useRef(null);
-  const elapsedTimer = useRef(null);
-  const [document, setDocument] = useState(null);
-  const [preview, setPreview] = useState("");
+  const pickerIntent = useRef("add");
   const [hoverUpload, setHoverUpload] = useState(false);
-  const [selectedMode, setSelectedMode] = useState("vietocr_ocr");
-  const [resultsByMode, setResultsByMode] = useState({});
-  const [metadataByMode, setMetadataByMode] = useState({});
-  const [pendingDiscard, setPendingDiscard] = useState(null);
   const [page, setPage] = useState(1);
-  const [working, setWorking] = useState(false);
-  const [elapsed, setElapsed] = useState(0);
-  const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
   const [health, setHealth] = useState("checking");
-  const [activeView, setActiveView] = useState("text");
   const [healthAttempt, setHealthAttempt] = useState(0);
+  const {documents,activeId,document,preview,selectedMode,resultsByMode,metadataByMode,setMetadataByMode,
+    pendingDiscard,setPendingDiscard,working,elapsed,error,setError,activeView,setActiveView,canRun,canRunBatch,
+    batchProgress,chooseFiles,selectDocument,removeDocument,changeMode,restoreMetadata,runOcr,runBatch,confirmDocument,setIncluded} = useDocumentBatch(health);
 
   useEffect(() => {
     let cancelled = false;
     setHealth("checking");
-    fetch("/api/health").then(async (response) => {
+    fetch("/api/health").then(async response => {
       if (!response.ok) throw Error("unhealthy");
       return response.json();
     }).then(data => {
       if (!cancelled) setHealth(data.state === "ready_to_initialize" ? "connected" : "not-ready");
-    }).catch(() => { if (!cancelled) setHealth("disconnected"); });
-    return () => { cancelled = true; };
+    }).catch(() => {if (!cancelled) setHealth("disconnected");});
+    return () => {cancelled = true;};
   }, [healthAttempt]);
-
-  useEffect(() => () => {
-    if (elapsedTimer.current) window.clearInterval(elapsedTimer.current);
-  }, []);
-  useEffect(() => () => {if (preview) URL.revokeObjectURL(preview);}, [preview]);
-
-  function chooseFile(file, discardConfirmed = false) {
-    if (working || !file) return;
-    setError("");
-    if (!EXTENSIONS.test(file.name)) {
-      setError("Vui lòng chọn tệp PDF, PNG hoặc JPG.");
-      return;
-    }
-    if (file.size > MAX_MB * 1024 * 1024) {
-      setError("Giới hạn kích thước tệp là 15 MB.");
-      return;
-    }
-    if (file.size < 1) {
-      setError("Tệp rỗng.");
-      return;
-    }
-    if (!discardConfirmed && Object.values(metadataByMode).some(draft => draft.dirty)) {
-      setPendingDiscard({run: () => chooseFile(file, true), message: "Chọn tài liệu mới sẽ xóa các bản nháp metadata đã chỉnh sửa của cả hai phương pháp."});
-      return;
-    }
-    setResultsByMode({});
-    setMetadataByMode({});
-    setActiveView("text");
-    setPage(1);
-    setCopied(false);
-    setElapsed(0);
-    setDocument(file);
-    // Visible default only; users must explicitly run the selected mode.
-    setSelectedMode(/\.pdf$/i.test(file.name) ? "native_text" : "vietocr_ocr");
-    setPreview(URL.createObjectURL(file));
-  }
-
-  async function runOcr(discardConfirmed = false) {
-    if (!document || working || !canRun) return;
-    if (!discardConfirmed && metadataByMode[selectedMode]?.dirty) {
-      setPendingDiscard({run: () => runOcr(true), message: "Chạy lại sẽ thay thế bản nháp metadata đã chỉnh sửa của phương pháp đang chọn nếu xử lý thành công."});
-      return;
-    }
-    const previousResult = resultsByMode[selectedMode];
-    setWorking(true);
-    setError("");
-    if (activeView === "compare") setActiveView("text");
-    setCopied(false);
-    setResultsByMode(previous => ({...previous, [selectedMode]: undefined}));
-    setElapsed(0);
-    const start = performance.now();
-    elapsedTimer.current = window.setInterval(
-      () => setElapsed((performance.now() - start) / 1000), 350
-    );
-    try {
-      const payload = new FormData();
-      payload.append("file", document, document.name);
-      payload.append("mode", selectedMode);
-      const response = await fetch("/api/ocr", {method: "POST", body: payload});
-      let data;
-      try {
-        data = await response.json();
-      } catch {
-        throw Error("Không đọc được phản hồi từ máy chủ xử lý. Vui lòng thử lại hoặc mở log trong cửa sổ trạng thái.");
-      }
-      if (!response.ok) throw Error(data.detail || "Không thể bóc tách văn bản. Vui lòng thử lại.");
-      if (data.method !== selectedMode) {
-        throw Error("Backend trả sai chế độ xử lý đã chọn; dừng để bảo vệ kết quả.");
-      }
-      if (!data.pages || !Array.isArray(data.pages)) {
-        throw Error("Định dạng phản hồi từ backend không hợp lệ.");
-      }
-      setResultsByMode(previous => ({...previous, [selectedMode]: data}));
-      setMetadataByMode(previous => ({...previous, [selectedMode]: createDocumentDraft(data, {sourceKind: /\.pdf$/i.test(document.name) ? "pdf" : "image"})}));
-      setActiveView("metadata");
-      setPage(1);
-    } catch (exception) {
-      if (previousResult) setResultsByMode(previous => ({...previous, [selectedMode]: previousResult}));
-      setError(exception?.message || String(exception));
-    } finally {
-      window.clearInterval(elapsedTimer.current);
-      setElapsed((performance.now() - start) / 1000);
-      setWorking(false);
-    }
-  }
-
+  useEffect(() => {setPage(1); setCopied(false);}, [activeId,selectedMode]);
   const result = resultsByMode[selectedMode] || null;
   const currentPage = result?.pages.find(x => x.page === page);
   const shownText = activeView === "page" ? (currentPage?.text || "") : (result?.text || "");
   const isPDF = document && /\.pdf$/i.test(document.name);
   const FileIcon = isPDF ? FileText : FileImage;
   const bothReady = Boolean(isPDF && resultsByMode.native_text && resultsByMode.vietocr_ocr);
-  const canRun = health === "connected" || (health === "not-ready" && selectedMode === "native_text");
   const stateLabel = working ? "Đang bóc tách" : error ? "Cần kiểm tra" : result ? "Hoàn tất" : document ? "Đã chọn tài liệu" : "Chưa chọn tài liệu";
-
-  function changeMode(mode) {
-    setSelectedMode(mode);
-    setPage(1);
-    setCopied(false);
-    setError("");
-    setActiveView(metadataByMode[mode] ? "metadata" : "text");
-  }
-
-  function restoreMetadata() {
-    const restore = () => setMetadataByMode(previous => ({...previous, [selectedMode]: createDocumentDraft(result, {sourceKind: isPDF ? "pdf" : "image"})}));
-    if (metadataByMode[selectedMode]?.dirty) setPendingDiscard({run: restore, message: "Khôi phục sẽ xóa các giá trị metadata bạn đã chỉnh sửa hoặc xác nhận. Văn bản OCR gốc được giữ nguyên."});
-    else restore();
-  }
 
   async function copyText() {
     if (!result) return;
@@ -245,22 +140,33 @@ export default function App() {
               <div className={"dropzone " + (hoverUpload ? "drag-over " : "") + (document ? "has-file" : "")}
                 onDragOver={event => {event.preventDefault(); if (!working) setHoverUpload(true);}}
                 onDragLeave={event => {if (!event.currentTarget.contains(event.relatedTarget)) setHoverUpload(false);}}
-                onDrop={event => {event.preventDefault(); setHoverUpload(false); chooseFile(event.dataTransfer.files[0]);}}>
+                onDrop={event => {event.preventDefault(); setHoverUpload(false); chooseFiles(event.dataTransfer.files);}}>
                 <input ref={fileInput} type="file" accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg"
-                  aria-label="Chọn tài liệu PDF hoặc ảnh" disabled={working} hidden
-                  onChange={event => {chooseFile(event.target.files?.[0]); event.target.value = "";}}/>
+                  aria-label="Chọn tài liệu PDF hoặc ảnh" multiple disabled={working} hidden
+                  onChange={event => {chooseFiles(event.target.files, {replaceActive:pickerIntent.current === "replace"}); pickerIntent.current = "add"; event.target.value = "";}}/>
                 {document ? <div className="selected-file">
                   <span className="selected-file-icon"><FileIcon size={23}/></span>
                   <div className="selected-file-info"><strong title={document.name}>{document.name}</strong>
                     <small>{(document.size / (1024 * 1024)).toFixed(2)} MB · {isPDF ? "Tài liệu PDF" : "Hình ảnh"}</small></div>
-                  <Button variant="outline" size="sm" disabled={working} onClick={() => fileInput.current?.click()}>Đổi tệp</Button>
+                  <Button variant="outline" size="sm" disabled={working} onClick={() => {pickerIntent.current = "replace"; fileInput.current?.click();}}>Đổi tệp</Button>
                 </div> : <div className="drop-empty">
                   <UploadCloud size={25} strokeWidth={1.6}/>
                   <div><h3>Kéo thả tài liệu vào đây</h3><p>PDF, PNG, JPG/JPEG</p></div>
-                  <Button size="sm" onClick={() => fileInput.current?.click()}>Chọn tài liệu</Button>
+                  <Button size="sm" onClick={() => {pickerIntent.current = "add"; fileInput.current?.click();}}>Chọn tài liệu</Button>
                 </div>}
                 <p className="file-limits">Tối đa 15 MB · PDF tối đa 6 trang · Ảnh tối đa 12 MP</p>
               </div>
+
+              {documents.length > 0 && <div className="input-queue">
+                <div className="queue-heading"><span>Đã chọn {documents.length} tài liệu</span><Button size="sm" variant="outline" disabled={working} onClick={() => {pickerIntent.current = "add"; fileInput.current?.click();}}>Thêm tài liệu</Button></div>
+                <ol>{documents.map((doc,index) => <li key={doc.id} className={doc.id === activeId ? "active" : ""}>
+                  <button className="select-queued-file" onClick={() => selectDocument(doc.id)} title={doc.name}>{index+1}. {doc.name}<small>{BATCH_STATUS_LABELS[batchDocumentStatus(doc)]}</small></button>
+                  <select aria-label={`Phương pháp tài liệu ${index+1}`} value={doc.mode} disabled={working} onChange={event => changeMode(event.target.value,doc.id)}>
+                    {/\.pdf$/iu.test(doc.name) && <option value="native_text">Văn bản có sẵn</option>}<option value="vietocr_ocr">Nhận dạng OCR</option>
+                  </select>
+                  <button className="remove-document" aria-label={`Xóa tài liệu ${index+1}: ${doc.name}`} disabled={working} onClick={() => removeDocument(doc.id)}>×</button>
+                </li>)}</ol>
+              </div>}
 
               <div className="preview-area">
                 <div className="section-label"><span>Xem trước tài liệu</span>{preview && <span>{isPDF ? "PDF" : "Ảnh"}</span>}</div>
@@ -297,6 +203,8 @@ export default function App() {
                 {working ? <LoaderCircle className="spin" size={18}/> : <ScanText size={18}/>}
                 {working ? "Đang bóc tách…" : "Bóc tách văn bản"}{!working && <ArrowRight size={17}/>}
               </Button>
+              {documents.length > 1 && <Button className="batch-run-button" variant="outline" onClick={runBatch} disabled={working || !canRunBatch}>Bóc tách tất cả tài liệu chưa xử lý</Button>}
+              {batchProgress && documents.length > 1 && <p className="queue-progress" role="status">Đã xử lý {batchProgress.completed}/{batchProgress.total} tài liệu trong lượt này</p>}
               {working && <div className="processing-status" role="status"><Progress value={null} className="processing-progress" aria-label="Đang xử lý, chưa có tiến độ phần trăm"/><span><Clock3 size={14}/> Đang xử lý trên máy · {elapsed.toFixed(0)} giây</span></div>}
               {error && <Alert variant="destructive" className="error-box"><AlertTriangle size={17}/><AlertTitle>Không thể hoàn tất thao tác</AlertTitle><AlertDescription>{error}</AlertDescription></Alert>}
               </div>
@@ -315,6 +223,7 @@ export default function App() {
             <Tabs className="result-tabs" value={activeView} onValueChange={value => {setActiveView(value); setCopied(false);}}>
               <div className="result-toolbar">
                 <TabsList aria-label="Cách xem kết quả">
+                  <TabsTrigger value="list">Danh sách văn bản</TabsTrigger>
                   <TabsTrigger value="metadata" disabled={!result}>Thông tin văn bản</TabsTrigger>
                   <TabsTrigger value="text">Toàn văn</TabsTrigger>
                   <TabsTrigger value="page">Theo trang</TabsTrigger>
@@ -345,11 +254,13 @@ export default function App() {
               <Button variant="outline" size="icon" aria-label="Trang sau" disabled={page === result.pages.at(-1)?.page} onClick={() => setPage(result.pages[result.pages.findIndex(item => item.page === page) + 1]?.page ?? page)}><ChevronRight size={16}/></Button>
             </nav>}
 
-            <TabsContent value={activeView} className={"text-output " + (!result ? "empty-result" : "") + (result && activeView === "metadata" ? " metadata-output" : "")} aria-label="Nội dung văn bản">
-              {result && activeView === "metadata" && metadataByMode[selectedMode] ? <DocumentMetadata key={selectedMode} draft={metadataByMode[selectedMode]}
+            <TabsContent value={activeView} className={"text-output " + (!result && activeView !== "list" ? "empty-result" : "") + (activeView === "list" || result && activeView === "metadata" ? " metadata-output" : "")} aria-label="Nội dung văn bản">
+              {activeView === "list" ? <DocumentList documents={documents} working={working} onSelect={selectDocument} onRetry={runOcr} onConfirm={confirmDocument} onIncluded={setIncluded}
+                onDownload={bytes => downloadText(EXCEL_FILENAME,bytes,"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")}/>
+                : result && activeView === "metadata" && metadataByMode[selectedMode] ? <fieldset className="metadata-editing" disabled={working}><DocumentMetadata key={activeId + selectedMode} draft={metadataByMode[selectedMode]}
                 onEdit={(key, value) => setMetadataByMode(previous => ({...previous, [selectedMode]: editDocumentField(previous[selectedMode], key, value)}))}
                 onConfirmField={key => setMetadataByMode(previous => ({...previous, [selectedMode]: confirmDocumentField(previous[selectedMode], key)}))}
-                onReset={restoreMetadata} onExport={json => downloadText(shortName(document.name) + "_" + selectedMode + "_metadata.json", json, "application/json;charset=utf-8")}/>
+                onReset={restoreMetadata} onExport={json => downloadText(shortName(document.name) + "_" + selectedMode + "_metadata.json", json, "application/json;charset=utf-8")}/></fieldset>
                 : result && activeView === "compare" && bothReady ? <div className="comparison-columns">
                 <section><h3>Văn bản có sẵn trong PDF</h3><pre>{resultsByMode.native_text.text}</pre></section>
                 <section><h3>Nhận dạng từ ảnh/PDF</h3><pre>{resultsByMode.vietocr_ocr.text}</pre></section>
@@ -362,7 +273,7 @@ export default function App() {
         </section>
         <footer className="footer"><span><LockKeyhole size={13}/> Tài liệu được xử lý trên máy tính của bạn</span><span>Bản thử nghiệm nội bộ</span></footer>
       </main>
-      {pendingDiscard && <ConfirmDialog title="Giữ hay thay thế chỉnh sửa?" confirmLabel="Thay thế bản nháp" onCancel={() => setPendingDiscard(null)}
+      {pendingDiscard && <ConfirmDialog title={pendingDiscard.title || "Giữ hay thay thế chỉnh sửa?"} confirmLabel={pendingDiscard.confirmLabel || "Thay thế bản nháp"} onCancel={() => setPendingDiscard(null)}
         onConfirm={() => {const action = pendingDiscard.run; setPendingDiscard(null); action();}}><p>{pendingDiscard.message}</p></ConfirmDialog>}
     </div>
   </TooltipProvider>;

@@ -26,6 +26,12 @@ npm test           & rem Node unit tests (config, security rules, backend proces
 
 Both `npm ci` calls install exactly the versions in the committed lockfiles.
 
+The input panel accepts multiple PDFs with a separate method for each file.
+Processing the pending list is sequential; results and edits remain separate by
+document and method. The **Danh sách văn bản** tab exports the selected results
+to one offline XLSX, with STT + the existing 22 metadata fields, Times New Roman
+13. See [Excel export and batch behavior](../demo/local_pdf_ocr/frontend/EXCEL_EXPORT.md).
+
 Python tests for the server wrapper (no models needed):
 
 ```bat
@@ -37,6 +43,15 @@ quits; use DEV documents only, never blind documents):
 
 ```bat
 node scripts\launch.js --smoke-test=<output dir> --smoke-pdf=<dev pdf> [--smoke-timeout=<seconds>]
+```
+
+The smoke also runs three PDFs through the real UI and downloads
+`downloads/Danh_sach_van_ban.xlsx`. Optionally supply `--smoke-batch-dir=<folder>`
+containing the three synthetic metadata PDFs (`officialLetter`, `decision`,
+`resolution`). Independently verify the actual download with:
+
+```bat
+python scripts\check_excel_export.py "<output dir>\downloads\Danh_sach_van_ban.xlsx" --rows=3 --expected-json="<output dir>\batch_expected.json"
 ```
 
 Without models it checks that OCR is refused. When the frozen models and the detector verify, it

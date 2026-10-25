@@ -109,12 +109,14 @@ describe("metadata UI integration", () => {
     await screen.findByText("Lỗi tổng hợp để kiểm tra giữ bản nháp");
     expect(field("arcDocCode").value).toBe("00103/TEST-CN-EDIT");
   });
-  test("new documents reset metadata only after accepting loss of edits", async () => {
+  test("replacing a document resets metadata only after accepting loss of edits", async () => {
     const user = await start();
     await user.type(field("arcDocCode"), "-EDIT");
+    await user.click(screen.getByRole("button", {name:"Đổi tệp"}));
     await user.upload(screen.getByLabelText("Chọn tài liệu PDF hoặc ảnh"), file("second.pdf"));
     await user.click(within(screen.getByRole("alertdialog")).getByRole("button", {name:"Hủy"}));
     expect(document.querySelector(".selected-file strong").textContent).toBe("synthetic.pdf");
+    await user.click(screen.getByRole("button", {name:"Đổi tệp"}));
     await user.upload(screen.getByLabelText("Chọn tài liệu PDF hoặc ảnh"), file("second.pdf"));
     await user.click(within(screen.getByRole("alertdialog")).getByRole("button", {name:"Thay thế bản nháp"}));
     expect(document.querySelector(".selected-file strong").textContent).toBe("second.pdf");

@@ -159,13 +159,17 @@ jobs:
           out="$(python -c 'import os; print(os.path.join(os.environ["RUNNER_TEMP"], "electron-smoke"))')"
           pdf="$(python -c 'import os; print(os.path.join(os.environ["RUNNER_TEMP"], "synthetic.pdf"))')"
           python scripts/make_synthetic_pdf.py "$pdf"
-          args=("--smoke-test=$out" "--smoke-pdf=$pdf" "--smoke-timeout=300")
+          fixtures="$(python -c 'import os; print(os.path.join(os.environ["RUNNER_TEMP"], "metadata-fixtures"))')"
+          node ../demo/local_pdf_ocr/frontend/scripts/export_metadata_fixtures.mjs "$fixtures"
+          python scripts/make_metadata_fixtures.py "$fixtures"
+          args=("--smoke-test=$out" "--smoke-pdf=$pdf" "--smoke-batch-dir=$fixtures" "--smoke-timeout=300")
           if [ "$RUNNER_OS" = "Linux" ]; then
             xvfb-run -a node scripts/launch.js "${args[@]}"
           else
             node scripts/launch.js "${args[@]}"
           fi
           node scripts/check-smoke-report.js "$out/smoke_report.json" --expect=no-models --with-pdf
+          python scripts/check_excel_export.py "$out/downloads/Danh_sach_van_ban.xlsx" --rows=3 --expected-json "$out/batch_expected.json"
           if [ -e "$HOME/.paddlex/official_models" ]; then
             echo "::error::a PaddleX model folder appeared on the runner"; exit 1
           fi
