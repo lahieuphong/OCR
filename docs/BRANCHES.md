@@ -42,6 +42,8 @@ Các PR tích hợp dùng squash hoặc import source nên không dùng riêng `
 - Sửa liên kết submodule Git local trỏ sai vị trí. Worktree OCR_vietdoc_integration được giữ, source và thay đổi local không sửa.
 - Dọn tiếp ngày 26/10/2026: gỡ hai worktree sạch `OCR_vietdoc_electron_app` và `OCR_vietdoc_installer_poc`; phần ignored chỉ gồm dependency/build tái tạo được. Giữ local branch `integration/vietdoc-electron-app` tại `5d6cefd6` và `feat/vietdoc-offline-installer-poc` tại `b69438ce` để có thể khôi phục source.
 - Còn 5 worktree/7 local branch. Ba worktree nghiên cứu `OCR_vietdoc_gtv2_h1`, `OCR_vietdoc_integration`, `OCR_vietdoc_packaging` có thay đổi local nên được giữ nguyên; worktree gốc cũng còn nghiên cứu chưa commit. Nguồn ứng dụng hiện hành là `VietDoc_main_review_20261024`.
+- Main hiện nằm tại `OCR/VietDoc_main_review_20261024`; đã sửa registration bằng `git worktree repair` sau khi chuyển thư mục vào `OCR`. Làm việc trên ứng dụng từ worktree này.
+- Kiểm tra bổ sung 26/10/2026: dọn output build trong quarantine, installer lịch sử và môi trường UI QA không còn dùng. Giữ bản cài hiện hành, model/dữ liệu, source khôi phục, bằng chứng QA và các thay đổi nghiên cứu.
 - Worktree nghiên cứu gốc còn các staged/unstaged/untracked changes. Không reset/stash/clean hoặc pull tự động để làm status xanh.
 
 Không ghi private document, nhãn blind, model hoặc cấu hình riêng vào tài liệu kiểm kê này.
