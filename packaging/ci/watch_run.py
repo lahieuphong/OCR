@@ -36,7 +36,9 @@ def is_backend(name):
 
 def system_path(env, platform=sys.platform):
     if platform == "win32":
-        sr = env.get("SystemRoot", r"C:\WINDOWS")
+        # os.environ is case-insensitive on Windows, but dict(os.environ) is not.
+        sr = next((value for name, value in env.items()
+                   if name.upper() == "SYSTEMROOT" and value), r"C:\WINDOWS")
         return ";".join([sr + r"\System32", sr, sr + r"\System32\Wbem"])
     return "/usr/bin:/bin:/usr/sbin:/sbin"
 

@@ -24,6 +24,18 @@ class WatchRunTest(unittest.TestCase):
         self.assertEqual(watch_run.system_path(source, "win32"),
                          r"C:\WINDOWS\System32;C:\WINDOWS;C:\WINDOWS\System32\Wbem")
 
+    def test_windows_system_root_lookup_is_case_insensitive_in_plain_dicts(self):
+        # A custom Windows location must survive the plain-dict copy in main().
+        root = r"D:\Operating System"
+        expected = root + r"\System32;" + root + ";" + root + r"\System32\Wbem"
+        for name in ("SystemRoot", "SYSTEMROOT", "sYsTeMrOoT"):
+            with self.subTest(name=name):
+                source = {name: root, "PATH": r"E:\untrusted-tools"}
+                self.assertEqual(watch_run.system_path(source, "win32"), expected)
+                self.assertEqual(source["PATH"], r"E:\untrusted-tools")
+        self.assertEqual(watch_run.system_path({"SYSTEMROOT": root}, "darwin"),
+                         "/usr/bin:/bin:/usr/sbin:/sbin")
+
     def test_large_stdout_and_stderr_do_not_block_the_app(self):
         with tempfile.TemporaryDirectory() as directory:
             # Do not use --strict here: the test runner itself shares the Python installation
