@@ -1,0 +1,40 @@
+# Downloadable Windows test installer: code and native runtime, with external verified models.
+# Extends the model-free base directly; inheriting installer.yml would concatenate its private models.
+extends: electron-builder.yml
+appId: vn.vietdoc.ocr.desktop.test
+productName: VietDoc OCR Test
+copyright: Internal Windows test build
+publish: null
+extraMetadata:
+  vietdocSmokeTest: false
+  vietdocTestBuild: true
+  author:
+    name: VietDoc OCR project (internal)
+  description: VietDoc OCR - Vietnamese OCR (internal test, external models)
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  icon: build-resources/icon.ico
+  signAndEditExecutable: true
+  requestedExecutionLevel: asInvoker
+nsis:
+  oneClick: false
+  perMachine: false
+  allowElevation: false
+  allowToChangeInstallationDirectory: false
+  packElevateHelper: false
+  createStartMenuShortcut: true
+  createDesktopShortcut: false
+  shortcutName: VietDoc OCR Test
+  uninstallDisplayName: VietDoc OCR Test (INTERNAL)
+  artifactName: VietDoc-OCR-${version}-Windows-${arch}-Setup.${ext}
+  installerIcon: build-resources/icon.ico
+  uninstallerIcon: build-resources/icon.ico
+  license: build-resources/INTERNAL_NOTICE.txt
+  include: build-resources/installer.nsh
+  deleteAppDataOnUninstall: false
+  differentialPackage: false
+  runAfterFinish: true
+  unicode: true
+  warningsAsErrors: true
