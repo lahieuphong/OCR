@@ -221,6 +221,42 @@ class RunningServer(unittest.TestCase):
         body, ctype = multipart({"mode": "native_text"}, "lon.pdf", too_big, "application/pdf")
         self.assertEqual(self.request("/api/ocr", "POST", body, ctype)[0], 400)  # the existing 15 MB limit
 
+    def test_3a_original_image_preview_is_authenticated_and_model_free(self):
+        fields = {"page": 1, "polygon": json.dumps([[4, 4], [50, 4], [50, 20], [4, 20]]),
+                  "render_width": 64, "render_height": 32}
+        body, ctype = multipart(fields, "doi_chieu.png", synthetic_png(), "image/png")
+        self.assertEqual(self.request("/api/number-review/preview", "POST", body, ctype, token=False)[0], 403)
+        status, payload, headers = self.request("/api/number-review/preview", "POST", body, ctype)
+        self.assertEqual(status, 200)
+        self.assertEqual(headers.get("content-type"), "image/png")
+        self.assertEqual(headers.get("cache-control"), "no-store")
+        self.assertTrue(payload.startswith(b"\x89PNG\r\n\x1a\n"))
+        from PIL import Image
+        with Image.open(io.BytesIO(payload)) as crop:
+            self.assertEqual(crop.size, (62, 32))
+        self.assertFalse(json.loads(self.request("/__desktop__/status")[1])["ocr_allowed"])
+        self.assertEqual(list(self.paddlex_home.rglob("*")), [])
+
+    def test_3b_preview_rejects_geometry_outside_original_page(self):
+        fields = {"page": 1, "polygon": json.dumps([[4, 4], [80, 4], [80, 20], [4, 20]]),
+                  "render_width": 64, "render_height": 32}
+        body, ctype = multipart(fields, "doi_chieu.png", synthetic_png(), "image/png")
+        status, payload, headers = self.request("/api/number-review/preview", "POST", body, ctype)
+        self.assertEqual(status, 400)
+        self.assertIn("detail", json.loads(payload))
+        self.assertEqual(headers.get("cache-control"), "no-store")
+
+    def test_3c_experimental_h1_requires_pdf_and_the_existing_model_guard(self):
+        body, ctype = multipart({"mode": "hybrid_h1"}, "anh.png", synthetic_png(), "image/png")
+        self.assertEqual(self.request("/api/ocr", "POST", body, ctype)[0], 400)
+        body, ctype = multipart({"mode": "hybrid_h1"}, "tong_hop.pdf", synthetic_pdf(), "application/pdf")
+        self.assertEqual(self.request("/api/ocr", "POST", body, ctype, token=False)[0], 403)
+        status, payload, headers = self.request("/api/ocr", "POST", body, ctype)
+        self.assertEqual(status, 503)
+        self.assertIn("chặn OCR", json.loads(payload)["detail"])
+        self.assertEqual(headers.get("cache-control"), "no-store")
+        self.assertEqual(list(self.paddlex_home.rglob("*")), [])
+
     def test_4_shutdown_stops_the_process(self):
         self.assertEqual(self.request("/__desktop__/shutdown", "POST", b"")[0], 200)
         self.assertEqual(self.proc.wait(timeout=20), 0)

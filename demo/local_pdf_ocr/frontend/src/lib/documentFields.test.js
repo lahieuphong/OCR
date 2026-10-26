@@ -30,8 +30,8 @@ describe("business schema and provenance", () => {
     expect(JSON.stringify(raw, null, 2)).toBe(bytes);
     expect(d.fields.arcDocCode.evidence[0]).toMatchObject({page: 1, line: 4, coordinateSystem: "raster_pixels", precision: "polygon"});
   });
-  test("all literal OCR-derived text requires visual review without calibrated confidence", () => {
-    const d = draft({method:"vietocr_ocr"});
+  test.each(["vietocr_ocr", "hybrid_h1"])("%s text requires visual review without calibrated confidence", method => {
+    const d = draft({method});
     for (const key of ["arcDocCode","codeNumber","codeNotation","issuedDate","organName","subject","typeName","language"]) expect(d.fields[key].status).toBe("review");
     expect(d.fields.numberOfPage.status).toBe("recognized");
   });

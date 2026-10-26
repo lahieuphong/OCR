@@ -16,6 +16,8 @@ Cả hai bản tải từ GitHub đều cần **chép model OCR riêng**. PDF c�
 - **Windows:** chọn lần chạy thành công có gói **VietDoc-OCR-Windows-x64**, tải và giải nén rồi chạy `.exe`. App có tên **VietDoc OCR Test**, cài đặt và lưu cấu hình riêng để giữ nguyên bản offline cũ có model.
 - **Mac:** chọn lần chạy thành công có gói **VietDoc-OCR-macOS-arm64**, tải và giải nén. Mở DMG, kéo app vào **Applications**. Nếu macOS chặn bản test, chọn **Privacy & Security → Open Anyway**.
 - Chọn file, dùng **Text có sẵn trong PDF** hoặc **OCR bằng VietOCR B**, kiểm tra kết quả rồi xuất TXT, JSON hoặc Excel.
+- Trong **Thông tin văn bản**, dùng **Đối chiếu số/ký hiệu → Xem ảnh đối chiếu**, sửa Mã văn bản nếu cần rồi xác nhận trước khi xuất.
+- PDF có thêm **Kết hợp PDF + OCR (thử nghiệm)**, cần model OCR và chỉ chạy khi chọn riêng. Kết quả giữ bản OCR gốc để so sánh; [hướng dẫn thử nghiệm](docs/OCR_REVIEW_AND_H1.md).
 
 Máy dùng bản cài đặt không cần cài Python hay Node.js. Hướng dẫn model: [Windows](packaging/windows/README.md) · [Mac](packaging/macos/README.md). Gói tải trên GitHub được giữ 30 ngày; có thể chạy lại workflow để tạo bản mới.
 

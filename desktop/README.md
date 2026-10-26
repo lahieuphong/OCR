@@ -4,7 +4,9 @@ An Electron window around the existing local app: it starts the FastAPI backend 
 `demo/local_pdf_ocr/backend` on `127.0.0.1`, serves the built React UI of
 `demo/local_pdf_ocr/frontend` from the same origin, shows backend and model status and stops the
 backend when the window closes. Recognition, models, limits (15 MB, 6 PDF pages, 12 MP) and the
-frozen SHA-256 checks are the backend's own and are not changed here. Hybrid H1 is not included.
+frozen SHA-256 checks are the backend's own and are not changed here. A PDF-only hybrid H1 mode is
+available by explicit selection, with the original OCR retained separately; it is never the default.
+See [number review and experimental H1](../docs/OCR_REVIEW_AND_H1.md).
 
 **This is not a standalone build.** It needs, on the same machine: Node.js ≥ 22.12 (for `npm`),
 the project's Python venv with the backend dependencies (`.venv-demo`), the frozen VietOCR B1024

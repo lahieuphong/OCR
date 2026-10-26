@@ -8,6 +8,17 @@ const response = (data, ok = true) => ({ok, json:async () => data});
 const deferred = () => {let resolve; const promise = new Promise(r => {resolve = r;}); return {promise,resolve};};
 
 describe("document queue", () => {
+  test("hybrid requires an explicit PDF selection and a retained OCR baseline", async () => {
+    const doc = make(); doc.mode = "hybrid_h1";
+    const raw = {...syntheticDocument({method:"hybrid_h1"}), experimental:true,
+      ocr_result:syntheticDocument({method:"vietocr_ocr"})};
+    const request = vi.fn(async () => response(raw));
+    expect((await requestDocumentOcr(doc, request)).raw).toBe(raw);
+    expect(request.mock.calls[0][1].body.get("mode")).toBe("hybrid_h1");
+    await expect(requestDocumentOcr(doc, async()=>response({...raw,ocr_result:null}))).rejects.toThrow("OCR gốc");
+    await expect(requestDocumentOcr({...doc,name:"image.png"},request)).rejects.toThrow("không phù hợp");
+    expect(request).toHaveBeenCalledOnce();
+  });
   test("one PDF sends exactly its chosen mode and keeps the untouched raw response", async () => {
     const doc = make(), raw = syntheticDocument(), snapshot = JSON.stringify(raw);
     const request = vi.fn(async () => response(raw));

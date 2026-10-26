@@ -81,7 +81,8 @@ export default function useDocumentBatch(health) {
   }
   function changeMode(mode, id = activeId) {
     const target = documents.find(doc => doc.id === id);
-    if (!target || running.current || (!/\.pdf$/iu.test(target.name) && mode !== "vietocr_ocr")) return;
+    if (!target || running.current || !["native_text", "vietocr_ocr", "hybrid_h1"].includes(mode)
+      || (!/\.pdf$/iu.test(target.name) && mode !== "vietocr_ocr")) return;
     update(target.id, doc => ({...doc,mode})); setError("");
     if (id === activeId) setActiveView(target.metadataByMode[mode] ? "metadata" : "text");
   }
@@ -99,9 +100,15 @@ export default function useDocumentBatch(health) {
             errorsByMode:{...current.errorsByMode,[doc.mode]:""},statesByMode:{...current.statesByMode,[doc.mode]:"processing"}}));
         },
         onSuccess:(doc, {raw,draft}) => {
-          update(doc.id, current => ({...current,resultsByMode:{...current.resultsByMode,[doc.mode]:raw},
-            metadataByMode:{...current.metadataByMode,[doc.mode]:draft},errorsByMode:{...current.errorsByMode,[doc.mode]:""},
-            statesByMode:{...current.statesByMode,[doc.mode]:"success"},confirmedByMode:{...current.confirmedByMode,[doc.mode]:false}}));
+          update(doc.id, current => {
+            const baseline = doc.mode === "hybrid_h1" && raw.ocr_result?.method === "vietocr_ocr"
+              && !current.resultsByMode.vietocr_ocr ? raw.ocr_result : null;
+            return {...current,resultsByMode:{...current.resultsByMode,...(baseline ? {vietocr_ocr:baseline} : {}),[doc.mode]:raw},
+              metadataByMode:{...current.metadataByMode,...(baseline ? {vietocr_ocr:createDocumentDraft(baseline,{sourceKind:"pdf"})} : {}),[doc.mode]:draft},
+              errorsByMode:{...current.errorsByMode,...(baseline ? {vietocr_ocr:""} : {}),[doc.mode]:""},
+              statesByMode:{...current.statesByMode,...(baseline ? {vietocr_ocr:"success"} : {}),[doc.mode]:"success"},
+              confirmedByMode:{...current.confirmedByMode,...(baseline ? {vietocr_ocr:false} : {}),[doc.mode]:false}};
+          });
           if (!batch) setActiveView("metadata");
         },
         onError:(doc,error) => {

@@ -400,6 +400,11 @@ async function runSmoke() {
     await setInputFile(wc, pdf);
     c.ui_file_selected = await waitFor(() => js(`document.querySelector('.selected-file strong')?.textContent || null`), 10_000);
     assert.equal(await js(`document.querySelector('input[name=mode]:checked').value`), 'native_text', 'PDF must visibly default to native_text');
+    c.ui_hybrid_choice = await js(`(() => { const h = document.querySelector('input[name=mode][value=hybrid_h1]');
+      return { present: Boolean(h), selected: Boolean(h?.checked) }; })()`);
+    assert.deepEqual(c.ui_hybrid_choice, { present: true, selected: false }, 'experimental H1 must be available for PDF and off by default');
+    await js(`document.querySelector('input[name=mode][value=hybrid_h1]').closest('label').scrollIntoView({block: 'center'}); true`);
+    await screenshot('02a_ui_hybrid_option.png');
     await js(`document.querySelector('input[name=mode][value=native_text]').click(); true`);
     await sleep(1000);
     // PDF preview: scroll the iframe into view and measure how much of it is light (a rendered page) versus

@@ -4,10 +4,11 @@ import {Button} from "@/components/ui/button";
 import {Badge} from "@/components/ui/badge";
 import {Alert, AlertDescription} from "@/components/ui/alert";
 import ConfirmDialog from "./ConfirmDialog.jsx";
+import NumberCodeReview from "./NumberCodeReview.jsx";
 import {CATALOGS, FIELD_GROUPS, FIELD_KEYS, FIELD_LABELS, READ_ONLY, STATUS_LABELS,
   serializeDocumentFields, validateDocumentDraft} from "@/lib/documentFields.js";
 
-export default function DocumentMetadata({draft, onEdit, onConfirmField, onReset, onExport}) {
+export default function DocumentMetadata({draft, onEdit, onConfirmField, onReset, onExport, result, sourceFile, disabled = false}) {
   const [checked, setChecked] = useState(false);
   const [pendingExport, setPendingExport] = useState(null);
   const [message, setMessage] = useState("");
@@ -67,6 +68,7 @@ export default function DocumentMetadata({draft, onEdit, onConfirmField, onReset
                 {entry.evidence.map((source, i) => <blockquote key={i}>{source.page && <span>Trang {source.page}, dòng {source.line}{source.precision === "block" ? " · vị trí theo khối" : ""}</span>}{source.text}</blockquote>)}
               </details>}
             </div>
+            {key === "arcDocCode" && <NumberCodeReview result={result} sourceFile={sourceFile} disabled={disabled}/>}
           </div>;
         })}
       </div>

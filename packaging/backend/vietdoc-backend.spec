@@ -66,6 +66,9 @@ hiddenimports = [
     "demo.local_pdf_ocr.backend.ocr_layout",
     "demo.local_pdf_ocr.backend.reading_order",
     "demo.local_pdf_ocr.backend.text_layer",
+    "demo.local_pdf_ocr.backend.hybrid_h1",
+    "demo.local_pdf_ocr.backend.hybrid_gates",
+    "demo.local_pdf_ocr.backend.number_review_preview",
 ]
 hiddenimports += collect_submodules("uvicorn")
 # Paddle, PaddleX and PaddleOCR import modules by name: add every module a real run imported.

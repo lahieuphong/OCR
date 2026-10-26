@@ -91,7 +91,9 @@ export default function App() {
   const shownText = activeView === "page" ? (currentPage?.text || "") : (result?.text || "");
   const isPDF = document && /\.pdf$/i.test(document.name);
   const FileIcon = isPDF ? FileText : FileImage;
-  const bothReady = Boolean(isPDF && resultsByMode.native_text && resultsByMode.vietocr_ocr);
+  const comparisonResult = selectedMode === "hybrid_h1" ? resultsByMode.hybrid_h1 : resultsByMode.native_text;
+  const comparisonOcr = selectedMode === "hybrid_h1" ? comparisonResult?.ocr_result : resultsByMode.vietocr_ocr;
+  const bothReady = Boolean(isPDF && comparisonResult && comparisonOcr);
   const stateLabel = working ? "Đang bóc tách" : error ? "Cần kiểm tra" : result ? "Hoàn tất" : document ? "Đã chọn tài liệu" : "Chưa chọn tài liệu";
 
   async function copyText() {
@@ -163,6 +165,7 @@ export default function App() {
                   <button className="select-queued-file" onClick={() => selectDocument(doc.id)} title={doc.name}>{index+1}. {doc.name}<small>{BATCH_STATUS_LABELS[batchDocumentStatus(doc)]}</small></button>
                   <select aria-label={`Phương pháp tài liệu ${index+1}`} value={doc.mode} disabled={working} onChange={event => changeMode(event.target.value,doc.id)}>
                     {/\.pdf$/iu.test(doc.name) && <option value="native_text">Văn bản có sẵn</option>}<option value="vietocr_ocr">Nhận dạng OCR</option>
+                    {/\.pdf$/iu.test(doc.name) && <option value="hybrid_h1">Kết hợp PDF + OCR (thử nghiệm)</option>}
                   </select>
                   <button className="remove-document" aria-label={`Xóa tài liệu ${index+1}: ${doc.name}`} disabled={working} onClick={() => removeDocument(doc.id)}>×</button>
                 </li>)}</ol>
@@ -190,8 +193,16 @@ export default function App() {
                   <ScanLine size={18}/><span className="mode-copy"><span className="mode-name">Nhận dạng văn bản từ ảnh/PDF</span><small>Dành cho ảnh chụp và tài liệu scan</small></span>
                   {resultsByMode.vietocr_ocr && <Check className="mode-done" size={16} aria-label="Đã có kết quả"/>}
                 </label>
+                {isPDF && <label className={"mode-option " + (selectedMode === "hybrid_h1" ? "selected" : "")}>
+                  <input type="radio" name="mode" value="hybrid_h1" checked={selectedMode === "hybrid_h1"}
+                    onChange={() => changeMode("hybrid_h1")} disabled={working}/>
+                  <ScanText size={18}/><span className="mode-copy"><span className="mode-name">Kết hợp PDF + OCR (thử nghiệm)</span><small>Chọn nguồn chữ theo từng dòng; cần đối chiếu kết quả</small></span>
+                  {resultsByMode.hybrid_h1 && <Check className="mode-done" size={16} aria-label="Đã có kết quả"/>}
+                </label>}
               </fieldset>
-              <p className="mode-note">{selectedMode === "native_text" ? "Đọc lớp chữ có sẵn trong PDF; không tự chuyển sang OCR." : "Nhận dạng trực tiếp từ hình ảnh; giữ nguyên kết quả nhận dạng."}</p>
+              <p className="mode-note">{selectedMode === "native_text" ? "Đọc lớp chữ có sẵn trong PDF; không tự chuyển sang OCR."
+                : selectedMode === "hybrid_h1" ? "Thử nghiệm: dùng chữ có sẵn khi đủ điều kiện; dòng còn lại giữ OCR. Đối chiếu trước khi xuất dữ liệu."
+                : "Nhận dạng trực tiếp từ hình ảnh; giữ nguyên kết quả nhận dạng."}</p>
 
               {health === "not-ready" && <Alert className="model-alert">
                 <AlertTriangle size={16}/><AlertTitle>OCR chưa sẵn sàng</AlertTitle>
@@ -239,12 +250,14 @@ export default function App() {
 
             {result && <>
               <div className={"result-origin " + (result.used_ocr ? "ocr-origin" : "native-origin")}>
-                <ShieldCheck size={14}/><span>{result.used_ocr ? "Nhận dạng từ ảnh · PaddleOCR + VietOCR B1024" : "Trích xuất văn bản có sẵn trong PDF · Không chạy OCR"}</span>
+                <ShieldCheck size={14}/><span>{result.method === "hybrid_h1" ? "Kết hợp PDF + OCR · Thử nghiệm, cần đối chiếu"
+                  : result.used_ocr ? "Nhận dạng từ ảnh · PaddleOCR + VietOCR B1024" : "Trích xuất văn bản có sẵn trong PDF · Không chạy OCR"}</span>
               </div>
               <div className="results-stats">
                 <span><b>{result.page_count}</b> trang</span><span><b>{result.line_count}</b> dòng</span>
                 <span><Clock3 size={14}/><b>{formatTime(result.elapsed_ms)}</b></span>
                 {result.used_ocr && <span className={result.decoder_limit_hits > 0 ? "truncated-lines" : ""}><b>{result.decoder_limit_hits ?? "—"}</b> dòng bị cắt</span>}
+                {result.method === "hybrid_h1" && <><span><b>{result.h1?.native_lines ?? 0}</b> dòng dùng chữ PDF</span><span><b>{result.h1?.ocr_lines ?? 0}</b> dòng giữ OCR</span></>}
               </div>
             </>}
 
@@ -257,13 +270,13 @@ export default function App() {
             <TabsContent value={activeView} className={"text-output " + (!result && activeView !== "list" ? "empty-result" : "") + (activeView === "list" || result && activeView === "metadata" ? " metadata-output" : "")} aria-label="Nội dung văn bản">
               {activeView === "list" ? <DocumentList documents={documents} working={working} onSelect={selectDocument} onRetry={runOcr} onConfirm={confirmDocument} onIncluded={setIncluded}
                 onDownload={bytes => downloadText(EXCEL_FILENAME,bytes,"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")}/>
-                : result && activeView === "metadata" && metadataByMode[selectedMode] ? <fieldset className="metadata-editing" disabled={working}><DocumentMetadata key={activeId + selectedMode} draft={metadataByMode[selectedMode]}
+                : result && activeView === "metadata" && metadataByMode[selectedMode] ? <fieldset className="metadata-editing" disabled={working}><DocumentMetadata key={activeId + selectedMode} draft={metadataByMode[selectedMode]} result={result} sourceFile={document} disabled={working}
                 onEdit={(key, value) => setMetadataByMode(previous => ({...previous, [selectedMode]: editDocumentField(previous[selectedMode], key, value)}))}
                 onConfirmField={key => setMetadataByMode(previous => ({...previous, [selectedMode]: confirmDocumentField(previous[selectedMode], key)}))}
                 onReset={restoreMetadata} onExport={json => downloadText(shortName(document.name) + "_" + selectedMode + "_metadata.json", json, "application/json;charset=utf-8")}/></fieldset>
                 : result && activeView === "compare" && bothReady ? <div className="comparison-columns">
-                <section><h3>Văn bản có sẵn trong PDF</h3><pre>{resultsByMode.native_text.text}</pre></section>
-                <section><h3>Nhận dạng từ ảnh/PDF</h3><pre>{resultsByMode.vietocr_ocr.text}</pre></section>
+                <section><h3>{selectedMode === "hybrid_h1" ? "Kết hợp PDF + OCR (thử nghiệm)" : "Văn bản có sẵn trong PDF"}</h3><pre>{comparisonResult.text}</pre></section>
+                <section><h3>Nhận dạng từ ảnh/PDF</h3><pre>{comparisonOcr.text}</pre></section>
               </div> : result ? <pre>{shownText || "Không phát hiện được dòng văn bản. Hãy kiểm tra ảnh/PDF gốc."}</pre>
                 : <EmptyResult working={working} documentSelected={Boolean(document)} nativeText={selectedMode === "native_text"}/>}
             </TabsContent>

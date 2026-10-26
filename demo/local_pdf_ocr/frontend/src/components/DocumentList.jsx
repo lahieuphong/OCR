@@ -36,7 +36,7 @@ export default function DocumentList({documents,working,onSelect,onRetry,onConfi
         return <tr key={doc.id} data-document-id={doc.id}>
           <td><input type="checkbox" aria-label={`Xuất tài liệu ${index+1}: ${doc.name}`} checked={doc.includeInExport} disabled={working || !eligible} onChange={e=>onIncluded(doc.id,e.target.checked)}/></td>
           <td>{index+1}</td>
-          <td><button className="open-document" onClick={()=>onSelect(doc.id,"metadata")} aria-label={`Mở thông tin tài liệu ${index+1}: ${doc.name}`}>{values.arcDocCode || doc.name}</button><small>{doc.name}</small><small>{doc.mode === "native_text" ? "Văn bản có sẵn" : "Nhận dạng OCR"}</small></td>
+          <td><button className="open-document" onClick={()=>onSelect(doc.id,"metadata")} aria-label={`Mở thông tin tài liệu ${index+1}: ${doc.name}`}>{values.arcDocCode || doc.name}</button><small>{doc.name}</small><small>{doc.mode === "native_text" ? "Văn bản có sẵn" : doc.mode === "hybrid_h1" ? "Kết hợp PDF + OCR (thử nghiệm)" : "Nhận dạng OCR"}</small></td>
           <td>{CATALOGS.typeName[values.typeName] || "—"}</td><td>{values.issuedDate || "—"}</td>
           <td><strong>{values.organName || "—"}</strong><p>{values.subject || "Chưa xác định trích yếu"}</p></td>
           <td><Badge variant="outline" className={"batch-status " + status}>{BATCH_STATUS_LABELS[status]}</Badge>

@@ -38,7 +38,7 @@ const codePattern = /^[\p{L}\p{N}\p{Pd}._?\uFFFD]+(?:\s*\/\s*[\p{L}\p{N}\p{Pd}._
 
 function bounds(line, method) {
   if (method === "native_text" && Array.isArray(line.bbox) && line.bbox.length === 4 && line.bbox.every(Number.isFinite)) return [...line.bbox];
-  if (method === "vietocr_ocr" && Array.isArray(line.polygon) && line.polygon.length === 4
+  if (["vietocr_ocr", "hybrid_h1"].includes(method) && Array.isArray(line.polygon) && line.polygon.length === 4
     && line.polygon.every(p => Array.isArray(p) && p.length === 2 && p.every(Number.isFinite))) {
     const xs = line.polygon.map(p => p[0]), ys = line.polygon.map(p => p[1]);
     return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
@@ -222,7 +222,7 @@ export function createDocumentDraft(result, {sourceKind = "pdf"} = {}) {
   fields.confidenceLevel = {...field("02", "review"), note: "Mã nghiệp vụ, không phải độ chính xác OCR. isCan chưa xác định vẫn thuộc trường hợp khác → 02.", evidence: [{source: "business_rule", text: 'isCan = "0" → 01; các trường hợp khác → 02.'}]};
   // Literal OCR evidence proves the extraction source, not the correctness of its characters.
   // There is no calibrated recognizer confidence: require visual review for all OCR-derived text.
-  if (result?.method === "vietocr_ocr") {
+  if (["vietocr_ocr", "hybrid_h1"].includes(result?.method)) {
     for (const entry of Object.values(fields)) if (entry.value && entry.status === "recognized" && entry.evidence.some(source => source.page)) {
       entry.status = "review";
       entry.note = [entry.note, "Nguồn OCR: đối chiếu bản gốc trước khi xác nhận; không tự sửa chữ hoặc dấu."].filter(Boolean).join(" ");

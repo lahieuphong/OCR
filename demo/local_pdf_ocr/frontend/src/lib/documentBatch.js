@@ -36,6 +36,8 @@ export function batchExportState(documents) {
 }
 
 export async function requestDocumentOcr(doc, request = fetch) {
+  if (!["native_text", "vietocr_ocr", "hybrid_h1"].includes(doc.mode)
+    || (doc.mode !== "vietocr_ocr" && !/\.pdf$/iu.test(doc.name))) throw Error("Phương pháp xử lý không phù hợp với tài liệu.");
   const payload = new FormData();
   payload.append("file", doc.file, doc.name);
   payload.append("mode", doc.mode);
@@ -46,6 +48,8 @@ export async function requestDocumentOcr(doc, request = fetch) {
   if (!response.ok) throw Error(data.detail || "Không thể bóc tách văn bản. Vui lòng thử lại.");
   if (data.method !== doc.mode) throw Error("Backend trả sai chế độ xử lý đã chọn; dừng để bảo vệ kết quả.");
   if (!Array.isArray(data.pages)) throw Error("Định dạng phản hồi từ backend không hợp lệ.");
+  if (doc.mode === "hybrid_h1" && (data.experimental !== true || data.ocr_result?.method !== "vietocr_ocr"
+    || !Array.isArray(data.ocr_result.pages))) throw Error("Kết quả thử nghiệm thiếu bản OCR gốc để đối chiếu.");
   if (doc.mode === "native_text" && !data.text?.trim()) throw Error("PDF không có lớp chữ có thể trích xuất. Hãy chọn Nhận dạng OCR cho tài liệu này nếu cần; ứng dụng không tự chuyển phương pháp.");
   return {raw:data, draft:createDocumentDraft(data, {sourceKind:/\.pdf$/iu.test(doc.name) ? "pdf" : "image"})};
 }

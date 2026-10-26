@@ -1,0 +1,13 @@
+.number-code-review {margin-top: .65rem; padding: .75rem; border: 1px solid #e3d7bd; border-radius: .5rem; background: #fffbf2; color: #4d4333; font-size: .78rem; line-height: 1.5;}
+.number-code-review > strong {font-size: .8rem;}
+.number-code-review p {margin: .4rem 0;}
+.number-code-warnings {margin: .4rem 0; padding-left: 1rem; color: #825314;}
+.number-code-original {overflow-wrap: anywhere;}
+.number-code-original span {font-weight: 600;}
+.number-code-choices {display: flex; flex-wrap: wrap; gap: .3rem; margin-top: .5rem;}
+.number-code-choices button {padding: .2rem .4rem; border: 1px solid #c5baa5; border-radius: .3rem; background: white;}
+.number-code-choices button[aria-pressed="true"] {background: #efe5cf; border-color: #8b6936;}
+.number-code-choices button:focus-visible {outline: 2px solid #476f79; outline-offset: 2px;}
+.number-code-review figure {margin: .65rem 0 0;}
+.number-code-review img {display: block; max-width: 100%; max-height: 14rem; object-fit: contain; background: white; border: 1px solid #ded8cd;}
+.number-code-review figcaption, .number-code-native-note {font-size: .73rem; color: #6d6457; line-height: 1.45; margin-top: .35rem;}

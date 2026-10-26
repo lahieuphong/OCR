@@ -20,6 +20,58 @@ beforeEach(() => {
   URL.revokeObjectURL = vi.fn();
   vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
 });
+
+function hybridResponse() {
+  const original = syntheticDocument({method:"vietocr_ocr",code:"002/OCR-TEST"});
+  const result = syntheticDocument({method:"hybrid_h1",code:"003/MIX-TEST"});
+  result.used_ocr = true; result.experimental = true; result.ocr_result = original;
+  result.h1 = {native_lines:1,ocr_lines:result.line_count - 1};
+  for (const page of result.pages) page.lines.forEach((line,i) => {
+    line.ocr_text = original.pages[0].lines[i].text;
+    line.text_source = i === 3 ? "pdf_text" : "ocr";
+  });
+  return result;
+}
+
+describe("explicit experimental PDF/OCR selection", () => {
+  test("is off by default, keeps baseline separately and compares raw OCR without editing it", async () => {
+    const user = await start(), hybrid = hybridResponse(), rawBytes = JSON.stringify(hybrid.ocr_result);
+    const choice = document.querySelector('input[name=mode][value=hybrid_h1]');
+    expect(choice.checked).toBe(false);
+    apiResults.push(jsonResponse(hybrid));
+    await user.click(choice);
+    await user.click(screen.getByRole("button", {name:"Bóc tách văn bản"}));
+    await waitFor(() => expect(field("arcDocCode")?.value).toBe("003/MIX-TEST"));
+    expect(fetch.mock.calls.at(-1)[1].body.get("mode")).toBe("hybrid_h1");
+    expect(field("arcDocCode").closest(".metadata-field").textContent).toContain("Cần kiểm tra");
+    await user.click(screen.getByRole("tab", {name:"So sánh"}));
+    const texts = [...document.querySelectorAll(".comparison-columns pre")].map(el => el.textContent);
+    expect(texts).toEqual([hybrid.text, hybrid.ocr_result.text]);
+    await user.click(screen.getByTitle("Tải báo cáo JSON"));
+    const saved = JSON.parse(await readBlob(blobs.find(b => b.type.startsWith("application/json"))));
+    expect(JSON.stringify(saved.ocr_result)).toBe(rawBytes);
+    await user.click(document.querySelector('input[name=mode][value=vietocr_ocr]'));
+    expect(field("arcDocCode").value).toBe("002/OCR-TEST");
+    expect(fetch.mock.calls.filter(([url])=>url === "/api/ocr")).toHaveLength(2);
+  });
+  test("a new hybrid run never replaces existing OCR metadata edits", async () => {
+    const user = await start();
+    await user.click(document.querySelector('input[name=mode][value=vietocr_ocr]'));
+    await user.click(screen.getByRole("button", {name:"Bóc tách văn bản"}));
+    await waitFor(() => expect(field("arcDocCode")?.value).toBe("002/OCR-TEST"));
+    await user.type(field("arcDocCode"), "-KEEP");
+    const hybrid = hybridResponse();
+    hybrid.ocr_result = syntheticDocument({method:"vietocr_ocr",code:"007/FRESH-TEST"});
+    apiResults.push(jsonResponse(hybrid));
+    await user.click(document.querySelector('input[name=mode][value=hybrid_h1]'));
+    await user.click(screen.getByRole("button", {name:"Bóc tách văn bản"}));
+    await waitFor(() => expect(field("arcDocCode")?.value).toBe("003/MIX-TEST"));
+    await user.click(screen.getByRole("tab", {name:"So sánh"}));
+    expect([...document.querySelectorAll(".comparison-columns pre")][1].textContent).toBe(hybrid.ocr_result.text);
+    await user.click(document.querySelector('input[name=mode][value=vietocr_ocr]'));
+    expect(field("arcDocCode").value).toBe("002/OCR-TEST-KEEP");
+  });
+});
 afterEach(() => {vi.restoreAllMocks(); vi.unstubAllGlobals();});
 const file = (name = "synthetic.pdf") => new File(["%PDF synthetic test"], name, {type:"application/pdf"});
 const field = key => document.getElementById(`metadata-${key}`);
