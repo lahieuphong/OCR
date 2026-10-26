@@ -20,7 +20,12 @@ def main():
     folder = args.folder.resolve()
     if folder.is_relative_to(root):
         parser.error("Synthetic PDFs must be written outside the repository")
-    fonts = [args.font] if args.font else [Path("C:/Windows/Fonts/segoeui.ttf"), Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf")]
+    fonts = [args.font] if args.font else [
+        Path("C:/Windows/Fonts/segoeui.ttf"),
+        Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
+        Path("/System/Library/Fonts/Supplemental/Arial.ttf"),
+        Path("/Library/Fonts/Arial Unicode.ttf"),
+    ]
     font = next((p for p in fonts if p and p.is_file()), None)
     if not font:
         parser.error("Specify an installed Unicode TTF with --font; no font is downloaded")
