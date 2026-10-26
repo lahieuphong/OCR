@@ -5,7 +5,7 @@
 // libraries it loads, where it downloads from or how Paddle computes (PYTHONPATH/PYTHONHOME/PYTHONSTARTUP,
 // PATH entries of other Python or Node installs, PADDLE_PDX_* model sources and caches, FLAGS_* Paddle
 // flags, OMP/KMP/MKL threading knobs, proxies, CUDA settings), plus unrelated secrets of other tools.
-// The server only needs the Windows essentials, a PATH it controls and two settings of its own, so it
+// The server only needs OS essentials, a PATH it controls and two settings of its own, so it
 // gets exactly that:
 //   - an allowlist of OS variables (loader, temp folders, user profile folders, CPU description),
 //   - PATH = the backend's own folder(s) first, then the Windows system folders (no user entries),
@@ -23,10 +23,10 @@ const WINDOWS_KEEP = [
   'NUMBER_OF_PROCESSORS', 'PROCESSOR_ARCHITECTURE', 'PROCESSOR_IDENTIFIER', 'PROCESSOR_LEVEL', 'PROCESSOR_REVISION',
   'OS',
 ];
-// Development and CI runs on Linux/macOS (the packaged app is Windows-only). LD_LIBRARY_PATH is kept there
-// because a shared-library CPython (actions/setup-python on Ubuntu) cannot start without it; LD_PRELOAD and
-// DYLD_* are never passed.
-const POSIX_KEEP = ['HOME', 'USER', 'LOGNAME', 'TMPDIR', 'LANG', 'LC_ALL', 'LC_CTYPE', 'LD_LIBRARY_PATH'];
+// Development and packaged runs on Linux/macOS keep POSIX essentials. A development CPython on Linux
+// (actions/setup-python on Ubuntu) may need LD_LIBRARY_PATH; packaged runtimes never inherit it.
+// LD_PRELOAD and DYLD_* are never passed.
+const POSIX_KEEP = ['HOME', 'USER', 'LOGNAME', 'TMPDIR', 'LANG', 'LC_ALL', 'LC_CTYPE'];
 const POSIX_SYSTEM_PATH = ['/usr/local/bin', '/usr/bin', '/bin'];
 
 // Windows variable names are case-insensitive; a plain object copy of process.env is not.
@@ -52,6 +52,9 @@ function backendEnv(config = {}, { sourceEnv = process.env, platform = process.p
   for (const name of platform === 'win32' ? WINDOWS_KEEP : POSIX_KEEP) {
     const value = lookup(sourceEnv, name, platform);
     if (value !== undefined && value !== '') env[name] = value;
+  }
+  if (platform === 'linux' && !config.backendExe && sourceEnv.LD_LIBRARY_PATH) {
+    env.LD_LIBRARY_PATH = sourceEnv.LD_LIBRARY_PATH;
   }
   const own = [];
   if (config.backendExe) {

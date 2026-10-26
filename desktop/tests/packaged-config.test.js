@@ -6,18 +6,18 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { resolveConfig, serverArgs, ConfigError, PACKAGED_BACKEND, BUNDLED_MODEL_ROOT, BUNDLED_PADDLEX_HOME } = require('../electron/lib/config');
+const { resolveConfig, serverArgs, ConfigError, PACKAGED_BACKEND, packagedBackend, BUNDLED_MODEL_ROOT, BUNDLED_PADDLEX_HOME } = require('../electron/lib/config');
 const { backendEnv } = require('../electron/lib/backend-env');
 
-function resources(t, { backend = true, frontend = true, lock = true } = {}) {
+function resources(t, { backend = true, frontend = true, lock = true, platform = process.platform } = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'vietdoc-packaged-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const res = path.join(root, 'resources');
   const userData = path.join(root, 'userData');
   fs.mkdirSync(userData, { recursive: true });
   if (backend) {
-    fs.mkdirSync(path.dirname(path.join(res, PACKAGED_BACKEND)), { recursive: true });
-    fs.writeFileSync(path.join(res, PACKAGED_BACKEND), '');
+    fs.mkdirSync(path.dirname(path.join(res, packagedBackend(platform))), { recursive: true });
+    fs.writeFileSync(path.join(res, packagedBackend(platform)), '');
   }
   if (frontend) {
     fs.mkdirSync(path.join(res, 'frontend'), { recursive: true });
@@ -149,4 +149,26 @@ test('development never looks for bundled folders', (t) => {
   const config = resolveConfig({ env: { VIETDOC_BACKEND_EXE: exe }, repoRoot, desktopDir, resourcesPath: desktopDir });
   assert.equal(config.modelRoot, null);
   assert.equal(config.paddlexHome, path.join(os.homedir(), '.paddlex'));
+});
+
+
+test('macOS packaged backend uses the native executable and cannot be redirected', (t) => {
+  const r = resources(t, { platform: 'darwin' });
+  const other = path.join(r.root, 'other-backend');
+  fs.writeFileSync(other, '');
+  const config = resolveConfig({ env: { VIETDOC_BACKEND_EXE: other, VIETDOC_PYTHON: other },
+    packaged: true, resourcesPath: r.res, userConfigDir: r.userData, platform: 'darwin' });
+  assert.equal(config.backendExe, path.join(r.res, 'backend', 'vietdoc-backend', 'vietdoc-backend'));
+  assert.equal(config.python, null);
+  assert.equal(serverArgs(config)[0], '--repo-root');
+  fs.renameSync(config.backendExe, config.backendExe + '.exe');
+  assert.throws(() => resolveConfig({ env: {}, packaged: true, resourcesPath: r.res,
+    userConfigDir: r.userData, platform: 'darwin' }), ConfigError, 'a Windows backend must not substitute for a missing Mac executable');
+});
+
+test('Windows packaged backend still requires the .exe filename', (t) => {
+  const r = resources(t, { platform: 'win32' });
+  const config = resolveConfig({ env: {}, packaged: true, resourcesPath: r.res,
+    userConfigDir: r.userData, platform: 'win32' });
+  assert.equal(config.backendExe, path.join(r.res, 'backend', 'vietdoc-backend', 'vietdoc-backend.exe'));
 });

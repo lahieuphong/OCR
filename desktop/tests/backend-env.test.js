@@ -152,3 +152,25 @@ test('negative: LD_LIBRARY_PATH is a POSIX development allowance only, never pas
   const env = backendEnv(PACKAGED, { sourceEnv: { ...userEnv(), LD_LIBRARY_PATH: 'C:\\evil' }, platform: 'win32' });
   assert.equal(env.LD_LIBRARY_PATH, undefined);
 });
+
+
+test('macOS packaged backend keeps POSIX essentials without loader overrides', () => {
+  const env = backendEnv({ backendExe: '/Applications/VietDoc OCR.app/Contents/Resources/backend/vietdoc-backend/vietdoc-backend' }, {
+    sourceEnv: { HOME: '/Users/test', TMPDIR: '/private/tmp/test', LANG: 'vi_VN.UTF-8',
+      PATH: '/evil/bin', LD_LIBRARY_PATH: '/evil/lib', LD_PRELOAD: '/evil.so', DYLD_LIBRARY_PATH: '/evil/lib',
+      DYLD_INSERT_LIBRARIES: '/evil.dylib', PYTHONPATH: '/evil', NODE_OPTIONS: '--inspect', GITHUB_TOKEN: 'secret' },
+    platform: 'darwin' });
+  assert.equal(env.HOME, '/Users/test');
+  assert.equal(env.TMPDIR, '/private/tmp/test');
+  assert.equal(env.LANG, 'vi_VN.UTF-8');
+  assert.equal(env.PATH, '/Applications/VietDoc OCR.app/Contents/Resources/backend/vietdoc-backend:'
+    + '/Applications/VietDoc OCR.app/Contents/Resources/backend/vietdoc-backend/_internal:/usr/local/bin:/usr/bin:/bin');
+  for (const name of ['LD_LIBRARY_PATH', 'LD_PRELOAD', 'DYLD_LIBRARY_PATH', 'DYLD_INSERT_LIBRARIES',
+    'PYTHONPATH', 'NODE_OPTIONS', 'GITHUB_TOKEN']) assert.equal(env[name], undefined, name);
+});
+
+test('a packaged Linux backend does not inherit a development loader path', () => {
+  const env = backendEnv({ backendExe: '/opt/vietdoc/vietdoc-backend' }, {
+    sourceEnv: { HOME: '/home/test', LD_LIBRARY_PATH: '/evil/lib' }, platform: 'linux' });
+  assert.equal(env.LD_LIBRARY_PATH, undefined);
+});

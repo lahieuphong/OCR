@@ -1,0 +1,9 @@
+# Native macOS 14+ / Apple Silicon, CPython 3.12.10.
+# Keep application dependency versions aligned with the Windows build. Windows-only
+# PyInstaller dependencies in the shared pins use platform markers.
+# Install paddlepaddle==3.2.0 FIRST from its official CPU index; PyPI does not host
+# this version's macOS wheel. Do not upgrade Paddle or the frozen model to resolve it:
+# python -m pip install paddlepaddle==3.2.0 --index-url https://www.paddlepaddle.org.cn/packages/stable/cpu/
+# Native packaging CI must pass before this configuration is considered validated.
+-r requirements-packaging.txt
+macholib==1.16.3

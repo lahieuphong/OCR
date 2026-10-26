@@ -8,7 +8,9 @@ Fails (exit 1) when the build carries anything it must never carry:
 Always writes <out>/manifest.tsv (relative path, size, SHA-256 of every file) and <out>/scan.json.
 Reads files only; never modifies the build.
 
-Usage: python packaging/ci/scan_bundle.py <win-unpacked dir> <out dir> [--forbid-string TEXT ...]
+Usage: python packaging/ci/scan_bundle.py <app dir> <out dir> [--forbid-string TEXT ...]
+The optional --allow-internal-symlinks accepts macOS framework links only when
+their resolved target exists inside the scanned app; escaping/broken links fail.
 """
 from __future__ import annotations
 
@@ -87,19 +89,45 @@ def sha256(path: str) -> str:
 
 
 def scan(root: str, forbid: list[str], *, wheel_root: str | None = None,
-         wheel_profile: str | None = None) -> tuple[list[dict], list[tuple[str, int, str]], list[dict]]:
+         wheel_profile: str | None = None, allow_internal_symlinks: bool = False) -> tuple[list[dict], list[tuple[str, int, str]], list[dict]]:
     findings, manifest = [], []
     needles = set().union(*(encoded_variants(value) for value in forbid if value))
     profile_needles = (encoded_variants(wheel_profile) & needles) if wheel_root and wheel_profile in forbid else set()
     verified_paths = set()
+    resolved_root = Path(root).resolve(strict=True)
+
+    def link_problem(full: str) -> str | None:
+        candidate = Path(full)
+        if not candidate.is_symlink() and not (hasattr(candidate, "is_junction") and candidate.is_junction()):
+            return None
+        if not allow_internal_symlinks:
+            return "symbolic link or junction"
+        try:
+            target = candidate.resolve(strict=True)
+        except (OSError, RuntimeError):
+            return "broken or cyclic symbolic link"
+        if not target.is_relative_to(resolved_root):
+            return "symbolic link escapes the app"
+        return None
+
+    # Directory aliases are never traversed: their real targets are scanned once.
+    # File aliases are scanned under their own name as well, so .onnx -> innocent.bin fails.
     for dirpath, dirnames, filenames in os.walk(root):
         for d in list(dirnames):
-            if os.path.islink(os.path.join(dirpath, d)):
-                findings.append({"path": os.path.relpath(os.path.join(dirpath, d), root), "reason": "symbolic link or junction"})
+            full = os.path.join(dirpath, d)
+            candidate = Path(full)
+            if candidate.is_symlink() or (hasattr(candidate, "is_junction") and candidate.is_junction()):
+                problem = link_problem(full)
+                if problem:
+                    findings.append({"path": os.path.relpath(full, root).replace(os.sep, "/"), "reason": problem})
                 dirnames.remove(d)
         for name in filenames:
             full = os.path.join(dirpath, name)
             rel = os.path.relpath(full, root).replace(os.sep, "/")
+            problem = link_problem(full)
+            if problem:
+                findings.append({"path": rel, "reason": problem})
+                continue
             size = os.path.getsize(full)
             digest = sha256(full)
             manifest.append((rel, size, digest))
@@ -131,6 +159,8 @@ def main() -> int:
     ap.add_argument("root")
     ap.add_argument("out")
     ap.add_argument("--forbid-string", action="append", default=[])
+    ap.add_argument("--allow-internal-symlinks", action="store_true",
+                    help="accept existing links resolving inside the app (macOS frameworks); never follow directory aliases")
     ap.add_argument("--verified-wheel-root", help="site-packages directory of the installed wheels")
     ap.add_argument("--verified-wheel-profile", help="CI account profile already in --forbid-string")
     a = ap.parse_args()
@@ -138,7 +168,8 @@ def main() -> int:
         ap.error("both verified wheel arguments must be provided")
     os.makedirs(a.out, exist_ok=True)
     findings, manifest, warnings = scan(a.root, a.forbid_string,
-                                        wheel_root=a.verified_wheel_root, wheel_profile=a.verified_wheel_profile)
+                                        wheel_root=a.verified_wheel_root, wheel_profile=a.verified_wheel_profile,
+                                        allow_internal_symlinks=a.allow_internal_symlinks)
     with open(os.path.join(a.out, "manifest.tsv"), "w", encoding="utf-8", newline="\n") as f:
         f.write("path\tsize\tsha256\n")
         f.writelines(f"{p}\t{s}\t{h}\n" for p, s, h in manifest)

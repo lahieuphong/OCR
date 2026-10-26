@@ -6,6 +6,9 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 module.exports = async function afterPack(context) {
-  const file = path.join(context.appOutDir, 'resources', 'default_app.asar');
+  const resources = context.electronPlatformName === 'darwin'
+    ? path.join(context.appOutDir, `${context.packager.appInfo.productFilename}.app`, 'Contents', 'Resources')
+    : path.join(context.appOutDir, 'resources');
+  const file = path.join(resources, 'default_app.asar');
   if (fs.existsSync(file)) fs.rmSync(file);
 };

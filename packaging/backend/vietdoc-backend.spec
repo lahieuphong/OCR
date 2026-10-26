@@ -1,11 +1,12 @@
 # -*- mode: python ; coding: utf-8 -*-
-# PyInstaller one-folder build of the VietDoc desktop OCR server (Windows Packaging Phase 1, internal).
+# Native PyInstaller one-folder build of the VietDoc desktop OCR server (internal).
 # Environment and build command: packaging/README.md. Keep build and output folders OUTSIDE the repository.
 #
 # The bundle holds code and libraries only. No VietOCR model, PaddleOCR detector, document, label or
 # token goes into it: the frozen models are read at run time from a verified external folder
 # (VIETDOC_MODEL_ROOT) and checked by SHA-256 in demo/local_pdf_ocr/backend/contract.py.
 import importlib.metadata as md
+import sys
 from pathlib import Path, PurePath
 
 from PyInstaller.utils.hooks import collect_data_files, collect_dynamic_libs, collect_submodules, copy_metadata
@@ -28,7 +29,7 @@ EXCLUDED_MODULES = [
 # Their metadata goes too, so nothing claims a package that is not there; build tools never ship.
 EXCLUDED_DISTRIBUTIONS = {
     "pip", "wheel", "bce-python-sdk", "crc32c", "pycryptodome", "future", "hf-xet",
-    "pyinstaller", "pyinstaller-hooks-contrib", "altgraph", "pefile", "pywin32-ctypes",
+    "pyinstaller", "pyinstaller-hooks-contrib", "altgraph", "pefile", "pywin32-ctypes", "macholib",
 }
 # Libraries only loaded on demand (LoadLibrary) for features the OCR never uses, and files that only serve
 # compiling against Paddle. No bundled binary imports any of these libraries.
@@ -73,6 +74,15 @@ runtime = [m.strip() for m in RUNTIME_MODULES.read_text(encoding="utf-8").splitl
 clash = sorted(m for m in runtime if m.split(".")[0] in EXCLUDED_MODULES)
 if clash:
     raise SystemExit(f"Excluded modules are used at run time: {clash[:10]}")
+# The traced baseline comes from Windows. Darwin's standard-library imports are
+# platform-specific and are not in that trace; avoid forcing Windows-only modules
+# into a native macOS build. All OCR dependency and exclusion checks stay shared.
+if sys.platform == "darwin":
+    windows_only = {"_overlapped", "_winapi", "_wmi", "msvcrt", "nt", "winreg",
+                    "asyncio.windows_events", "asyncio.windows_utils"}
+    runtime = [module for module in runtime if module not in windows_only]
+    hiddenimports += ["_scproxy", "_posixsubprocess", "resource", "fcntl", "pwd", "grp",
+                      "termios", "asyncio.unix_events"]
 hiddenimports += runtime
 
 datas, binaries = [], []
@@ -114,5 +124,9 @@ exe = EXE(
     upx=False,
     strip=False,
     debug=False,
+    # A Windows backend cannot be cross-compiled into a Mac executable. Build on
+    # Apple Silicon with native wheels; PyInstaller validates extension slices and
+    # ad-hoc signs the rewritten Mach-O libraries and the backend executable.
+    target_arch="arm64" if sys.platform == "darwin" else None,
 )
 coll = COLLECT(exe, a.binaries, a.datas, upx=False, name="vietdoc-backend")

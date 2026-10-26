@@ -1,6 +1,6 @@
 # VietDoc OCR
 
-Ứng dụng OCR tiếng Việt chạy local trên Windows bằng Electron, PaddleOCR detector và VietOCR B1024 ONNX. Giao diện hỗ trợ PDF/PNG/JPG, chọn native text hoặc OCR, metadata 22 trường và xuất nhiều tài liệu ra XLSX 23 cột.
+Ứng dụng OCR tiếng Việt chạy local trên Windows (và bản test macOS Apple Silicon) bằng Electron, PaddleOCR detector và VietOCR B1024 ONNX. Giao diện hỗ trợ PDF/PNG/JPG, chọn native text hoặc OCR, metadata 22 trường và xuất nhiều tài liệu ra XLSX 23 cột.
 
 **Nguồn ứng dụng hiện hành nằm trên nhánh main.** Thư mục mang tên demo/local_pdf_ocr vẫn là frontend/backend mà Electron và bản đóng gói sử dụng.
 
@@ -44,3 +44,7 @@ Python cần môi trường có dependency phù hợp. Các test và CI model-fr
 Xem [kiểm kê nhánh và quy tắc dọn Git](docs/BRANCHES.md). Giữ các PR nghiên cứu chưa merge theo quyết định của chủ dự án; chỉ dọn nhánh trùng/đã tích hợp có bằng chứng.
 
 **Phát hành cộng đồng vẫn NO-GO** cho đến khi các gate quyền phân phối, privacy, clean-VM và signing trong [release](release/README.md) được đóng. Repository hiện chưa cấp giấy phép phân phối mới qua README này.
+
+## Bản test macOS
+
+Xem [hướng dẫn tải DMG Apple Silicon, cấu hình model và build native](packaging/macos/README.md). Workflow **VietDoc macOS DMG (Apple Silicon)** tạo artifact tải được sau khi kiểm tra app đã đóng gói.

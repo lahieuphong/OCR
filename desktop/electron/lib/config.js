@@ -19,7 +19,10 @@ const path = require('node:path');
 
 const DESKTOP_DIR = path.resolve(__dirname, '..', '..');
 const REPO_ROOT = path.resolve(DESKTOP_DIR, '..');
-const PACKAGED_BACKEND = path.join('backend', 'vietdoc-backend', 'vietdoc-backend.exe');
+function packagedBackend(platform = process.platform) {
+  return path.join('backend', 'vietdoc-backend', platform === 'win32' ? 'vietdoc-backend.exe' : 'vietdoc-backend');
+}
+const PACKAGED_BACKEND = packagedBackend();
 const BUNDLED_MODEL_ROOT = 'models';
 const BUNDLED_PADDLEX_HOME = 'paddlex';
 
@@ -51,7 +54,7 @@ function bundledDir(resourcesPath, name) {
 }
 
 function resolveConfig({ env = process.env, repoRoot = REPO_ROOT, desktopDir = DESKTOP_DIR,
-  packaged = false, resourcesPath = null, userConfigDir = null } = {}) {
+  packaged = false, resourcesPath = null, userConfigDir = null, platform = process.platform } = {}) {
   if (packaged && !(resourcesPath && path.isAbsolute(resourcesPath))) {
     throw new ConfigError('Bản đóng gói thiếu thư mục resources.');
   }
@@ -59,12 +62,14 @@ function resolveConfig({ env = process.env, repoRoot = REPO_ROOT, desktopDir = D
     : path.join(desktopDir, 'desktop.config.json'));
   let backendExe = null;
   if (packaged) {
-    backendExe = absoluteFile('Backend đóng gói', path.join(resourcesPath, PACKAGED_BACKEND));
+    backendExe = absoluteFile('Backend đóng gói', path.join(resourcesPath, packagedBackend(platform)));
   } else if (env.VIETDOC_BACKEND_EXE) {
     backendExe = absoluteFile('Backend (VIETDOC_BACKEND_EXE)', env.VIETDOC_BACKEND_EXE);
   }
   const python = backendExe ? null : absoluteFile('Python (VIETDOC_PYTHON hoặc desktop.config.json "python")',
-    env.VIETDOC_PYTHON || local.python || path.join(repoRoot, '.venv-demo', 'Scripts', 'python.exe'));
+    env.VIETDOC_PYTHON || local.python || (platform === 'win32'
+      ? path.join(repoRoot, '.venv-demo', 'Scripts', 'python.exe')
+      : path.join(repoRoot, '.venv-demo', 'bin', 'python')));
   const frontendDist = packaged ? path.join(resourcesPath, 'frontend')
     : path.join(repoRoot, 'demo', 'local_pdf_ocr', 'frontend', 'dist');
   if (!fs.existsSync(path.join(frontendDist, 'index.html'))) {
@@ -110,5 +115,5 @@ function serverArgs(config) {
   return config.backendExe ? common : ['-I', '-B', '-X', 'utf8', config.serverScript, ...common];
 }
 
-module.exports = { ConfigError, resolveConfig, serverArgs, DESKTOP_DIR, REPO_ROOT, PACKAGED_BACKEND,
+module.exports = { ConfigError, resolveConfig, serverArgs, DESKTOP_DIR, REPO_ROOT, PACKAGED_BACKEND, packagedBackend,
   BUNDLED_MODEL_ROOT, BUNDLED_PADDLEX_HOME };

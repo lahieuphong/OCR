@@ -1,0 +1,4 @@
+# CI only: this app is never uploaded. The downloadable DMG refuses smoke/debug options.
+extends: electron-builder.macos.yml
+extraMetadata:
+  vietdocSmokeTest: true

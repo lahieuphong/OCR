@@ -96,3 +96,17 @@ test('model root: optional, absolute existing folder only', (t) => {
     assert.throws(() => resolveConfig({ env: { ...base, VIETDOC_MODEL_ROOT: bad }, repoRoot: f.repoRoot, desktopDir: f.desktopDir }), /modelRoot/);
   }
 });
+
+
+test('the default development interpreter follows the target platform', (t) => {
+  for (const platform of ['win32', 'darwin', 'linux']) {
+    const f = fixture(t);
+    const python = platform === 'win32'
+      ? path.join(f.repoRoot, '.venv-demo', 'Scripts', 'python.exe')
+      : path.join(f.repoRoot, '.venv-demo', 'bin', 'python');
+    fs.mkdirSync(path.dirname(python), { recursive: true });
+    fs.writeFileSync(python, '');
+    const config = resolveConfig({ env: {}, repoRoot: f.repoRoot, desktopDir: f.desktopDir, platform });
+    assert.equal(config.python, python, platform);
+  }
+});

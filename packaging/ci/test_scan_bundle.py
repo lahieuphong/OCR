@@ -121,6 +121,61 @@ class ScanBundleTest(unittest.TestCase):
             self.assertIn("GitHub token", {f["reason"] for f in result["findings"]})
             self.assertTrue(any(f["reason"].startswith("machine path") for f in result["findings"]))
 
+    def directory_link(self, link, target):
+        if os.name == "nt":
+            result = subprocess.run(["cmd", "/c", "mklink", "/J", str(link), str(target)],
+                                    capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+        else:
+            link.symlink_to(target, target_is_directory=True)
+
+    def test_macos_framework_directory_alias_requires_explicit_allowance(self):
+        with tempfile.TemporaryDirectory() as app:
+            real = Path(app, "Contents", "Frameworks", "Electron Framework.framework", "Versions", "A")
+            real.mkdir(parents=True)
+            (real / "Electron Framework").write_bytes(b"Mach-O")
+            current = real.with_name("Current")
+            self.directory_link(current, real)
+            code, summary, _ = run(app)
+            self.assertEqual(code, 1, summary)
+            self.assertIn("symbolic link or junction", self.reasons(summary))
+            code, summary, manifest = run(app, "--allow-internal-symlinks")
+            self.assertEqual(code, 0, summary)
+            self.assertEqual(summary["files"], 1)
+            self.assertNotIn("Current/", manifest.read_text(encoding="utf-8"))
+            # Content is scanned through the real directory, even when an alias is permitted.
+            (real / "private.onnx").write_bytes(b"model")
+            code, summary, _ = run(app, "--allow-internal-symlinks")
+            self.assertEqual(code, 1, summary)
+            self.assertIn("model weights or checkpoint", self.reasons(summary))
+
+    def test_macos_directory_alias_cannot_escape_the_app(self):
+        with tempfile.TemporaryDirectory() as app, tempfile.TemporaryDirectory() as outside:
+            self.directory_link(Path(app, "Frameworks"), Path(outside))
+            code, summary, _ = run(app, "--allow-internal-symlinks")
+            self.assertEqual(code, 1, summary)
+            self.assertIn("symbolic link escapes the app", self.reasons(summary))
+
+    def test_posix_file_aliases_cannot_hide_models_or_escape_the_app(self):
+        # Windows CI checks directory junctions above; POSIX CI additionally exercises file symlinks,
+        # which require an administrator or Developer Mode on Windows.
+        if os.name == "nt":
+            return
+        with tempfile.TemporaryDirectory() as app, tempfile.TemporaryDirectory() as outside:
+            root = Path(app)
+            (root / "payload.bin").write_bytes(b"model")
+            (root / "encoder.onnx").symlink_to("payload.bin")
+            (Path(outside) / "secret.txt").write_bytes(b"private")
+            (root / "escape.txt").symlink_to(Path(outside) / "secret.txt")
+            (root / "missing").symlink_to("no-such-file")
+            (root / "loop").symlink_to("loop")
+            code, summary, _ = run(app, "--allow-internal-symlinks")
+            self.assertEqual(code, 1, summary)
+            reasons = self.reasons(summary)
+            self.assertIn("model weights or checkpoint", reasons)
+            self.assertIn("symbolic link escapes the app", reasons)
+            self.assertIn("broken or cyclic symbolic link", reasons)
+
     def test_model_lock_with_a_path_fails(self):
         write(self.root, "resources/model_lock.json", json.dumps({"root": "C:\\Users\\u\\models"}))
         code, summary, _ = run(self.root)

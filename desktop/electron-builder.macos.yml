@@ -1,0 +1,20 @@
+# Native Apple Silicon test build. Models stay external, as in the model-free folder build.
+extends: electron-builder.yml
+copyright: Internal macOS test build
+publish: null
+mac:
+  target:
+    - target: dmg
+      arch: [arm64]
+  category: public.app-category.productivity
+  minimumSystemVersion: '14.0'
+  # Ad-hoc signing preserves bundle integrity; this is not Developer ID/notarization.
+  identity: '-'
+  hardenedRuntime: false
+  gatekeeperAssess: false
+  notarize: false
+  artifactName: VietDoc-OCR-${version}-macOS-${arch}.${ext}
+dmg:
+  sign: false
+  format: UDZO
+  writeUpdateInfo: false

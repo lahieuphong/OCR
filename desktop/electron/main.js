@@ -199,6 +199,8 @@ function buildMenu() {
       { type: 'separator' },
       { label: 'Thoát', role: 'quit' },
     ] },
+    // Native Edit roles register the standard Command shortcuts on macOS.
+    ...(process.platform === 'darwin' ? [{ id: 'vietdoc-edit', role: 'editMenu' }] : []),
     { label: 'Xem', submenu: [
       { label: 'Tải lại', role: 'reload' }, { label: 'Phóng to', role: 'zoomIn' }, { label: 'Thu nhỏ', role: 'zoomOut' },
       { label: 'Cỡ mặc định', role: 'resetZoom' }, ...(DEV ? [{ type: 'separator' }, { role: 'toggleDevTools' }] : []),
@@ -327,6 +329,14 @@ async function runSmoke() {
   const wc = mainWindow.webContents;
   const js = (code) => wc.executeJavaScript(code, true);
   const c = smoke.checks;
+  if (process.platform === 'darwin') {
+    const edit = Menu.getApplicationMenu().getMenuItemById('vietdoc-edit');
+    const roles = (edit && edit.submenu ? edit.submenu.items : []).map(item => String(item.role).toLowerCase());
+    c.macos_edit_menu = roles;
+    for (const role of ['undo', 'redo', 'cut', 'copy', 'paste', 'selectall']) {
+      assert.ok(roles.includes(role), `macOS native Edit menu is missing ${role}`);
+    }
+  }
   async function clickResultTab(label) {
     const point = await js(`(() => { const tab = Array.from(document.querySelectorAll('[role=tab]')).find(t => t.textContent === ${JSON.stringify(label)});
       if (!tab) return null; tab.scrollIntoView({block: 'nearest'}); const r = tab.getBoundingClientRect(); return {x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2)}; })()`);

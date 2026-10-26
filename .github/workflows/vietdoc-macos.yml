@@ -1,0 +1,102 @@
+name: VietDoc macOS DMG (Apple Silicon)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'desktop/**'
+      - 'demo/local_pdf_ocr/**'
+      - 'packaging/**'
+      - 'PaddleOCR/**'
+      - '.github/workflows/vietdoc-macos.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'desktop/**'
+      - 'demo/local_pdf_ocr/**'
+      - 'packaging/**'
+      - 'PaddleOCR/**'
+      - '.github/workflows/vietdoc-macos.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vietdoc-macos-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  dmg:
+    name: Build and test native arm64 DMG
+    runs-on: macos-15
+    timeout-minutes: 120
+    env:
+      PIP_DISABLE_PIP_VERSION_CHECK: '1'
+      PYTHONDONTWRITEBYTECODE: '1'
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12.10'
+          architecture: arm64
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            desktop/package-lock.json
+            demo/local_pdf_ocr/frontend/package-lock.json
+      - name: Confirm native Apple Silicon and check tracked material
+        run: |
+          test "$(uname -m)" = arm64
+          python .github/scripts/check_tracked_files.py --history-base origin/main
+          echo "OUT=$RUNNER_TEMP/vietdoc-macos" >> "$GITHUB_ENV"
+          echo "VPY=$RUNNER_TEMP/venv-macos/bin/python" >> "$GITHUB_ENV"
+      - name: Native Python runtime (no models)
+        run: |
+          python -m venv "$RUNNER_TEMP/venv-macos"
+          # Paddle 3.2 macOS wheels are on its official CPU index, not PyPI.
+          "$VPY" -m pip install paddlepaddle==3.2.0 --index-url https://www.paddlepaddle.org.cn/packages/stable/cpu/
+          "$VPY" -m pip install -r packaging/backend/requirements-macos.txt
+          mkdir -p "$OUT/src"
+          git archive --format=tar -o "$OUT/paddleocr-src.tar" HEAD PaddleOCR
+          "$VPY" -c "import sys,tarfile; tarfile.open(sys.argv[1]).extractall(sys.argv[2],filter='data')" "$OUT/paddleocr-src.tar" "$OUT/src"
+          SETUPTOOLS_SCM_PRETEND_VERSION_FOR_PADDLEOCR=3.8.0.dev13+gdab3fe353 "$VPY" -m pip install --no-deps "$OUT/src/PaddleOCR"
+          "$VPY" -m pip check
+      - name: Install locked Electron and frontend dependencies
+        run: |
+          npm --prefix desktop ci --no-audit --no-fund
+          node desktop/node_modules/electron/install.js
+          npm --prefix demo/local_pdf_ocr/frontend ci --no-audit --no-fund
+      - name: Test, freeze, package, verify and create DMG
+        run: bash packaging/macos/build.sh
+      - name: Downloadable test DMG and SHA-256 (no models)
+        uses: actions/upload-artifact@v4
+        with:
+          name: VietDoc-OCR-macOS-arm64
+          path: ${{ env.OUT }}/download/
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
+      - name: Build diagnostics (synthetic inputs only)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: VietDoc-macOS-checks
+          path: |
+            ${{ env.OUT }}/report/*.txt
+            ${{ env.OUT }}/report/*.json
+            ${{ env.OUT }}/report/scan-*/scan.json
+            ${{ env.OUT }}/report/*/run_watch.json
+            ${{ env.OUT }}/report/smoke/smoke_report.json
+          if-no-files-found: warn
+          retention-days: 14
