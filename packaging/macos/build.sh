@@ -63,6 +63,32 @@ done
 "$VPY" desktop/scripts/make_synthetic_pdf.py "$OUT/synthetic.pdf"
 node demo/local_pdf_ocr/frontend/scripts/export_metadata_fixtures.mjs "$OUT/fixtures"
 "$VPY" desktop/scripts/make_metadata_fixtures.py "$OUT/fixtures"
+# Exercise the frozen inference libraries too, with no weights and no listener.
+"$VPY" - "$APP/Contents/Resources" "$OUT/report/runtime-probe.json" <<'PY'
+import json, secrets, subprocess, sys
+from pathlib import Path
+sys.path.insert(0, str(Path('packaging/ci').resolve()))
+from probe_backend import backend_command, probe_environment
+resources, output = map(Path, sys.argv[1:])
+exe = backend_command(str(resources))
+qa_home = output.parent / 'runtime-check-paddlex'
+qa_home.mkdir()
+args = [exe, '--repo-root', str(resources), '--frontend-dist', str(resources / 'frontend'),
+        '--model-lock', str(resources / 'model_lock.json'), '--paddlex-home', str(qa_home), '--check-runtime']
+result = subprocess.run(args, input=secrets.token_hex(32) + '\n', text=True, capture_output=True,
+                        cwd=resources, env=probe_environment(exe), timeout=180)
+if result.returncode:
+    raise SystemExit(result.stdout + result.stderr)
+line = next((line for line in result.stdout.splitlines() if line.startswith('VIETDOC_RUNTIME ')), None)
+if line is None:
+    raise SystemExit('Frozen runtime did not return its diagnostic: ' + result.stdout + result.stderr)
+report = json.loads(line.removeprefix('VIETDOC_RUNTIME '))
+assert report['frozen'] is True and report['model_downloads'] == 'disabled', report
+assert report['versions']['paddlepaddle'] == '3.2.0', report
+assert report['versions']['onnxruntime'] == '1.31.0', report
+output.write_text(json.dumps(report, indent=2), encoding='utf-8')
+print(json.dumps(report))
+PY
 "$VPY" packaging/ci/probe_backend.py "$APP/Contents/Resources" "$OUT/report/backend-probe.json" "$OUT/synthetic.pdf"
 
 # A user can install into a folder containing spaces and Unicode; exercise that native path too.

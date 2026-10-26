@@ -143,8 +143,10 @@ test('a real child process receives exactly the minimal environment (values roun
   const got = upper(seen);
   assert.equal(got[tempKey.toUpperCase()], tempValue);
   for (const name of ['PYTHONPATH', 'VIETDOC_CANARY', 'HTTPS_PROXY']) assert.equal(got[name], undefined, name);
-  // Only what backendEnv produced, plus the identity variables libuv adds on Windows.
+  // Only the explicit environment plus variables the OS adds after spawning.
   const allowed = new Set([...Object.keys(env).map((k) => k.toUpperCase()), 'USERNAME', 'USERDOMAIN', 'LOGONSERVER']);
+  // CoreFoundation initializes its per-user text encoding when Node starts on macOS.
+  if (process.platform === 'darwin') allowed.add('__CF_USER_TEXT_ENCODING');
   for (const name of Object.keys(got)) assert.ok(allowed.has(name), `unexpected variable in the child: ${name}`);
 });
 

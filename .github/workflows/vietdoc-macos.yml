@@ -39,6 +39,8 @@ jobs:
       PIP_DISABLE_PIP_VERSION_CHECK: '1'
       PYTHONDONTWRITEBYTECODE: '1'
       CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      # This job uses ad-hoc signatures only; it has no signing certificate or publishing credential.
+      CSC_FOR_PULL_REQUEST: 'true'
     steps:
       - uses: actions/checkout@v4
         with:

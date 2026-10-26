@@ -21,6 +21,7 @@ checks stay untouched:
 from __future__ import annotations
 
 import argparse
+import contextlib
 import hashlib
 import hmac
 import json
@@ -84,6 +85,33 @@ def disable_model_downloads() -> None:
 
     official_models._ModelManager._build_hosters = lambda self: []
     official_models.official_models._hosters = []
+
+
+def check_native_runtime(repo_root: Path, paddlex_home: Path) -> dict:
+    """Load the frozen OCR libraries without creating sessions, detectors or a listener.
+
+    The packaging caller imposes the process timeout. This branch still requires
+    the launch token, and packaged execution never imports from a command-line
+    repository path. Cache writes from library imports go to the explicit QA home.
+    """
+    if not getattr(sys, "frozen", False):
+        sys.path.insert(0, str(repo_root.resolve()))
+    os.environ["PADDLE_PDX_CACHE_HOME"] = str(paddlex_home.resolve())
+    os.environ["PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK"] = "True"
+    # A source-check flag alone does not prevent downloads. Remove model hosters
+    # before loading the same detection/crop classes that the OCR engine uses.
+    disable_model_downloads()
+    import paddle
+    import onnxruntime
+    import cv2
+    import pypdfium2
+    from paddleocr import TextDetection
+    from paddlex.inference.pipelines.components import CropByPolys
+
+    return {"frozen": bool(getattr(sys, "frozen", False)),
+            "versions": {"python": platform.python_version(), "paddlepaddle": paddle.__version__,
+                         "onnxruntime": onnxruntime.__version__, "opencv": cv2.__version__},
+            "model_downloads": "disabled"}
 
 
 class DesktopGuard:
@@ -232,15 +260,29 @@ def main(argv=None) -> int:
     parser.add_argument("--frontend-dist", type=Path, required=True)
     parser.add_argument("--model-lock", type=Path, required=True)
     parser.add_argument("--paddlex-home", type=Path, default=Path.home() / ".paddlex")
+    parser.add_argument("--check-runtime", action="store_true",
+                        help="check native OCR imports without loading models or starting the server")
     args = parser.parse_args(argv)
     token = sys.stdin.readline().strip()
     if len(token) < 32 or any(c not in "0123456789abcdef" for c in token):
         print("VIETDOC_ERROR missing or malformed token on stdin", flush=True)
         return 2
-    if not (args.frontend_dist / "index.html").is_file():
+    if not args.check_runtime and not (args.frontend_dist / "index.html").is_file():
         print(f"VIETDOC_ERROR frontend build not found: {args.frontend_dist}", flush=True)
         return 2
     parent_pipe = detach_stdin()  # before any native library is loaded
+    if args.check_runtime:
+        parent_pipe.close()
+        try:
+            # Keep the machine-readable result on stdout even if a dependency logs
+            # during import. No server, socket or model is created by this branch.
+            with contextlib.redirect_stdout(sys.stderr):
+                report = check_native_runtime(args.repo_root, args.paddlex_home)
+        except Exception as error:
+            print(f"VIETDOC_ERROR native runtime import failed: {type(error).__name__}: {error}", flush=True)
+            return 1
+        print("VIETDOC_RUNTIME " + json.dumps(report), flush=True)
+        return 0
     import uvicorn
 
     lock = json.loads(args.model_lock.read_text(encoding="utf-8"))
