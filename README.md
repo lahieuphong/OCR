@@ -2,22 +2,22 @@
 
 Ứng dụng desktop nhận dạng tiếng Việt từ PDF, PNG và JPG, hỗ trợ thông tin văn bản 22 trường và xuất Excel 23 cột. Tài liệu được xử lý trên máy, không gửi tới dịch vụ OCR bên ngoài.
 
-## Hai bản cài đặt hiện có
+## Hai bản tải về
 
-| Nền tảng | File cài đặt | Ghi chú |
+| Nền tảng | File cài đặt | Tải về |
 |---|---|---|
-| Windows x64 | `VietDoc OCR Setup.exe` — 24/10/2026 | Installer offline có model OCR, được chia sẻ riêng trong nội bộ. |
-| macOS 15+ · Apple Silicon | `VietDoc-OCR-0.1.0-macOS-arm64.dmg` — 26/10/2026 | [Tải bản Mac](https://github.com/lahieuphong/OCR/actions/workflows/vietdoc-macos.yml), cần chép model OCR riêng. Không hỗ trợ Mac Intel. |
+| Windows 10/11 x64 | `VietDoc-OCR-0.1.0-Windows-x64-Setup.exe` | [Tải bản Windows](https://github.com/lahieuphong/OCR/actions/workflows/vietdoc-packaging-ci.yml) |
+| macOS 15+ · Apple Silicon | `VietDoc-OCR-0.1.0-macOS-arm64.dmg` | [Tải bản Mac](https://github.com/lahieuphong/OCR/actions/workflows/vietdoc-macos.yml) |
 
-Bản Windows hiện có chưa được build lại theo các cập nhật metadata/Excel mới nhất trên `main`.
+Cả hai bản tải từ GitHub đều cần **chép model OCR riêng**. PDF có text và xuất Excel dùng được ngay khi chưa có model. Bản Mac không hỗ trợ Intel.
 
 ## Cài đặt và sử dụng
 
-- **Windows:** chạy `VietDoc OCR Setup.exe`, cài đặt rồi mở VietDoc OCR.
-- **Mac:** chọn lần build thành công mới nhất ở link trên, tải artifact **VietDoc-OCR-macOS-arm64** và giải nén. Mở DMG, kéo app vào **Applications**. Nếu macOS chặn bản test, chọn **Privacy & Security → Open Anyway**.
+- **Windows:** chọn lần chạy thành công có gói **VietDoc-OCR-Windows-x64**, tải và giải nén rồi chạy `.exe`. App có tên **VietDoc OCR Test**, cài đặt và lưu cấu hình riêng để giữ nguyên bản offline cũ có model.
+- **Mac:** chọn lần chạy thành công có gói **VietDoc-OCR-macOS-arm64**, tải và giải nén. Mở DMG, kéo app vào **Applications**. Nếu macOS chặn bản test, chọn **Privacy & Security → Open Anyway**.
 - Chọn file, dùng **Text có sẵn trong PDF** hoặc **OCR bằng VietOCR B**, kiểm tra kết quả rồi xuất TXT, JSON hoặc Excel.
 
-Bản Mac đọc được PDF có text và xuất Excel khi chưa có model. Để OCR ảnh/scan, làm theo [hướng dẫn cấu hình model trên Mac](packaging/macos/README.md). Máy dùng bản cài đặt không cần cài Python hay Node.js.
+Máy dùng bản cài đặt không cần cài Python hay Node.js. Hướng dẫn model: [Windows](packaging/windows/README.md) · [Mac](packaging/macos/README.md). Gói tải trên GitHub được giữ 30 ngày; có thể chạy lại workflow để tạo bản mới.
 
 ## Mã nguồn và phát triển
 
