@@ -1,4 +1,4 @@
-import React, {useEffect, useRef, useState} from "react";
+import {useEffect, useRef, useState} from "react";
 import {
   ScanText, FileText, FileImage, UploadCloud, ShieldCheck, ArrowRight,
   Download, Copy, Check, AlertTriangle, LoaderCircle, Clock3, FileJson,
