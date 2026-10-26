@@ -65,6 +65,63 @@ VERIFIED_NATIVE_WHEELS = frozenset({
 PACKAGED_NATIVE_PREFIX = "resources/backend/vietdoc-backend/_internal/"
 
 
+# OpenCV 4.10.0.84's public macOS arm64 wheel (SHA-256
+# ee4b0919026d8c533aeb69b16c6ec4a891a2f6844efaa14121bf68838753209c)
+# carries PEM parser constants in mbedTLS and public known-answer keys in GnuTLS.
+# Every complete key was compared byte-for-byte against the public upstream self-tests:
+# https://github.com/gnutls/gnutls/blob/3.8.5/lib/crypto-selftests-pk.c
+# Only those exact C strings in the two expected ARM64 Mach-O libraries are accepted.
+# Additional or modified keys in the SAME binary still fail; no binary/file is exempted.
+MAC_CRYPTO_PREFIX = "Contents/Resources/backend/vietdoc-backend/_internal/"
+PUBLIC_GNUTLS_SELF_TESTS = frozenset({
+    "f4b1de2f94f1df2d588ff6c18290e0f7f5091267b9ef0da8433c622bad3d127a",  # rsa_2048_privkey
+    "80ec06e06b06635bcad5c71b0e9e7a3516c02133c682a2369b09599addb8d7f3",  # dsa_2048_privkey
+    "d653005e4d23cf91e3572fe8148ab6db2e474924d9711838521d3ba352b193f5",  # ecdsa_secp256r1_privkey
+    "293216817f0d585f0b54f225582f59e7b2e2a795b5f8002e2d71c5e3d49ce9b0",  # ecdsa_secp384r1_privkey
+    "f8766749b0c6f9b5661364568226af0ba7ae8d87c0073df24e440de4417521cd",  # ecdsa_secp521r1_privkey
+    "934b3e9bfd9936c5e30c7f0ed7d36a05e2044f755c0aa433e1d6bef6a68d1391",  # ecdsa_secp192r1_privkey
+    "a0b9679665e29ac220dfb0b366317e1b9dd5fe31e9def8b2e511669a041389ae",  # ecdsa_secp224r1_privkey
+    "b8369cc647a1e1e8f8e420b6b8580c36223f89b0f8e70281732d028aebf15fac",  # gost01_privkey
+    "3de5d1d9ca9af8e24d29bab925c3d500c2cdd11a06c4a2c6a6b336e73bb3ad56",  # gost12_256_privkey
+    "c72070fc1ffb2df729650b949157c85ec03d8ec9743ba7956c03e21d385bce4e",  # gost12_512_privkey
+})
+MBEDTLS_PEM_HEADERS = frozenset(
+    b"-----BEGIN " + label + b"PRIVATE KEY-----"
+    for label in (b"", b"RSA ", b"EC ", b"ENCRYPTED ")
+)
+
+
+def public_crypto_match(rel: str, data: bytes, match: re.Match) -> bool:
+    if not rel.startswith(MAC_CRYPTO_PREFIX) or data[:8] != bytes.fromhex("cffaedfe0c000001"):
+        return False
+    library = rel[len(MAC_CRYPTO_PREFIX):]
+    if library in {"libmbedcrypto.3.5.1.dylib", "cv2/.dylibs/libmbedcrypto.3.5.1.dylib"}:
+        # A parser's header literal contains no key body: it ends at its own NUL.
+        # The newline+NUL form is also present in the exact upstream wheel.
+        return (match.group() in MBEDTLS_PEM_HEADERS and match.start() > 0
+                and data[match.start() - 1] == 0
+                and (data[match.end():match.end() + 1] == b"\0"
+                     or data[match.end():match.end() + 2] == b"\n\0"))
+    if library in {"libgnutls.30.dylib", "cv2/.dylibs/libgnutls.30.dylib"}:
+        end = data.find(b"\0", match.end(), match.end() + 8192)
+        return end >= 0 and hashlib.sha256(data[match.start():end]).hexdigest() in PUBLIC_GNUTLS_SELF_TESTS
+    return False
+
+
+def secret_findings(rel: str, data: bytes) -> tuple[list[dict], int]:
+    findings, public_matches = [], 0
+    for reason, pattern in SECRET_CONTENT:
+        dangerous = False
+        for match in pattern.finditer(data):
+            if reason == "private key block" and public_crypto_match(rel, data, match):
+                public_matches += 1
+            else:
+                dangerous = True
+        if dangerous:
+            findings.append({"path": rel, "reason": reason})
+    return findings, public_matches
+
+
 def encoded_variants(text: str) -> set[bytes]:
     variants = {text, text.replace(chr(92), "/"), text.replace("/", chr(92)), text.lower()}
     return {data for value in variants for data in (value.encode("utf-8"), value.encode("utf-16-le"))}
@@ -94,6 +151,7 @@ def scan(root: str, forbid: list[str], *, wheel_root: str | None = None,
     needles = set().union(*(encoded_variants(value) for value in forbid if value))
     profile_needles = (encoded_variants(wheel_profile) & needles) if wheel_root and wheel_profile in forbid else set()
     verified_paths = set()
+    public_crypto_paths = {}
     resolved_root = Path(root).resolve(strict=True)
 
     def link_problem(full: str) -> str | None:
@@ -135,7 +193,10 @@ def scan(root: str, forbid: list[str], *, wheel_root: str | None = None,
                 findings += [{"path": rel, "reason": reason} for reason, rx in FORBIDDEN_FILES if rx.search(rel)]
             with open(full, "rb") as f:
                 data = f.read()
-            findings += [{"path": rel, "reason": reason} for reason, rx in SECRET_CONTENT if rx.search(data)]
+            secrets, public_matches = secret_findings(rel, data)
+            findings += secrets
+            if public_matches:
+                public_crypto_paths[rel] = public_matches
             native_matches_wheel = bool(profile_needles) and verified_upstream_native(rel, digest, wheel_root)
             for n in needles:
                 if n not in data:
@@ -151,6 +212,8 @@ def scan(root: str, forbid: list[str], *, wheel_root: str | None = None,
                     findings.append({"path": rel, "reason": "model_lock.json contains a path"})
     warnings = [{"path": rel, "reason": "byte-identical upstream wheel has CI profile debug data"}
                 for rel in sorted(verified_paths)]
+    warnings += [{"path": rel, "reason": "public upstream crypto parser constants or known-answer self-tests",
+                  "matches": count} for rel, count in sorted(public_crypto_paths.items())]
     return findings, sorted(manifest), warnings
 
 
@@ -175,7 +238,10 @@ def main() -> int:
         f.writelines(f"{p}\t{s}\t{h}\n" for p, s, h in manifest)
     summary = {"root": os.path.basename(os.path.abspath(a.root)), "files": len(manifest),
                "bytes": sum(s for _, s, _ in manifest), "forbid_strings": len(a.forbid_string),
-               "findings": findings, "verified_wheel_warnings": warnings, "result": "FAIL" if findings else "PASS"}
+               "findings": findings,
+               "verified_wheel_warnings": [w for w in warnings if "byte-identical" in w["reason"]],
+               "public_crypto_warnings": [w for w in warnings if w["reason"].startswith("public upstream")],
+               "result": "FAIL" if findings else "PASS"}
     with open(os.path.join(a.out, "scan.json"), "w", encoding="utf-8", newline="\n") as f:
         json.dump(summary, f, ensure_ascii=False, indent=1)
     print(f"{summary['result']}: {summary['files']} files, {summary['bytes']} bytes, {len(findings)} finding(s)")

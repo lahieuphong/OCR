@@ -63,6 +63,27 @@ jobs:
           python .github/scripts/check_tracked_files.py --history-base origin/main
           echo "OUT=$RUNNER_TEMP/vietdoc-macos" >> "$GITHUB_ENV"
           echo "VPY=$RUNNER_TEMP/venv-macos/bin/python" >> "$GITHUB_ENV"
+      - name: Native GCC runtime libraries (build input only)
+        run: |
+          if ! brew list --versions gcc >/dev/null 2>&1; then brew install gcc; fi
+          gcc_prefix="$(brew --prefix gcc)"
+          gcc_libdir="$(python - "$gcc_prefix" <<'PY'
+          from pathlib import Path
+          import re, sys
+          root = Path(sys.argv[1]) / "lib" / "gcc"
+          libdir = root / "current"
+          if not libdir.is_dir():
+              candidates = [p for p in root.iterdir() if p.is_dir() and re.fullmatch(r"[0-9]+(?:\.[0-9]+)*", p.name)]
+              if not candidates:
+                  raise SystemExit("No native GCC runtime directory found")
+              libdir = max(candidates, key=lambda p: tuple(map(int, p.name.split("."))))
+          for name in ("libgomp.1.dylib", "libgcc_s.1.1.dylib"):
+              if not (libdir / name).is_file():
+                  raise SystemExit(f"Missing native GCC runtime: {name}")
+          print(libdir.resolve())
+          PY
+          )"
+          echo "VIETDOC_GCC_LIBDIR=$gcc_libdir" >> "$GITHUB_ENV"
       - name: Native Python runtime (no models)
         run: |
           python -m venv "$RUNNER_TEMP/venv-macos"

@@ -176,6 +176,59 @@ class ScanBundleTest(unittest.TestCase):
             self.assertIn("symbolic link escapes the app", reasons)
             self.assertIn("broken or cyclic symbolic link", reasons)
 
+    def test_mac_crypto_header_constants_require_exact_path_and_no_key_body(self):
+        library = "Contents/Resources/backend/vietdoc-backend/_internal/cv2/.dylibs/libmbedcrypto.3.5.1.dylib"
+        header = b"-----BEGIN " + b"RSA PRIVATE KEY-----"
+        literal = bytes.fromhex("cffaedfe0c000001") + b"\0" + header + b"\n\0"
+        write(self.root, library, literal)
+        code, summary, _ = run(self.root)
+        self.assertEqual(code, 0, summary)
+        self.assertEqual(summary["public_crypto_warnings"][0]["matches"], 1)
+        # MH_MAGIC_64 alone also describes Intel; require CPU_TYPE_ARM64 as well.
+        write(self.root, library, bytes.fromhex("cffaedfe07000001") + literal[8:])
+        code, summary, _ = run(self.root)
+        self.assertEqual(code, 1, summary)
+        self.assertIn("private key block", self.reasons(summary))
+        # Known parser constants never exempt the rest of their library.
+        write(self.root, library, literal + header + b"\nnot-a-public-key\n")
+        code, summary, _ = run(self.root)
+        self.assertEqual(code, 1, summary)
+        self.assertIn("private key block", self.reasons(summary))
+        write(self.root, library, literal)
+        write(self.root, "Contents/Resources/unknown.dylib", literal)
+        code, summary, _ = run(self.root)
+        self.assertEqual(code, 1, summary)
+        self.assertIn("Contents/Resources/unknown.dylib", {f["path"] for f in summary["findings"]})
+
+    def test_mac_gnutls_accepts_only_exact_public_self_test_keys(self):
+        # Public GnuTLS 3.8.5 gost01 known-answer fixture, assembled so the source
+        # itself does not contain a PEM block (keys are never sourced from user material).
+        header = b"-----BEGIN " + b"PRIVATE KEY-----\n"
+        footer = b"-----END " + b"PRIVATE KEY-----\n"
+        fixture = (header + b"MEUCAQAwHAYGKoUDAgITMBIGByqFAwICIwEGByqFAwICHgEEIgQgdNfuHGmmTdPm\n"
+                   + b"p5dAa3ea9UYxpdYQPP9lbDwzQwG2bJM=\n" + footer)
+        library = "Contents/Resources/backend/vietdoc-backend/_internal/libgnutls.30.dylib"
+        payload = bytes.fromhex("cffaedfe0c000001") + b"\0" + fixture + b"\0"
+        write(self.root, library, payload)
+        code, summary, _ = run(self.root)
+        self.assertEqual(code, 0, summary)
+        self.assertEqual(summary["public_crypto_warnings"][0]["matches"], 1)
+        # A real/different key appended beside the known public fixture must still fail.
+        write(self.root, library, payload + fixture.replace(b"MEUC", b"NEUC") + b"\0")
+        code, summary, _ = run(self.root)
+        self.assertEqual(code, 1, summary)
+        self.assertIn("private key block", self.reasons(summary))
+        # Tokens remain forbidden even in a library containing a known-answer key.
+        write(self.root, library, payload + b"gh" + b"p_" + b"A" * 36)
+        code, summary, _ = run(self.root)
+        self.assertEqual(code, 1, summary)
+        self.assertIn("GitHub token", self.reasons(summary))
+        # The same bytes outside the specific Mach-O library are not exempted.
+        write(self.root, library, b"not Mach-O\0" + fixture + b"\0")
+        code, summary, _ = run(self.root)
+        self.assertEqual(code, 1, summary)
+        self.assertIn("private key block", self.reasons(summary))
+
     def test_model_lock_with_a_path_fails(self):
         write(self.root, "resources/model_lock.json", json.dumps({"root": "C:\\Users\\u\\models"}))
         code, summary, _ = run(self.root)

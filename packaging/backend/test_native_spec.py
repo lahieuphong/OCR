@@ -1,5 +1,7 @@
 """Exercise native spec assembly without running a platform-specific freeze."""
 from pathlib import Path
+import os
+import tempfile
 import runpy
 import sys
 import types
@@ -31,8 +33,12 @@ def assemble(platform):
     def collect(*args, **kwargs):
         result["binaries"] = args[1]
 
-    with patch.dict(sys.modules, {"PyInstaller.utils.hooks": hooks}), \
+    with tempfile.TemporaryDirectory() as tmp, \
+            patch.dict(os.environ, {"VIETDOC_GCC_LIBDIR": tmp}), \
+            patch.dict(sys.modules, {"PyInstaller.utils.hooks": hooks}), \
             patch("sys.platform", platform), patch("importlib.metadata.distributions", return_value=[]):
+        for name in ("libgomp.1.dylib", "libgcc_s.1.1.dylib", "libgcc_s.1.dylib"):
+            Path(tmp, name).touch()
         runpy.run_path(str(SPEC), init_globals={
             "SPECPATH": str(SPEC.parent), "Analysis": analysis, "PYZ": lambda *a: object(),
             "EXE": executable, "COLLECT": collect})
@@ -56,6 +62,9 @@ class NativeSpecTests(unittest.TestCase):
             self.assertIn(module, imports)
         # Shared trimming rules must not remove the native inference libraries.
         self.assertEqual(len(build["binaries"]), 2)
+        collected = {Path(source).name: destination for source, destination in build["analysis"]["binaries"]}
+        self.assertEqual(collected["libgomp.1.dylib"], ".")
+        self.assertEqual(collected["libgcc_s.1.1.dylib"], ".")
 
 
 if __name__ == "__main__":

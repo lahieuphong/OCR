@@ -6,6 +6,7 @@
 # token goes into it: the frozen models are read at run time from a verified external folder
 # (VIETDOC_MODEL_ROOT) and checked by SHA-256 in demo/local_pdf_ocr/backend/contract.py.
 import importlib.metadata as md
+import os
 import sys
 from pathlib import Path, PurePath
 
@@ -89,6 +90,24 @@ datas, binaries = [], []
 for package in ("paddlex", "paddleocr", "paddle"):
     datas += collect_data_files(package, excludes=["**/tests/**", "**/*.pyc"])
 binaries += collect_dynamic_libs("paddle")
+if sys.platform == "darwin":
+    # Paddle's prebuilt LAPACK libraries reference GCC runtimes that its wheel
+    # omits. Collect the native build input explicitly; PyInstaller rewrites
+    # their load commands to bundle-relative @rpath paths. Homebrew is never a
+    # target-machine requirement. Do not discard optional inference libraries.
+    gcc_dir_text = os.environ.get("VIETDOC_GCC_LIBDIR", "")
+    gcc_dir = Path(gcc_dir_text)
+    required_gcc = ("libgomp.1.dylib", "libgcc_s.1.1.dylib")
+    if not gcc_dir_text or not gcc_dir.is_absolute() or not gcc_dir.is_dir():
+        raise SystemExit("Set VIETDOC_GCC_LIBDIR to the native GCC library directory (packaging/macos/README.md)")
+    if any(not (gcc_dir / name).is_file() for name in required_gcc):
+        raise SystemExit(f"Native GCC runtime libraries missing from {gcc_dir}")
+    gcc_libs = {gcc_dir / name for name in required_gcc}
+    gcc_libs.update(gcc_dir.glob("libgcc*.dylib"))
+    binaries += [(str(path), ".") for path in sorted(gcc_libs) if path.is_file()]
+if sys.platform == "darwin":
+    datas += [(str(ROOT / "packaging" / "macos" / "licenses" / name), "licenses/gcc")
+              for name in ("COPYING3.txt", "COPYING.RUNTIME.txt")]
 # License notices that live in the package folder instead of the dist-info folder.
 datas += collect_data_files("onnxruntime", includes=["LICENSE", "ThirdPartyNotices.txt"])
 # PaddleX checks its dependencies through importlib.metadata: ship the metadata of every bundled distribution.

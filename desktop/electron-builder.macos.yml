@@ -7,7 +7,7 @@ mac:
     - target: dmg
       arch: [arm64]
   category: public.app-category.productivity
-  minimumSystemVersion: '14.0'
+  minimumSystemVersion: '15.0'
   # Ad-hoc signing preserves bundle integrity; this is not Developer ID/notarization.
   identity: '-'
   hardenedRuntime: false

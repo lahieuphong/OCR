@@ -1,4 +1,4 @@
-# Native macOS 14+ / Apple Silicon, CPython 3.12.10.
+# Native macOS 15+ / Apple Silicon, CPython 3.12.10.
 # Keep application dependency versions aligned with the Windows build. Windows-only
 # PyInstaller dependencies in the shared pins use platform markers.
 # Install paddlepaddle==3.2.0 FIRST from its official CPU index; PyPI does not host

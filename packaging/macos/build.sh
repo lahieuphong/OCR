@@ -18,7 +18,7 @@ mkdir -p "$OUT/report" "$OUT/download" "$OUT/empty-paddlex"
 "$VPY" -m pip freeze --all > "$OUT/report/python-versions.txt"
 "$VPY" -W error -m compileall -q demo/local_pdf_ocr desktop/python desktop/scripts packaging .github/scripts
 "$VPY" .github/scripts/run_backend_tests.py
-for dir in desktop/python/tests packaging/backend packaging/ci; do
+for dir in desktop/python/tests packaging/backend packaging/ci packaging/macos; do
   "$VPY" -m unittest discover -v -s "$dir" -p 'test_*.py' 2>&1 | tee "$OUT/report/tests-${dir//\//-}.txt"
   if grep -q 'skipped=' "$OUT/report/tests-${dir//\//-}.txt"; then exit 1; fi
 done
@@ -31,6 +31,7 @@ PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK=True "$VPY" -c 'import paddle,paddlex,padd
 
 # Include the native libraries in the executable, never weights or documents.
 "$VPY" -m PyInstaller --noconfirm --clean --distpath "$OUT/backend-dist" --workpath "$OUT/backend-build" packaging/backend/vietdoc-backend.spec 2>&1 | tee "$OUT/report/pyinstaller.txt"
+"$VPY" packaging/macos/check_native_dependencies.py "$OUT/backend-dist/vietdoc-backend" "$OUT/report/native-dependencies.json" --minimum-macos 15.0
 LINK="$ROOT/desktop/out/backend/vietdoc-backend"
 if [ -e "$LINK" ] || [ -L "$LINK" ]; then
   echo 'Backend staging path already exists; refusing to replace it.' >&2
@@ -52,7 +53,6 @@ SMOKE_APP="$OUT/smoke/mac-arm64/VietDoc OCR.app"
 for kind in release smoke; do
   app="$OUT/$kind/mac-arm64/VietDoc OCR.app"
   codesign --verify --deep --strict "$app"
-  "$VPY" packaging/ci/scan_bundle.py "$app" "$OUT/report/scan-$kind" --allow-internal-symlinks --forbid-string "$ROOT"
 done
 node desktop/node_modules/@electron/fuses/dist/bin.js read --app "$APP" | tee "$OUT/report/fuses.txt"
 for expected in 'RunAsNode is Disabled' 'EnableNodeOptionsEnvironmentVariable is Disabled' \
@@ -105,6 +105,11 @@ test -z "$(ls -A "$OUT/empty-paddlex")"
   --exe "$APP/Contents/MacOS/VietDoc OCR" --out "$OUT/report/release-gate" --timeout 60 -- \
   "--user-data-dir=$OUT/report/release-gate/userData" "--smoke-test=$OUT/report/release-gate/smoke"
 test ! -e "$OUT/report/release-gate/smoke/smoke_report.json"
+
+# Both app bundles must pass the private-material scan before any download is created.
+for kind in release smoke; do
+  "$VPY" packaging/ci/scan_bundle.py "$OUT/$kind/mac-arm64/VietDoc OCR.app" "$OUT/report/scan-$kind" --allow-internal-symlinks --forbid-string "$ROOT"
+done
 
 # DMG is made from the exact app that passed the checks, without rebuilding it.
 cd "$ROOT/desktop"
