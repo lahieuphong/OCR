@@ -9,7 +9,7 @@ const { resolveConfig } = require('./lib/config');
 const { BackendProcess, describeExit } = require('./lib/backend');
 const security = require('./lib/security');
 const { smokeArgs, smokeAllowed } = require('./lib/smoke-gate');
-const { appIdentity } = require('./lib/app-identity');
+const { configureAppIdentity } = require('./lib/app-identity');
 const { STATUS_SCHEME, STATUS_ORIGIN, STATUS_URL, STATUS_SCHEME_PRIVILEGES, statusHandler } = require('./lib/status-protocol');
 
 // The status page is served over vietdoc-status://app/ (see lib/status-protocol.js), not file://.
@@ -30,9 +30,7 @@ let quitting = false;
 let lastStatus = { state: 'starting', message: 'Đang khởi động…' };
 const smoke = { started_at: new Date().toISOString(), checks: {}, console: [] };
 
-const identity = appIdentity({ packaged: app.isPackaged, packageJson: require('../package.json') });
-app.setName(identity.name);
-if (identity.userDataName) app.setPath('userData', path.join(app.getPath('appData'), identity.userDataName));
+configureAppIdentity(app, require('../package.json'));
 if (SMOKE_DIR) app.setPath('userData', path.join(SMOKE_DIR, 'userData'));
 app.setAppLogsPath(path.join(app.getPath('userData'), 'logs'));
 
