@@ -1,6 +1,6 @@
 # VietDoc OCR — bản test macOS Apple Silicon
 
-Yêu cầu: Mac M1/M2/M3/M4/M5, macOS 14 trở lên. Không dùng bản này cho Intel.
+Yêu cầu: Mac M1/M2/M3/M4/M5, macOS 15 trở lên. Không dùng bản này cho Intel.
 Bản DMG chứa Electron, giao diện và Python backend native arm64; máy test không cần cài Node.js/Python.
 
 ## Tải và mở

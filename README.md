@@ -1,50 +1,30 @@
 # VietDoc OCR
 
-Ứng dụng OCR tiếng Việt chạy local trên Windows (và bản test macOS Apple Silicon) bằng Electron, PaddleOCR detector và VietOCR B1024 ONNX. Giao diện hỗ trợ PDF/PNG/JPG, chọn native text hoặc OCR, metadata 22 trường và xuất nhiều tài liệu ra XLSX 23 cột.
+Ứng dụng desktop nhận dạng tiếng Việt từ PDF, PNG và JPG, hỗ trợ thông tin văn bản 22 trường và xuất Excel 23 cột. Tài liệu được xử lý trên máy, không gửi tới dịch vụ OCR bên ngoài.
 
-**Nguồn ứng dụng hiện hành nằm trên nhánh main.** Thư mục mang tên demo/local_pdf_ocr vẫn là frontend/backend mà Electron và bản đóng gói sử dụng.
+## Hai bản cài đặt hiện có
 
-## Code đang được sử dụng
+| Nền tảng | File cài đặt | Ghi chú |
+|---|---|---|
+| Windows x64 | `VietDoc OCR Setup.exe` — 24/10/2026 | Installer offline có model OCR, được chia sẻ riêng trong nội bộ. |
+| macOS 15+ · Apple Silicon | `VietDoc-OCR-0.1.0-macOS-arm64.dmg` — 26/10/2026 | [Tải bản Mac](https://github.com/lahieuphong/OCR/actions/workflows/vietdoc-macos.yml), cần chép model OCR riêng. Không hỗ trợ Mac Intel. |
 
-| Thư mục | Vai trò |
-|---|---|
-| [demo/local_pdf_ocr](demo/local_pdf_ocr/README.md) | FastAPI OCR backend và React/Vite frontend, metadata, hàng đợi và Excel. |
-| [desktop](desktop/README.md) | Electron, bảo mật loopback/token, quản lý backend và smoke tests. |
-| [packaging](packaging/README.md) | PyInstaller/NSIS, kiểm tra bundle và công cụ QA bản đóng gói. |
-| [release](release/README.md) | Hồ sơ quyền phân phối và verifier kiểm 22 bằng chứng phát hành. |
-| PaddleOCR | Dependency nguồn vendored; được dùng khi cài Python dependency và đóng gói. |
+Bản Windows hiện có chưa được build lại theo các cập nhật metadata/Excel mới nhất trên `main`.
 
-Model, dataset, tài liệu riêng tư, file build và node_modules nằm ngoài Git hoặc được ignore. Các nhánh training/parity/H1 là nghiên cứu riêng; chúng chưa được duyệt để thay pipeline trên main.
+## Cài đặt và sử dụng
 
-## Làm việc và chạy ứng dụng
+- **Windows:** chạy `VietDoc OCR Setup.exe`, cài đặt rồi mở VietDoc OCR.
+- **Mac:** chọn lần build thành công mới nhất ở link trên, tải artifact **VietDoc-OCR-macOS-arm64** và giải nén. Mở DMG, kéo app vào **Applications**. Nếu macOS chặn bản test, chọn **Privacy & Security → Open Anyway**.
+- Chọn file, dùng **Text có sẵn trong PDF** hoặc **OCR bằng VietOCR B**, kiểm tra kết quả rồi xuất TXT, JSON hoặc Excel.
 
-Dùng `git worktree list` để tìm worktree của main. Không switch/reset một worktree nghiên cứu đang có thay đổi local.
+Bản Mac đọc được PDF có text và xuất Excel khi chưa có model. Để OCR ảnh/scan, làm theo [hướng dẫn cấu hình model trên Mac](packaging/macos/README.md). Máy dùng bản cài đặt không cần cài Python hay Node.js.
 
-Làm theo [desktop/README.md](desktop/README.md) để cài dependency và cấu hình Python/model/cache đã có. Nếu dùng các tài nguyên ở thư mục khác, cấu hình `VIETDOC_PYTHON`, `VIETDOC_MODEL_ROOT` và `VIETDOC_PADDLEX_HOME` theo tài liệu desktop/packaging. Không tải hoặc thay weights để vượt kiểm SHA.
+## Mã nguồn và phát triển
 
-Khi đã cấu hình đủ dependency/model, chạy từ root của main:
+Code ứng dụng hiện hành ở nhánh **`main`**:
 
-~~~powershell
-npm --prefix demo/local_pdf_ocr/frontend run build
-npm --prefix desktop start
-~~~
+- [Frontend/backend](demo/local_pdf_ocr/README.md) — giao diện, xử lý tài liệu và OCR.
+- [Electron](desktop/README.md) — chạy ứng dụng từ source, cấu hình và kiểm thử.
+- [Đóng gói](packaging/README.md) · [Build Mac](packaging/macos/README.md) · [Các nhánh nghiên cứu](docs/BRANCHES.md).
 
-## Kiểm tra trước khi thay đổi
-
-~~~powershell
-npm --prefix demo/local_pdf_ocr/frontend test
-npm --prefix desktop test
-python .github/scripts/run_backend_tests.py
-~~~
-
-Python cần môi trường có dependency phù hợp. Các test và CI model-free không chứng nhận độ chính xác OCR thật. Văn bản nhận dạng cần review; giá trị sửa trong metadata không được làm thay đổi raw OCR.
-
-## Nhánh và phát hành
-
-Xem [kiểm kê nhánh và quy tắc dọn Git](docs/BRANCHES.md). Giữ các PR nghiên cứu chưa merge theo quyết định của chủ dự án; chỉ dọn nhánh trùng/đã tích hợp có bằng chứng.
-
-**Phát hành cộng đồng vẫn NO-GO** cho đến khi các gate quyền phân phối, privacy, clean-VM và signing trong [release](release/README.md) được đóng. Repository hiện chưa cấp giấy phép phân phối mới qua README này.
-
-## Bản test macOS
-
-Xem [hướng dẫn tải DMG Apple Silicon, cấu hình model và build native](packaging/macos/README.md). Workflow **VietDoc macOS DMG (Apple Silicon)** tạo artifact tải được sau khi kiểm tra app đã đóng gói.
+Model, dữ liệu riêng tư và file cài đặt được giữ ngoài Git. Đây là các bản test nội bộ; [điều kiện phát hành cộng đồng](release/README.md) chưa hoàn tất.
