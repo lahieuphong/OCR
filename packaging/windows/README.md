@@ -33,4 +33,8 @@ Mở app một lần rồi thoát. Tạo `%APPDATA%\VietDoc OCR Test\desktop.con
 
 Thư mục PaddleX phải ghi được và nằm ngoài thư mục cài app. Mở lại app, kiểm tra menu **VietDoc → Trạng thái backend và model**. Thiếu file hoặc sai SHA-256 sẽ khóa OCR.
 
+## Lưu dữ liệu app cạnh thư mục cài
+
+Mặc định cấu hình, log và bộ nhớ trình duyệt của app nằm trong `%APPDATA%\<tên app>`. Muốn giữ tất cả cạnh bản cài, tạo thư mục `<tên app> Data` ngay bên cạnh thư mục cài trước khi mở app, ví dụ cài bằng `"VietDoc OCR Setup.exe" /S /D=E:\VietDoc\VietDoc OCR` rồi tạo `E:\VietDoc\VietDoc OCR Data`. Bản Test dùng `VietDoc OCR Test Data`. Khi thư mục này tồn tại, `desktop.config.json` đặt trong đó thay cho `%APPDATA%`. Gỡ hoặc cài lại app không xóa thư mục này. Dữ liệu cũ trong `%APPDATA%` không tự chuyển sang.
+
 Model không có trong artifact tải từ GitHub. Bản offline nội bộ có model vẫn được giữ riêng; các [điều kiện phát hành cộng đồng](../../release/README.md) vẫn áp dụng.
