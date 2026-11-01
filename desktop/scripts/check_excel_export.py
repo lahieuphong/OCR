@@ -102,7 +102,8 @@ def verify(file: Path, count: int, expected_file: Path | None = None) -> dict:
             assert not row[7] or re.fullmatch(r"\d{2}-\d{2}-\d{4}", row[7]), "Date changed"
         for row in sources[1:]:
             assert "/" not in row[1] and "\\" not in row[1] and ":" not in row[1], "Absolute path leaked"
-            assert row[2] in ("native_text", "vietocr_ocr")
+            # Processing provenance is separate from the metadata access-classification field "mode".
+            assert row[2] in ("native_text", "vietocr_ocr", "hybrid_h1")
         if expected_file:
             expected = json.loads(expected_file.read_text(encoding="utf-8"))
             assert len(expected) == count

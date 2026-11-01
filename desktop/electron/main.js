@@ -10,6 +10,7 @@ const { BackendProcess, describeExit } = require('./lib/backend');
 const security = require('./lib/security');
 const { smokeArgs, smokeAllowed } = require('./lib/smoke-gate');
 const { configureAppIdentity } = require('./lib/app-identity');
+const { matchesTextView } = require('./lib/smoke-text');
 const { STATUS_SCHEME, STATUS_ORIGIN, STATUS_URL, STATUS_SCHEME_PRIVILEGES, statusHandler } = require('./lib/status-protocol');
 
 // The status page is served over vietdoc-status://app/ (see lib/status-protocol.js), not file://.
@@ -533,7 +534,7 @@ async function runSmoke() {
       Object.assign(c.export, { txt_bytes: fs.statSync(txt).size, json_bytes: fs.statSync(json).size, txt_sha256: sha256(txt),
         json_method: report.method, json_pages: report.pages?.length, txt_equals_json_text: text === report.text });
       const lf = (value) => value.replace(/\r\n/g, '\n');
-      c.ui_native_views = { full_text_exact: await js(`document.querySelector('.text-output pre').textContent === ${JSON.stringify(report.text)}`) };
+      c.ui_native_views = { full_text_exact: matchesTextView(await js(`document.querySelector('.text-output pre')?.textContent ?? null`), report.text) };
       assert.equal(c.ui_native_views.full_text_exact, true, 'full text must match the unmodified API/export text');
       assert.equal(await js(`Array.from(document.querySelectorAll('[role=tab]')).some(t => t.textContent === 'So sánh')`), false,
         'comparison must only appear after both independent results exist');
@@ -549,7 +550,7 @@ async function runSmoke() {
           await sleep(150);
           await js(`Array.from(document.querySelectorAll('.page-tabs button')).find(b => b.textContent === ${JSON.stringify('Trang ' + item.page)}).click(); true`);
           await sleep(150);
-          const exact = await js(`document.querySelector('.text-output pre').textContent === ${JSON.stringify(item.text)}`);
+          const exact = matchesTextView(await js(`document.querySelector('.text-output pre')?.textContent ?? null`), item.text);
           (c.ui_native_views.pages ||= []).push({ page: item.page, exact });
           assert.equal(exact, true, 'page view must preserve page text');
         }

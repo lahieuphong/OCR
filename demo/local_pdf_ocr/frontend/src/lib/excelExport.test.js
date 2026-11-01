@@ -2,11 +2,13 @@ import {afterEach, describe, expect, test} from "vitest";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import {spawnSync} from "node:child_process";
+import {fileURLToPath} from "node:url";
 import ExcelJS from "exceljs";
 import {createDocumentWorkbook} from "./excelExport.js";
 import {createBatchDocument} from "./documentBatch.js";
-import {createDocumentDraft, editDocumentField} from "./documentFields.js";
-import {SYNTHETIC_CASES} from "../test/fixtures/administrativeDocuments.js";
+import {createDocumentDraft, documentValues, editDocumentField} from "./documentFields.js";
+import {SYNTHETIC_CASES, syntheticDocument} from "../test/fixtures/administrativeDocuments.js";
 
 const folders = [];
 afterEach(async () => {for (const folder of folders.splice(0)) await fs.rm(folder,{recursive:true,force:true});});
@@ -27,6 +29,34 @@ async function reopen(docs = records()) {
   return {book,sheet:book.getWorksheet("Danh sách văn bản")};
 }
 describe("saved/reopened XLSX", () => {
+  test.each([{mode:"hybrid_h1", accepted:true}, {mode:"unknown_method", accepted:false}])(
+    "independent XLSX checker validates $mode processing provenance", async ({mode,accepted}) => {
+      const doc = createBatchDocument({name:"synthetic-hybrid.pdf"}, "checker-provenance");
+      const raw = {...syntheticDocument({method:"hybrid_h1"}), experimental:true,
+        ocr_result:syntheticDocument({method:"vietocr_ocr"})};
+      doc.mode = mode;
+      doc.resultsByMode[mode] = raw;
+      doc.metadataByMode[mode] = createDocumentDraft(raw);
+      const values = documentValues(doc.metadataByMode[mode]);
+      // Access-classification metadata is independent of the source processing method.
+      expect(values.mode).toBe("");
+      const folder = await fs.mkdtemp(path.join(os.tmpdir(),"vietdoc-xlsx-checker-")); folders.push(folder);
+      const workbook = path.join(folder,"Danh_sach_van_ban.xlsx");
+      const expected = path.join(folder,"expected.json");
+      await fs.writeFile(workbook,Buffer.from(await createDocumentWorkbook([doc])));
+      await fs.writeFile(expected,JSON.stringify([values]),"utf8");
+      const checker = fileURLToPath(new URL("../../../../../desktop/scripts/check_excel_export.py",import.meta.url));
+      const result = spawnSync(process.env.VIETDOC_TEST_PYTHON || "python",
+        ["-B","-X","utf8",checker,workbook,"--rows=1","--expected-json",expected],{encoding:"utf8"});
+      expect(result.error).toBeUndefined();
+      if (accepted) {
+        expect(result.status, result.stderr).toBe(0);
+        expect(JSON.parse(result.stdout)).toMatchObject({status:"PASS",columns:23,ui_values_equal:true});
+      } else {
+        expect(result.status).not.toBe(0);
+        expect(result.stderr).toContain("AssertionError");
+      }
+    });
   test("has exactly 23 columns, one header row and three ordered document rows", async () => {
     const {sheet} = await reopen();
     expect(sheet.columnCount).toBe(23); expect(sheet.rowCount).toBe(4);

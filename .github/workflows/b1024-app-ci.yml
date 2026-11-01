@@ -81,6 +81,10 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+      # XLSX regressions invoke the independent Python stdlib OOXML checker.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
