@@ -1,6 +1,7 @@
 import {useEffect, useReducer, useRef, useState} from "react";
 import {batchReducer, createBatchDocument, runDocumentQueue} from "@/lib/documentBatch.js";
 import {createDocumentDraft, validateDocumentDraft} from "@/lib/documentFields.js";
+import {PROCESSING_MODES} from "@/lib/processingModes.js";
 
 export default function useDocumentBatch(health) {
   const [documents, dispatch] = useReducer(batchReducer, []);
@@ -18,7 +19,9 @@ export default function useDocumentBatch(health) {
   const selectedMode = active?.mode || "vietocr_ocr";
   const resultsByMode = active?.resultsByMode || {};
   const metadataByMode = active?.metadataByMode || {};
-  const canRunMode = mode => health === "connected" || (health === "not-ready" && mode === "native_text");
+  // Fast PDF headers with a genuine text layer can work without models. If OCR
+  // is needed the backend refuses that request; never fall back to e-sign text.
+  const canRunMode = mode => health === "connected" || (health === "not-ready" && ["native_text", "metadata_fast"].includes(mode));
   const canRun = canRunMode(selectedMode);
   const pending = documents.filter(doc => !doc.resultsByMode[doc.mode]);
   const canRunBatch = pending.length > 0 && pending.every(doc => canRunMode(doc.mode));
@@ -81,8 +84,8 @@ export default function useDocumentBatch(health) {
   }
   function changeMode(mode, id = activeId) {
     const target = documents.find(doc => doc.id === id);
-    if (!target || running.current || !["native_text", "vietocr_ocr", "hybrid_h1"].includes(mode)
-      || (!/\.pdf$/iu.test(target.name) && mode !== "vietocr_ocr")) return;
+    if (!target || running.current || !PROCESSING_MODES.includes(mode)
+      || (!/\.pdf$/iu.test(target.name) && !["vietocr_ocr", "metadata_fast"].includes(mode))) return;
     update(target.id, doc => ({...doc,mode})); setError("");
     if (id === activeId) setActiveView(target.metadataByMode[mode] ? "metadata" : "text");
   }

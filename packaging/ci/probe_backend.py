@@ -188,6 +188,13 @@ def run_probe(resources: str, output: str, pdf: str) -> int:
         st, hd, data = req(port, "POST", "/api/ocr", token, body=body, ctype=f"multipart/form-data; boundary={boundary}")
         detail = data.decode("utf-8", "replace")[:300]
         C["ocr_without_models"] = {"status": st, "detail": detail, "ok": st == 503 and "chặn OCR" in detail}
+        # This fixture deliberately has no administrative header. Fast inspection
+        # must refuse required OCR, rather than accepting signature/ordinary text
+        # as metadata or attempting a model download.
+        fast_body = body.replace(b"\r\n\r\nvietocr_ocr\r\n", b"\r\n\r\nmetadata_fast\r\n", 1)
+        st, _, data = req(port, "POST", "/api/ocr", token, body=fast_body, ctype=f"multipart/form-data; boundary={boundary}")
+        detail = data.decode("utf-8", "replace")[:300]
+        C["fast_without_models"] = {"status": st, "detail": detail, "ok": st == 503 and bool(detail)}
         # 4) graceful shutdown
         pids = [p.pid] + [c.pid for c in psutil.Process(p.pid).children(recursive=True)]
         st, _, _ = req(port, "POST", "/__desktop__/shutdown", token)

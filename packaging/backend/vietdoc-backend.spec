@@ -63,6 +63,7 @@ hiddenimports = [
     "demo.local_pdf_ocr.backend.app",
     "demo.local_pdf_ocr.backend.contract",
     "demo.local_pdf_ocr.backend.engine",
+    "demo.local_pdf_ocr.backend.metadata_fast",
     "demo.local_pdf_ocr.backend.ocr_layout",
     "demo.local_pdf_ocr.backend.reading_order",
     "demo.local_pdf_ocr.backend.text_layer",

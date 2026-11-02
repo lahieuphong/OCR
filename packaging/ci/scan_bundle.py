@@ -26,7 +26,7 @@ FORBIDDEN_FILES = [
     ("model weights or checkpoint", re.compile(r"\.(onnx|pth|pt|ckpt|safetensors|pdparams|pdiparams|pdmodel|pdopt|h5|tflite)$", re.I)),
     ("document", re.compile(r"\.(pdf|docx?|xlsx?|pptx?|odt|rtf)$", re.I)),
     ("data archive or dump", re.compile(r"\.(tgz|tar|7z|rar|jsonl|sqlite3?|db)$", re.I)),
-    ("OCR export", re.compile(r"_(vietocr_ocr|native_text)[^/]*\.(json|txt)$")),
+    ("OCR export", re.compile(r"_(vietocr_ocr|native_text|hybrid_h1|metadata_fast)[^/]*\.(json|txt)$")),
     ("private key or keystore", re.compile(r"\.(key|pfx|p12|jks|keystore)$", re.I)),
     ("environment file", re.compile(r"(^|/)\.env($|\.)")),
     ("local desktop config", re.compile(r"(^|/)desktop\.config\.json$")),

@@ -16,15 +16,22 @@ in Git; they live in the ignored `models/` folder and are checked by SHA-256.
 - React/Vite at http://127.0.0.1:5175.
 - FastAPI at http://127.0.0.1:8765; Vite proxies /api.
 - PDF/PNG/JPEG upload (15MB maximum, 6 PDF pages, 12MP/page).
-- **Manual extraction method**: for PDFs, select either:
+- **Explicit extraction method**: for PDFs, select:
   - native_text: PyMuPDF reads the embedded PDF text layer, without
     loading/using any PaddleOCR, VietOCR, or other OCR model.
   - vietocr_ocr: PyMuPDF renders every PDF page (up to 2x, pixel cap),
     PaddleOCR detects lines and VietOCR B always recognizes their images.
-- For PNG/JPEG only vietocr_ocr is available. A scanned PDF without a
-  text layer must explicitly use OCR; no automatic fallback occurs.
-- Both modes are cached separately per selected file in the frontend;
-  after running both, click So sánh to inspect texts side-by-side.
+  - hybrid_h1: experimental per-line PDF/OCR selection, retaining an
+    independent unmodified full OCR baseline. It is never selected automatically.
+  - metadata_fast: **Bóc tách nhanh thông tin văn bản**. Inspects the first
+    page and extracts only header regions for metadata; it does not OCR the
+    remaining pages or appendices. A genuine native header may avoid OCR;
+    an electronic-signature text layer alone is not a usable header.
+- PNG/JPEG support full vietocr_ocr or the explicit metadata_fast header mode.
+  A missing model blocks required OCR; it never authorizes guessing text.
+- Each mode is cached separately per selected file in the frontend;
+  after running native_text and vietocr_ocr on the same PDF, click So sánh
+  to inspect their texts side-by-side. Fast partial output is kept separate.
 - JSON/TXT exports include the selected mode in the filename; JSON
   explicitly reports method, source, engine, and used_ocr.
 - PaddleOCR TextDetection model PP-OCRv6_medium_det finds line quadrilaterals.
@@ -33,6 +40,42 @@ in Git; they live in the ignored `models/` folder and are checked by SHA-256.
 - Exact frozen VietOCR B ONNX encoder/decoder_step; autoregressive
   SOS1 EOS2 and max 129 token generation iterations.
 - Source preview, per-page text, copy, TXT and JSON export.
+
+### Fast metadata contract
+
+`POST /api/ocr` accepts `mode=metadata_fast` with the existing upload limits.
+`source_page_count` reports the real PDF page count independently of the
+returned header page. `inspected_pages` lists pages examined; `processed_pages`
+lists only pages actually OCR-processed (empty for a native-only header).
+`partial_result=true` means the result is **not full text**. First-page ROIs
+expand only when header evidence is incomplete, under a bounded policy;
+missing/obscured headers require review instead of a full-document fallback.
+The recognizer, detector, tensor preprocessing and decoder limits stay pinned.
+Fast OCR verifies the local frozen detector and recognizer before SDK loading,
+disables model hosters, and refuses missing/changed files without downloading.
+Per-stage `timings_ms` separates inspection, model acquisition/initialization,
+rendering, detection, cropping, recognition and selection.
+
+Metadata JSON keeps the exact22-key business schema, and the main Excel sheet
+keeps STT +22fields, Times New Roman13. Its source sheet records
+`metadata_fast`. Original page count is retained even when only page1 is read.
+Fast TXT/JSON and the UI visibly identify partial header content; full-mode
+downloads retain their existing behavior. Per-document/per-mode edits and
+sequential batch retries are preserved.
+
+The verified business-type catalog currently has no code for Nghị định.
+The heading can be shown, but `typeName` remains empty and requires review;
+never invent a business code. Issuing dates/agencies must be supported by the
+document header, not electronic-signature metadata or incoming stamps.
+OCR text, including ambiguous stamp overlaps and diacritics, is not corrected
+by dictionary guesses. Confirm those fields against the source before export.
+
+When multiple nearby incoming-stamp markers and their geometry make the subject
+ambiguous, its automatic value remains empty with review status. The complete
+unverified candidate and original source evidence remain available next to the
+field, separately from the22-key JSON and Excel values. A standalone word
+"đến" is not enough to discard a line. Manual subject edits remain isolated
+per document/mode and never overwrite raw OCR text.
 
 The site handles uploads in memory on your own Windows machine, with no
 external OCR API or upload storage. On first run PaddleOCR can download

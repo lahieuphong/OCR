@@ -7,6 +7,7 @@ import ConfirmDialog from "./ConfirmDialog.jsx";
 import NumberCodeReview from "./NumberCodeReview.jsx";
 import {CATALOGS, FIELD_GROUPS, FIELD_KEYS, FIELD_LABELS, READ_ONLY, STATUS_LABELS,
   serializeDocumentFields, validateDocumentDraft} from "@/lib/documentFields.js";
+import {partialScope} from "@/lib/processingModes.js";
 
 export default function DocumentMetadata({draft, onEdit, onConfirmField, onReset, onExport, result, sourceFile, disabled = false}) {
   const [checked, setChecked] = useState(false);
@@ -34,7 +35,9 @@ export default function DocumentMetadata({draft, onEdit, onConfirmField, onReset
 
   return <section className="document-metadata" aria-label="Thông tin văn bản 22 trường">
     <div className="metadata-summary"><strong>Tự động trích xuất: {recognized}/22 trường</strong><span>Đã xác nhận: {confirmed} · Cần kiểm tra: {validation.review.length}</span>
-      <p>Số trường có bằng chứng, không phải độ chính xác OCR.</p></div>
+      <p>Số trường có bằng chứng, không phải độ chính xác OCR.</p>
+      {draft.typeLabel && !draft.fields.typeName.value && <p className="detected-document-type">Loại văn bản nhận diện: <strong>{draft.typeLabel}</strong> · Chưa có mã nghiệp vụ được xác minh; cần xác nhận.</p>}
+      {result?.method === "metadata_fast" && <p className="metadata-partial-scope">Header một phần · {partialScope(result)}</p>}</div>
     <div className="metadata-actions">
       <Button size="sm" title="Xuất JSON 22 trường" onClick={() => requestExport("download")}><Download/> Xuất JSON 22 trường</Button>
       <Button variant="outline" size="sm" onClick={() => requestExport("copy")}><Copy/> Sao chép JSON</Button>
@@ -64,6 +67,8 @@ export default function DocumentMetadata({draft, onEdit, onConfirmField, onReset
                 : <input {...controlProps} type="text" readOnly={READ_ONLY.has(key)} placeholder={key === "docId" ? "Luôn để trống" : "Chưa xác định"}/>}
             <div id={`metadata-${key}-help`} className="field-help">
               {invalid ? <p className="metadata-errors">{invalid}</p> : entry.note ? <p>{entry.note}</p> : key === "issuedDate" ? <p>Định dạng DD-MM-YYYY.</p> : null}
+              {entry.candidate && <details className="metadata-unverified-candidate"><summary>Ứng viên chưa xác minh — dấu đóng chồng</summary>
+                <p>Chỉ để đối chiếu ảnh nguồn. Nội dung này không tự điền hoặc xuất thành trích yếu.</p><blockquote>{entry.candidate}</blockquote></details>}
               {entry.evidence.length > 0 && <details className="field-evidence"><summary><FileSearch size={12}/> {entry.evidence[0].page ? `Nguồn: trang ${entry.evidence[0].page}, dòng ${entry.evidence[0].line}` : "Nguồn: dữ liệu nguồn / quy tắc nghiệp vụ"}</summary>
                 {entry.evidence.map((source, i) => <blockquote key={i}>{source.page && <span>Trang {source.page}, dòng {source.line}{source.precision === "block" ? " · vị trí theo khối" : ""}</span>}{source.text}</blockquote>)}
               </details>}

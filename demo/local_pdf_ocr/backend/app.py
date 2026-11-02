@@ -16,6 +16,7 @@ from fastapi.responses import JSONResponse, Response
 from .contract import MAX_UPLOAD_BYTES, DemoConfigurationError, validate_upload
 from .engine import LocalOcrEngine
 from .hybrid_h1 import apply_hybrid_h1
+from .metadata_fast import extract_metadata_fast
 from .number_review_preview import parse_preview_polygon, render_number_review_preview
 from .text_layer import extract_pdf_text
 
@@ -43,7 +44,7 @@ def health():
         "service": "local-pdf-ocr-demo",
         "state": "ready_to_initialize" if (MODEL_DIR / "parity_full.json").is_file() else "missing_model_files",
         "engine": "paddleocr-det+frozen-vietocr-b-onnx-cpu",
-        "modes": ["native_text", "vietocr_ocr", "hybrid_h1"],
+        "modes": ["native_text", "vietocr_ocr", "hybrid_h1", "metadata_fast"],
         "experimental_modes": ["hybrid_h1"],
         "native_text_ready": True,
         "deployment_approved": False,
@@ -54,7 +55,7 @@ def health():
 async def ocr(file: UploadFile = File(...), mode: str = Form("vietocr_ocr")):
     # Explicit selection: a PDF's embedded text MUST NOT silently become
     # OCR reference/ground truth, and OCR mode must NEVER auto-skip inference.
-    if mode not in {"native_text", "vietocr_ocr", "hybrid_h1"}:
+    if mode not in {"native_text", "vietocr_ocr", "hybrid_h1", "metadata_fast"}:
         raise HTTPException(status_code=400, detail="Chế độ không hợp lệ.")
     if _ocr_lock.locked():
         raise HTTPException(status_code=429, detail="Máy đang xử lý tài liệu khác. Vui lòng đợi.")
@@ -78,6 +79,8 @@ async def ocr(file: UploadFile = File(...), mode: str = Form("vietocr_ocr")):
             if mode == "native_text":
                 # Intentionally do not initialize PaddlePaddle/ONNX in text mode.
                 result = await run_in_threadpool(lambda: extract_pdf_text(payload, filename))
+            elif mode == "metadata_fast":
+                result = await run_in_threadpool(lambda: extract_metadata_fast(payload, filename, get_engine))
             else:
                 def recognize():
                     engine = get_engine()

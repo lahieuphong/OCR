@@ -2,12 +2,77 @@ import {describe, expect, test, vi} from "vitest";
 import {batchDocumentStatus, batchExportState, batchReducer, createBatchDocument, requestDocumentOcr, runDocumentQueue} from "./documentBatch.js";
 import {syntheticDocument} from "../test/fixtures/administrativeDocuments.js";
 import {editDocumentField} from "./documentFields.js";
+import {fastMetadataDocument} from "../test/fixtures/fastMetadata.js";
 
 const make = (id = "1", name = `${id}.pdf`) => createBatchDocument(new File(["%PDF"], name), id);
 const response = (data, ok = true) => ({ok, json:async () => data});
 const deferred = () => {let resolve; const promise = new Promise(r => {resolve = r;}); return {promise,resolve};};
 
 describe("document queue", () => {
+  test.each([false,true])("fast mode preserves six source pages and literal OCR scope (native=%s)", async native => {
+    const doc=make(); doc.mode="metadata_fast";
+    const raw=fastMetadataDocument({native}), snapshot=JSON.stringify(raw);
+    const request=vi.fn(async()=>response(raw));
+    const result=await requestDocumentOcr(doc,request);
+    expect(request.mock.calls[0][1].body.get("mode")).toBe("metadata_fast");
+    expect(result.draft.fields.numberOfPage.value).toBe("6");
+    expect(result.raw.processed_pages).toEqual(native ? [] : [1]);
+    expect(result.raw).toBe(raw); expect(JSON.stringify(raw)).toBe(snapshot);
+  });
+  test.each(["png","jpg"])("fast image %s is explicit and retains one source page", async ext => {
+    const doc=make("img",`image.${ext}`); doc.mode="metadata_fast";
+    const result=await requestDocumentOcr(doc,async()=>response(fastMetadataDocument({sourcePages:1})));
+    expect(result.draft.fields.numberOfPage.value).toBe("1");
+    await expect(requestDocumentOcr(doc,async()=>response(fastMetadataDocument({sourcePages:6})))).rejects.toThrow("Ảnh nguồn phải có đúng một trang");
+  });
+  test.each([
+    ["missing source count",raw=>{delete raw.source_page_count;}],
+    ["not partial",raw=>{raw.partial_result=false;}],
+    ["invalid source count",raw=>{raw.source_page_count=0;}],
+    ["source count over limit",raw=>{raw.source_page_count=7;}],
+    ["OCR beyond inspected pages",raw=>{raw.processed_pages=[2];}],
+    ["page IDs do not match",raw=>{raw.pages[0].page=2;}],
+    ["appendix substituted consistently",raw=>{raw.pages[0].page=2;raw.inspected_pages=[2];raw.processed_pages=[2];}],
+    ["full two-page response disguised as fast",raw=>{raw.source_page_count=2;raw.page_count=2;raw.inspected_pages=[1,2];raw.processed_pages=[1,2];raw.pages.push({...raw.pages[0],page:2});}],
+    ["full-page OCR ROI disguised as header",raw=>{raw.pages[0].roi[3]=raw.pages[0].height;}],
+    ["ROI below allowed header extent",raw=>{raw.pages[0].roi[3]=raw.pages[0].height*.9;}],
+    ["non-finite ROI",raw=>{raw.pages[0].roi[2]=NaN;}],
+    ["unordered ROI",raw=>{raw.pages[0].roi[3]=0;}],
+    ["ROI exceeds page width",raw=>{raw.pages[0].roi[2]=raw.pages[0].width+20;}],
+    ["missing full-page dimensions",raw=>{delete raw.pages[0].height;}],
+    ["wrong coordinate system",raw=>{raw.pages[0].coordinate_system="pdf_points";}],
+    ["wrong line geometry source",raw=>{raw.pages[0].lines[0].geometry_source="native_text";}],
+    ["full-text payload differs from header page",raw=>{raw.text+="\nUninspected appendix content";}],
+    ["page payload differs from literal lines",raw=>{raw.pages[0].text="changed";}],
+    ["invented line count",raw=>{raw.line_count++;}],
+    ["missing line array",raw=>{delete raw.pages[0].lines;}],
+    ["unstable line indices",raw=>{raw.pages[0].lines[0].line_index=20;}],
+    ["invented OCR flag",raw=>{raw.used_ocr=false;}],
+    ["unknown header source",raw=>{raw.source="native_text";}],
+    ["missing review decision",raw=>{delete raw.fast_metadata.needs_review;}],
+  ])("rejects malformed fast contract: %s", async (_label,mutate) => {
+    const doc=make(); doc.mode="metadata_fast"; const raw=fastMetadataDocument(); mutate(raw);
+    const request=vi.fn(async()=>response(raw));
+    await expect(requestDocumentOcr(doc,request)).rejects.toThrow("số trang nguồn");
+    expect(request).toHaveBeenCalledOnce();
+  });
+  test("fast queue continues after second failure and retry leaves prior manual drafts isolated", async () => {
+    const docs=[make("1"),make("2"),make("3")]; docs.forEach(doc=>{doc.mode="metadata_fast";});
+    let live=0,peak=0,index=0;
+    const request=vi.fn(async()=>{peak=Math.max(peak,++live); const i=index++; await Promise.resolve(); live--;
+      return i===1 ? response({detail:"Fast synthetic failure"},false) : response(fastMetadataDocument({code:`00${i+1}/TEST`}));});
+    const handlers={request,onSuccess:(doc,{raw,draft})=>{doc.resultsByMode.metadata_fast=raw;doc.metadataByMode.metadata_fast=draft;},
+      onError:(doc,error)=>{doc.errorsByMode.metadata_fast=error;}};
+    await runDocumentQueue(docs,handlers);
+    expect(peak).toBe(1); expect(request).toHaveBeenCalledTimes(3);
+    expect(docs[1].errorsByMode.metadata_fast).toBe("Fast synthetic failure");
+    docs[0].metadataByMode.metadata_fast=editDocumentField(docs[0].metadataByMode.metadata_fast,"subject","Manual draft kept");
+    const retained=docs[0].metadataByMode.metadata_fast;
+    await runDocumentQueue([docs[1]],handlers);
+    expect(request).toHaveBeenCalledTimes(4); expect(docs[0].metadataByMode.metadata_fast).toBe(retained);
+    expect(docs[2].metadataByMode.metadata_fast.fields.arcDocCode.value).toBe("003/TEST");
+    expect(docs[1].metadataByMode.metadata_fast.fields.numberOfPage.value).toBe("6");
+  });
   test("hybrid requires an explicit PDF selection and a retained OCR baseline", async () => {
     const doc = make(); doc.mode = "hybrid_h1";
     const raw = {...syntheticDocument({method:"hybrid_h1"}), experimental:true,

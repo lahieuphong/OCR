@@ -36,7 +36,7 @@ OUTSIDE_VENDORED = [
     ("prediction dump", re.compile(r"(^|/)(predictions_[^/]*\.jsonl|eval_inputs\.jsonl)$")),
     ("human label export", re.compile(r"(verified_labels|blind_review_export|correction_addendum|label_quarantine)", re.I)),
     ("training or real-line manifest", re.compile(r"(^|/)(real|synthetic)_(train|val)\.tsv$|(^|/)manifests/[^/]*\.tsv$")),
-    ("app OCR export", re.compile(r"_(vietocr_ocr|native_text)[^/]*\.(json|txt)$")),
+    ("app OCR export", re.compile(r"_(vietocr_ocr|native_text|hybrid_h1|metadata_fast)[^/]*\.(json|txt)$")),
     ("document or image", re.compile(r"\.(pdf|png|jpe?g|tiff?|bmp|webp|heic)$", re.I)),
     ("archive", re.compile(r"\.(zip|tgz|tar|gz|7z|rar)$", re.I)),
     ("environment file", re.compile(r"(^|/)\.env($|\.(?!example$))")),

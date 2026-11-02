@@ -34,6 +34,19 @@ def is_backend(name):
     return (name or "").lower() in {"vietdoc-backend", "vietdoc-backend.exe"}
 
 
+def leftover_status(info, seen, build_dir, preexisting_backends):
+    """Classify a post-run process; observed/build-owned processes remain strict."""
+    exe = (info.get("exe") or "").lower()
+    if info["pid"] in seen or exe.startswith(build_dir):
+        return "leftover"
+    if is_backend(info.get("name")):
+        created = info.get("create_time")
+        if exe and created is not None and preexisting_backends.get(info["pid"]) == created:
+            return "preexisting"
+        return "leftover"
+    return None
+
+
 def system_path(env, platform=sys.platform):
     if platform == "win32":
         # os.environ is case-insensitive on Windows, but dict(os.environ) is not.
@@ -85,6 +98,13 @@ def main():
     def monitoring_error(pid, operation, error):
         monitoring_errors[(pid, operation)] = {"pid": pid, "operation": operation,
                                                "error": f"{type(error).__name__}: {error}"}
+    preexisting_backends = {}
+    for p in psutil.process_iter(["pid", "name", "create_time"]):
+        try:
+            if is_backend(p.info["name"]) and p.info["create_time"] is not None:
+                preexisting_backends[p.info["pid"]] = p.info["create_time"]
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            pass  # Unknown identities are never eligible for exclusion.
     with tempfile.TemporaryFile() as stdout_file, tempfile.TemporaryFile() as stderr_file:
         proc = subprocess.Popen([a.exe] + args, env=env, cwd=os.path.dirname(a.exe),
                                 stdout=stdout_file, stderr=stderr_file)
@@ -140,17 +160,24 @@ def main():
     elapsed = round(time.time() - t0, 1)
     time.sleep(3)  # give a graceful backend shutdown a moment before checking for leftovers
     leftovers = []
-    for p in psutil.process_iter(["pid", "name", "exe"]):
+    preexisting_excluded = []
+    for p in psutil.process_iter(["pid", "name", "exe", "create_time"]):
         try:
-            exe = (p.info["exe"] or "").lower()
-            if p.info["pid"] in seen or exe.startswith(build_dir) or is_backend(p.info["name"]):
+            status = leftover_status(p.info, seen, build_dir, preexisting_backends)
+            if status == "leftover":
                 leftovers.append({"pid": p.info["pid"], "name": p.info["name"], "exe": p.info["exe"]})
+            elif status == "preexisting":
+                preexisting_excluded.append({"pid": p.info["pid"], "name": p.info["name"],
+                                             "exe": p.info["exe"], "create_time": p.info["create_time"]})
         except (psutil.NoSuchProcess, psutil.AccessDenied):
             pass
     res = {"exe": a.exe, "args": args, "exit_code": proc.returncode, "timed_out": timed_out, "elapsed_s": elapsed,
            "stdout": out, "stderr": err,
            "processes": list(seen.values()), "external_connections": external, "listening": sorted(listening),
            "backend_env": backend_env, "leftover_processes": leftovers,
+           "preexisting_backend_identities": [{"pid": pid, "create_time": created}
+                                               for pid, created in sorted(preexisting_backends.items())],
+           "preexisting_backend_excluded": preexisting_excluded,
            "monitoring_limitations": list(monitoring_errors.values()),
            "network_monitoring": {
                "method": "lsof" if sys.platform == "darwin" else "psutil",

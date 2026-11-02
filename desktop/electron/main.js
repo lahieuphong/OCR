@@ -721,6 +721,12 @@ async function runSmoke() {
       await js(`window.fetch=window.__vietdocBatchQA.original; delete window.__vietdocBatchQA; true`);
     }
   }
+  if (ARGS['smoke-fast-pdf']) {
+    smoke.step = 'fast-metadata';
+    assert.ok(ARGS['smoke-batch-dir'], 'fast smoke requires the permitted batch fixtures');
+    await require('./lib/smoke-fast').runFastSmoke({wc, js, clickResultTab, setInputFile, waitFor, screenshot,
+      smokeDir:SMOKE_DIR, pdf:ARGS['smoke-fast-pdf'], batchDir:ARGS['smoke-batch-dir'], goldFile:ARGS['smoke-fast-gold'], checks:c});
+  }
   c.backend_status = (await backend.request('/__desktop__/status')).data;
   if (statusWindow) {
     // The status window is hidden once OCR is allowed: screenshot() shows it without focus first.

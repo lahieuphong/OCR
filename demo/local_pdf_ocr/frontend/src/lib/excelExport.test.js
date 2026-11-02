@@ -9,6 +9,8 @@ import {createDocumentWorkbook} from "./excelExport.js";
 import {createBatchDocument} from "./documentBatch.js";
 import {createDocumentDraft, documentValues, editDocumentField} from "./documentFields.js";
 import {SYNTHETIC_CASES, syntheticDocument} from "../test/fixtures/administrativeDocuments.js";
+import {fastMetadataDocument, DECREE_SUBJECT} from "../test/fixtures/fastMetadata.js";
+import {STAMP_TEST_SUBJECT,stampSubjectDocument} from "../test/fixtures/stampSubject.js";
 
 const folders = [];
 afterEach(async () => {for (const folder of folders.splice(0)) await fs.rm(folder,{recursive:true,force:true});});
@@ -29,6 +31,42 @@ async function reopen(docs = records()) {
   return {book,sheet:book.getWorksheet("Danh sách văn bản")};
 }
 describe("saved/reopened XLSX", () => {
+  test("stamp-contaminated candidate is blank in XLSX until a manual subject is entered", async () => {
+    const docs=[0,1].map(index=>{
+      const doc=createBatchDocument({name:`fictional-stamp-${index}.pdf`},`stamp-${index}`),raw=stampSubjectDocument({stamp:true,merged:true});
+      doc.mode="metadata_fast";doc.resultsByMode.metadata_fast=raw;doc.metadataByMode.metadata_fast=createDocumentDraft(raw);return doc;
+    });
+    docs[1].metadataByMode.metadata_fast=editDocumentField(docs[1].metadataByMode.metadata_fast,"subject",STAMP_TEST_SUBJECT);
+    const before=docs.map(doc=>JSON.stringify(doc.resultsByMode.metadata_fast)),{book,sheet}=await reopen(docs);
+    expect(sheet.columnCount).toBe(23);expect(sheet.getCell("J2").value).toBeNull();expect(sheet.getCell("J3").value).toBe(STAMP_TEST_SUBJECT);
+    expect(sheet.getCell("F2").value).toBe("00042");expect(sheet.getCell("L2").value).toBe("6");
+    for(const row of [2,3]) {expect(sheet.getCell(row,10).font).toMatchObject({name:"Times New Roman",size:13});expect(book.getWorksheet("Nguồn tài liệu").getCell(row,3).value).toBe("metadata_fast");}
+    expect(JSON.stringify(book.worksheets.map(ws=>ws.getSheetValues()))).not.toContain("Ngày: 03/02/2025,");
+    expect(docs.map(doc=>JSON.stringify(doc.resultsByMode.metadata_fast))).toEqual(before);
+  });
+  test("fast six-page source round trips real XLSX and passes the independent provenance checker", async () => {
+    const doc=createBatchDocument({name:"synthetic-fast.pdf"},"fast-six-source-pages"), raw=fastMetadataDocument({code:"00042/2025/NĐ-QA"});
+    doc.mode="metadata_fast"; doc.resultsByMode.metadata_fast=raw;
+    doc.metadataByMode.metadata_fast=editDocumentField(createDocumentDraft(raw),"description","=literal QA text");
+    const values=documentValues(doc.metadataByMode.metadata_fast), before=JSON.stringify(raw);
+    expect(values.numberOfPage).toBe("6"); expect(values.codeNumber).toBe("00042"); expect(values.typeName).toBe("");
+    expect(values.subject).toBe(DECREE_SUBJECT); expect(values.mode).toBe("");
+    const folder=await fs.mkdtemp(path.join(os.tmpdir(),"vietdoc-fast-xlsx-checker-")); folders.push(folder);
+    const workbook=path.join(folder,"Danh_sach_van_ban.xlsx"),expected=path.join(folder,"expected.json");
+    await fs.writeFile(workbook,Buffer.from(await createDocumentWorkbook([doc])));
+    await fs.writeFile(expected,JSON.stringify([values]),"utf8");
+    const book=new ExcelJS.Workbook();await book.xlsx.readFile(workbook);
+    const sheet=book.getWorksheet("Danh sách văn bản");
+    expect(sheet.columnCount).toBe(23); expect(sheet.getCell("A2").value).toBe(1);
+    expect(sheet.getCell("F2").value).toBe("00042"); expect(sheet.getCell("L2").value).toBe("6");
+    expect(sheet.getCell("V2").value).toBe("=literal QA text"); expect(sheet.getCell("V2").formula).toBeUndefined();
+    expect(book.getWorksheet("Nguồn tài liệu").getCell("C2").value).toBe("metadata_fast");
+    const checker=fileURLToPath(new URL("../../../../../desktop/scripts/check_excel_export.py",import.meta.url));
+    const result=spawnSync(process.env.VIETDOC_TEST_PYTHON||"python",["-B","-X","utf8",checker,workbook,"--rows=1","--expected-json",expected],{encoding:"utf8"});
+    expect(result.error).toBeUndefined(); expect(result.status,result.stderr).toBe(0);
+    expect(JSON.parse(result.stdout)).toMatchObject({status:"PASS",columns:23,ui_values_equal:true});
+    expect(JSON.stringify(raw)).toBe(before);
+  });
   test.each([{mode:"hybrid_h1", accepted:true}, {mode:"unknown_method", accepted:false}])(
     "independent XLSX checker validates $mode processing provenance", async ({mode,accepted}) => {
       const doc = createBatchDocument({name:"synthetic-hybrid.pdf"}, "checker-provenance");

@@ -27,18 +27,22 @@ export const READ_ONLY = new Set(["docId", "codeNumber", "codeNotation", "number
 export const STATUS_LABELS = {recognized: "Đã nhận diện", review: "Cần kiểm tra", confirmed: "Đã xác nhận", unknown: "Chưa xác định"};
 
 const clean = text => String(text ?? "").normalize("NFC").trim().replace(/\s+/gu, " ");
-const bodyStart = /^(?:Căn cứ(?=\s|$|[:,])|Kính gửi(?=\s|$|[:,])|Điều\s+\d|QUYẾT ĐỊNH\s*:|QUYẾT NGHỊ\s*:|Nơi nhận\s*:|KT\.|TM\.)/iu;
+const bodyStart = /^(?:Căn cứ(?=\s|$|[:,])|Kính gửi(?=\s|$|[:,])|Điều\s+\d|QUYẾT ĐỊNH\s*:|QUYẾT NGHỊ\s*:|Nơi nhận\s*:|PHỤ LỤC(?=\s|$|[:,])|DANH MỤC(?=\s|$|[:,])|KT\.|TM\.)/iu;
 const national = /CỘNG HÒA|XÃ HỘI CHỦ NGHĨA|Độc lập\s*[-–—]|Tự do\s*[-–—]|Hạnh phúc/iu;
 const issuer = /^(?:VĂN PHÒNG|ỦY BAN|HỘI ĐỒNG|BỘ\s|SỞ\s|PHÒNG\s|CỤC\s|TỔNG CỤC|CHÍNH PHỦ$|THỦ TƯỚNG CHÍNH PHỦ$|QUỐC HỘI$|TÒA ÁN|VIỆN KIỂM SÁT|CƠ QUAN\s)/iu;
-const title = /^(NGHỊ QUYẾT|QUYẾT ĐỊNH|CÔNG VĂN|THÔNG BÁO|BÁO CÁO|KẾ HOẠCH|TỜ TRÌNH)$/iu;
+const title = /^(NGHỊ ĐỊNH|NGHỊ QUYẾT|QUYẾT ĐỊNH|CÔNG VĂN|THÔNG BÁO|BÁO CÁO|KẾ HOẠCH|TỜ TRÌNH)$/iu;
 const typeCodes = {"NGHỊ QUYẾT": "01", "QUYẾT ĐỊNH": "02", "CÔNG VĂN": "22"};
+const typeLabels = {"NGHỊ ĐỊNH":"Nghị định","NGHỊ QUYẾT":"Nghị quyết","QUYẾT ĐỊNH":"Quyết định","CÔNG VĂN":"Công văn","THÔNG BÁO":"Thông báo","BÁO CÁO":"Báo cáo","KẾ HOẠCH":"Kế hoạch","TỜ TRÌNH":"Tờ trình"};
+const signatureMarker = /^(?:Ký bởi\s*:|Người ký\s*:|Thời gian ký\s*:|Ngày ký(?: điện tử)?\s*:|Digitally signed(?:\s|$)|Signing time\s*:)/iu;
+const arrivalMarker = /^(?:CÔNG VĂN\s+)?ĐẾN\s*[:：]?$/iu;
 const numberLabel = /^Số\s*(?:[:：﹕]\s*)?(.*)$/iu;
 const subjectLabel = /^(?:V\/v\s*[:：]?|Về việc\s*[:：]?)\s*(.*)$/iu;
 const codePattern = /^[\p{L}\p{N}\p{Pd}._?\uFFFD]+(?:\s*\/\s*[\p{L}\p{N}\p{Pd}._?\uFFFD]+)+/u;
 
 function bounds(line, method) {
-  if (method === "native_text" && Array.isArray(line.bbox) && line.bbox.length === 4 && line.bbox.every(Number.isFinite)) return [...line.bbox];
-  if (["vietocr_ocr", "hybrid_h1"].includes(method) && Array.isArray(line.polygon) && line.polygon.length === 4
+  const geometry = method === "metadata_fast" ? line.geometry_source : method;
+  if (geometry === "native_text" && Array.isArray(line.bbox) && line.bbox.length === 4 && line.bbox.every(Number.isFinite)) return [...line.bbox];
+  if (["vietocr_ocr", "hybrid_h1"].includes(geometry) && Array.isArray(line.polygon) && line.polygon.length === 4
     && line.polygon.every(p => Array.isArray(p) && p.length === 2 && p.every(Number.isFinite))) {
     const xs = line.polygon.map(p => p[0]), ys = line.polygon.map(p => p[1]);
     return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
@@ -60,8 +64,10 @@ function readLines(result) {
         line: line.line_index ?? i + 1, order: i, block: line.block_index,
         box: spatial ? box : null, x: spatial ? (box[0] + box[2]) / (2 * page.width) : null,
         y: spatial ? box[1] / page.height : null,
-        coordinateSystem: result.method === "native_text" ? "pdf_points" : "raster_pixels",
-        precision: result.method === "native_text" ? "block" : "polygon"};
+        region: spatial ? box.map((value,index) => value / (index % 2 ? page.height : page.width)) : null,
+        coordinateSystem: (result.method === "native_text" || result.method === "metadata_fast" && line.geometry_source === "native_text") ? "pdf_points" : "raster_pixels",
+        precision: (result.method === "native_text" || result.method === "metadata_fast" && line.geometry_source === "native_text") ? "block" : "polygon",
+        metadataExcludedReason: line.metadata_excluded_reason};
     }).filter(line => line.match);
   });
 }
@@ -86,6 +92,81 @@ function successors(line, lines, count = 5) {
 function boundary(line) {
   return bodyStart.test(line.match) || national.test(line.match) || numberLabel.test(line.match)
     || /ngày\s+\d/iu.test(line.match) || title.test(line.match) || issuer.test(line.match);
+}
+function excludedMetadataLine(line, all) {
+  if (line.metadataExcludedReason || signatureMarker.test(line.match)) return true;
+  return line.block != null && all.some(other => other.page === line.page && other.block === line.block
+    && (other.metadataExcludedReason === "electronic_signature" || signatureMarker.test(other.match)));
+}
+function stampRole(line) {
+  if (arrivalMarker.test(line.match)) return "arrival";
+  if (/^GIỜ\s*[:：]/iu.test(line.match)) return "time";
+  if (/^(?:NGÀY(?: ĐẾN| NHẬN)?)\s*[:：]/iu.test(line.match)) return "date";
+  // A document's ordinary "Số:" label is not evidence of an arrival stamp.
+  if (/^SỐ ĐẾN\s*[:：]/iu.test(line.match)) return "number";
+  return "";
+}
+function narrowStampLine(line) {
+  return line.region && line.region[2] - line.region[0] <= .3
+    && line.region[3] - line.region[1] <= .08 && line.match.length <= 44;
+}
+function stampFieldOnly(line) {
+  const role=stampRole(line);
+  if (role==="arrival") return true;
+  const value=line.match.replace(/^[^:：]+[:：]\s*/u,"");
+  if (role==="date") return /^\d[\d\s.,/\-]*$/u.test(value)
+    || /^\d{1,2}\s+tháng\s+\d{1,2}\s+năm\s+\d{4}[.,;]?$/iu.test(value);
+  if (role==="time") return /^(?:\d[\d\s:.,/\-+]*|[A-Z])$/u.test(value);
+  return role==="number" && /^\d[\d\s.,/\-]*$/u.test(value);
+}
+function nearStampAnchor(anchor, line) {
+  if (anchor.page !== line.page || !anchor.region || !line.region) return false;
+  const a=anchor.region,b=line.region;
+  const gapY=Math.max(0,a[1]-b[3],b[1]-a[3]);
+  // Use the second marker's left prefix, never its full (possibly merged)
+  // paragraph-wide box, to establish a separate stamp context.
+  return gapY <= Math.min(.03,Math.max(.01,(a[3]-a[1])*1.25))
+    && b[0] >= a[0]-.035 && b[0] <= a[2]+.06;
+}
+function stampClusters(lines) {
+  const markers=lines.filter(line=>stampRole(line));
+  const clusters=[];
+  for (const anchor of markers.filter(line=>stampRole(line)==="arrival" && narrowStampLine(line))) {
+    const companions=markers.filter(line=>stampRole(line)!=="arrival" && nearStampAnchor(anchor,line));
+    if (!companions.length) continue;
+    const members=[anchor,...companions],standalone=members.filter(line=>narrowStampLine(line) && stampFieldOnly(line));
+    clusters.push({members,standalone});
+  }
+  return {clusters,excluded:new Set(clusters.flatMap(cluster=>cluster.standalone))};
+}
+function subjectStampRisk(candidate, clusters) {
+  return clusters.filter(cluster=>candidate.lines.some(line=>
+    cluster.members.includes(line) && !cluster.standalone.includes(line)
+    || line.region && cluster.standalone.some(stamp=> {
+      if (line.page!==stamp.page) return false;
+      const a=line.region,b=stamp.region;
+      return Math.max(0,a[0]-b[2],b[0]-a[2]) <= .003
+        && Math.max(0,a[1]-b[3],b[1]-a[3]) <= .003;
+    })));
+}
+function subjectCandidates(anchor, lines) {
+  const tail = subjectLabel.exec(anchor.match)?.[1] ?? "";
+  const used = [anchor], parts = tail ? [tail] : [];
+  let limited = false;
+  // Subject continuation is a paragraph after its own title, not the whole
+  // identity header. In particular, cited dates/numbers are allowed here.
+  for (const next of lines.filter(line => line.order > anchor.order && sameColumn(anchor, line))) {
+    if (bodyStart.test(next.match) || national.test(next.match) || title.test(next.match)
+      || subjectLabel.test(next.match) || issuer.test(next.match)) break;
+    const previous = used.at(-1);
+    if (next.y != null && previous.y != null && (next.y < previous.y - .005
+      || next.y - previous.y > (parts.length ? .045 : .075))) break;
+    parts.push(next.match); used.push(next);
+    if (parts.length >= 24) {limited = true; break;}
+  }
+  return parts.length ? {value:parts.join(" "),lines:used,review:limited || parts.length >= 5,
+    note:limited ? "Trích yếu đạt giới hạn đoạn; đối chiếu ảnh nguồn để xác nhận điểm kết thúc."
+      : parts.length >= 5 ? "Tiêu đề dài; kiểm tra điểm kết thúc trích yếu." : ""} : null;
 }
 function uniqueCandidates(candidates) {
   return [...new Map(candidates.map(c => [c.value, c])).values()];
@@ -113,12 +194,19 @@ export function isValidIssuedDate(value) {
 export function createDocumentDraft(result, {sourceKind = "pdf"} = {}) {
   const fields = Object.fromEntries(FIELD_KEYS.map(key => [key, field()]));
   fields.docId.note = "Luôn để trống theo schema nghiệp vụ; không tự sinh mã.";
-  const lines = readLines(result);
-  const first = lines.filter(line => line.page === 1);
+  const allLines = readLines(result);
+  const metadataLines = allLines.filter(line => !excludedMetadataLine(line, allLines));
+  const stamps = stampClusters(metadataLines);
+  const lines = metadataLines.filter(line => !stamps.excluded.has(line));
+  const headerPage = result?.method === "metadata_fast" ? result.pages?.[0]?.page ?? 1 : 1;
+  const first = lines.filter(line => line.page === headerPage);
   const textualEnd = first.findIndex(line => bodyStart.test(line.match));
   const bodyY = first.filter(line => bodyStart.test(line.match) && line.y != null).map(line => line.y);
   const header = first.filter((line, i) => line.y != null
-    ? line.y < Math.min(.44, ...bodyY) : i < (textualEnd < 0 ? 24 : textualEnd));
+    // Fast results already contain a bounded, possibly expanded header ROI.
+    // A long header below 45% remains usable until its first body anchor.
+    ? line.y < Math.min(result?.method === "metadata_fast" ? Infinity : .44, ...bodyY)
+    : i < (textualEnd < 0 ? result?.method === "metadata_fast" ? first.length : 24 : textualEnd));
   const headingLines = header.filter(line => title.test(line.match) || subjectLabel.test(line.match));
   const headingY = Math.min(...headingLines.map(line => line.y ?? Infinity));
   const headingOrder = Math.min(...headingLines.map(line => line.order));
@@ -192,43 +280,64 @@ export function createDocumentDraft(result, {sourceKind = "pdf"} = {}) {
   fields.typeName = choose(classified, "Có nhiều loại văn bản cạnh tranh; cần kiểm tra.");
   if (new Set(titles.map(line => line.match.toLocaleUpperCase("vi"))).size > 1) fields.typeName = field("", "review", titles, "Có nhiều tiêu đề loại văn bản cạnh tranh; cần xác nhận.");
   if (!classified.length && titles.length) fields.typeName = field("", "review", titles, "Loại tài liệu chưa có mã nghiệp vụ được xác minh trong danh mục.");
+  const typeLabel = titles.length === 1 ? typeLabels[titles[0].match.toLocaleUpperCase("vi")] || "" : "";
   const subjects = [];
   const explicit = header.filter(line => subjectLabel.test(line.match));
   const anchors = explicit.length ? explicit : titles;
   for (const line of anchors) {
-    const tail = subjectLabel.exec(line.match)?.[1] ?? "";
-    const used = [line], parts = tail ? [tail] : [];
-    for (const next of successors(line, header, 5)) {
-      if (boundary(next) || subjectLabel.test(next.match)) break;
-      const previous = used.at(-1);
-      if (next.y != null && previous.y != null && next.y - previous.y > .045) break;
-      parts.push(next.match); used.push(next);
-    }
-    if (parts.length) subjects.push({value: parts.join(" "), lines: used,
-      review: parts.length >= 5, note: parts.length >= 5 ? "Tiêu đề dài; kiểm tra điểm kết thúc trích yếu." : ""});
+    const candidate = subjectCandidates(line, first);
+    if (candidate) subjects.push(candidate);
   }
   fields.subject = choose(subjects, "Có nhiều trích yếu cạnh tranh; chưa ghép tự động.");
+  const contaminated=subjects.map(candidate=>({candidate,clusters:subjectStampRisk(candidate,stamps.clusters)})).filter(item=>item.clusters.length);
+  // A mixed fragment outside the title's column must not make the remaining
+  // paragraph look complete. Keep that orphan separately, without inventing
+  // its position within the subject text.
+  const orphanMixed=[...new Set(stamps.clusters.flatMap(cluster=>cluster.members))].filter(fragment=>
+    !stampFieldOnly(fragment) && !subjects.some(candidate=>candidate.lines.includes(fragment))
+    && anchors.some(anchor=> {
+      const end=first.find(line=>line.order>anchor.order && bodyStart.test(line.match));
+      return fragment.page===anchor.page && fragment.order>anchor.order && fragment.order<(end?.order ?? Infinity)
+        && (fragment.y==null || anchor.y==null || fragment.y>=anchor.y-.005);
+    }));
+  if (contaminated.length || orphanMixed.length) {
+    const implicated=[...new Set([...contaminated.flatMap(item=>item.clusters),
+      ...stamps.clusters.filter(cluster=>cluster.members.some(line=>orphanMixed.includes(line)))])];
+    const sources=[...new Set([...anchors,...subjects.flatMap(candidate=>candidate.lines),
+      ...implicated.flatMap(cluster=>cluster.members)])].sort((a,b)=>a.order-b.order);
+    fields.subject={...field("", "review", sources,
+      "Trích yếu chưa xác minh: dấu công văn đến nằm sát hoặc đóng chồng lên vùng chữ. Đối chiếu ảnh nguồn và nhập lại; ứng viên nghi ngờ không được đưa vào JSON/Excel."),
+      candidate:[...new Set([...subjects.map(candidate=>candidate.value),...orphanMixed.map(line=>line.text)])].join("\n\n")};
+  }
+  if (!subjects.length && titles.length && !orphanMixed.length) fields.subject = field("", "review", titles, "Chưa đọc đủ đoạn trích yếu sau tiêu đề; đối chiếu ảnh nguồn.");
 
-  const vi = lines.filter(line => national.test(line.match) || /\b(?:ngày|tháng|năm|việc|văn bản|quyết định|nghị quyết)\b/iu.test(line.match));
+  const vi = lines.filter(line => national.test(line.match) || /\b(?:ngày|tháng|năm|việc|văn bản|quyết định|nghị quyết|nghị định)\b/iu.test(line.match));
   const en = lines.filter(line => /\b(?:REPUBLIC|GOVERNMENT|DECISION|RESOLUTION)\b/u.test(line.match) || /\b(?:the|and|of|for)\b/giu.test(line.match) && /\b(?:document|issued|administrative|decision)\b/iu.test(line.match));
   if (vi.length && en.length) fields.language = field("", "review", [vi[0], en[0]], "Có bằng chứng nhiều ngôn ngữ; cần xác nhận.");
   else if (vi.length >= 2 || vi.some(line => national.test(line.match))) fields.language = field("01", "recognized", vi.slice(0, 2));
   else if (en.length >= 2) fields.language = field("02", "recognized", en.slice(0, 2));
 
-  const count = sourceKind === "image" ? 1 : result?.page_count;
-  if (Number.isInteger(count) && count >= 1 && count <= 6 && Array.isArray(result?.pages) && result.pages.length === count) {
-    fields.numberOfPage = {...field(String(count), "recognized"), evidence: [{text: sourceKind === "image" ? "Ảnh nguồn: 1 trang." : `Bộ đọc PDF nguồn trả về page_count = ${count}.`, source: "source_page_count"}]};
+  const fast = result?.method === "metadata_fast";
+  const count = fast ? result?.source_page_count : sourceKind === "image" ? 1 : result?.page_count;
+  if (Number.isInteger(count) && count >= 1 && count <= 6 && Array.isArray(result?.pages)
+    && (fast ? result.pages.length > 0 && result.pages.length <= count : result.pages.length === count)) {
+    fields.numberOfPage = {...field(String(count), "recognized"), evidence: [{text: fast ? `Bộ đọc nguồn trả về source_page_count = ${count}; kết quả chỉ chứa vùng header đã xét.`
+      : sourceKind === "image" ? "Ảnh nguồn: 1 trang." : `Bộ đọc PDF nguồn trả về page_count = ${count}.`, source: "source_page_count"}]};
   }
   fields.confidenceLevel = {...field("02", "review"), note: "Mã nghiệp vụ, không phải độ chính xác OCR. isCan chưa xác định vẫn thuộc trường hợp khác → 02.", evidence: [{source: "business_rule", text: 'isCan = "0" → 01; các trường hợp khác → 02.'}]};
   // Literal OCR evidence proves the extraction source, not the correctness of its characters.
   // There is no calibrated recognizer confidence: require visual review for all OCR-derived text.
-  if (["vietocr_ocr", "hybrid_h1"].includes(result?.method)) {
+  if (["vietocr_ocr", "hybrid_h1"].includes(result?.method) || fast && result?.used_ocr) {
     for (const entry of Object.values(fields)) if (entry.value && entry.status === "recognized" && entry.evidence.some(source => source.page)) {
       entry.status = "review";
       entry.note = [entry.note, "Nguồn OCR: đối chiếu bản gốc trước khi xác nhận; không tự sửa chữ hoặc dấu."].filter(Boolean).join(" ");
     }
   }
-  return {fields, dirty: false, method: result?.method ?? ""};
+  if (fast && result.fast_metadata?.needs_review) {
+    fields.subject.status = "review";
+    fields.subject.note = [fields.subject.note, "Kết quả header một phần: đối chiếu trích yếu với ảnh nguồn, nhất là vùng dấu đóng chồng hoặc dòng bị cắt."].filter(Boolean).join(" ");
+  }
+  return {fields, dirty: false, method: result?.method ?? "", typeLabel};
 }
 
 export function editDocumentField(draft, key, value) {

@@ -127,3 +127,33 @@ test('the OCR mode runs the copy button: a UI copy error fails, an unconfirmed r
   // Without models there is no OCR result to copy: the no-models mode does not ask for it.
   assert.equal(checkReport(passingNoModels(), { expect: 'no-models', withPdf: true }).ok, true);
 });
+
+test('fast smoke requires partial downloads, actual batch, source scope and preserved raw/edit evidence', () => {
+  const r = passingNoModels();
+  const scope = {source_page_count:6, partial_result:true, inspected_pages:[1], processed_pages:[1]};
+  r.checks.fast = {...scope, partial_ui_label:true, partial_exports:true, metadata_export_22:true, raw_preserved_after_edit:true};
+  r.checks.fast_batch = {count:3, max_concurrent:1, metadata_fields:22, edits_preserved:true, raw_text_preserved:true,
+    xlsx_saved:true, scopes:[scope,scope,scope]};
+  assert.equal(checkReport(r, {withFast:true}).ok, true);
+  for (const change of [{partial_result:false}, {processed_pages:[1,4,5,6]}, {partial_exports:false}, {metadata_export_22:false}]) {
+    assert.equal(checkReport({...r, checks:{...r.checks,fast:{...r.checks.fast,...change}}}, {withFast:true}).ok, false);
+  }
+  for (const change of [{max_concurrent:2}, {edits_preserved:false}, {xlsx_saved:false}, {scopes:[{...scope,inspected_pages:[1,4]}]}]) {
+    assert.equal(checkReport({...r, checks:{...r.checks,fast_batch:{...r.checks.fast_batch,...change}}}, {withFast:true}).ok, false);
+  }
+  assert.equal(checkReport(passingNoModels(), {withFast:true}).ok, false);
+});
+
+test('stamp review gate rejects automatic contaminated or confirmed exports even if other smoke checks pass', () => {
+  const r = passingNoModels();
+  const review = {subject_blank:true, review_badge:true, candidate_visible:true, can_confirm:false,
+    automatic_json_blank:true, core_fields_match_authored_gold:true};
+  r.checks.fast = {automatic_subject_review:review};
+  assert.equal(checkReport(r, {withSubjectReview:true}).ok, true);
+  for (const change of [{subject_blank:false},{review_badge:false},{candidate_visible:false},{can_confirm:true},
+    {automatic_json_blank:false},{core_fields_match_authored_gold:false}]) {
+    const altered = {...r, checks:{...r.checks,fast:{automatic_subject_review:{...review,...change}}}};
+    assert.equal(checkReport(altered, {withSubjectReview:true}).ok, false, JSON.stringify(change));
+  }
+  assert.equal(checkReport(passingNoModels(), {withSubjectReview:true}).ok, false);
+});

@@ -103,7 +103,7 @@ def verify(file: Path, count: int, expected_file: Path | None = None) -> dict:
         for row in sources[1:]:
             assert "/" not in row[1] and "\\" not in row[1] and ":" not in row[1], "Absolute path leaked"
             # Processing provenance is separate from the metadata access-classification field "mode".
-            assert row[2] in ("native_text", "vietocr_ocr", "hybrid_h1")
+            assert row[2] in ("native_text", "vietocr_ocr", "hybrid_h1", "metadata_fast")
         if expected_file:
             expected = json.loads(expected_file.read_text(encoding="utf-8"))
             assert len(expected) == count

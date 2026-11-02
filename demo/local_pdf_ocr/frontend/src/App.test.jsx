@@ -6,6 +6,9 @@ import userEvent from "@testing-library/user-event";
 import App from "./App.jsx";
 import {FIELD_KEYS} from "./lib/documentFields.js";
 import {syntheticDocument} from "./test/fixtures/administrativeDocuments.js";
+import {fastMetadataDocument, DECREE_SUBJECT} from "./test/fixtures/fastMetadata.js";
+import {FAST_MODE_LABEL, FAST_MODE_DESCRIPTION} from "./lib/processingModes.js";
+import {STAMP_TEST_SUBJECT,stampSubjectDocument} from "./test/fixtures/stampSubject.js";
 
 let blobs, apiResults;
 const jsonResponse = (data, ok = true) => ({ok, json: async () => structuredClone(data)});
@@ -84,6 +87,83 @@ async function start() {
   await screen.findByRole("tab", {name:"Thông tin văn bản", selected:true});
   return user;
 }
+
+describe("explicit fast metadata mode", () => {
+  test("stamp candidate is visibly unverified, excluded from JSON, and manual edits survive modes and raw exports", async () => {
+    const user=await start(),raw=stampSubjectDocument({stamp:true,merged:true}),snapshot=JSON.stringify(raw);
+    apiResults.push(jsonResponse(raw));const fast=document.querySelector('input[name=mode][value=metadata_fast]');
+    await user.click(fast);await user.click(screen.getByRole("button",{name:FAST_MODE_LABEL}));
+    await waitFor(()=>expect(field("arcDocCode")?.value).toBe("00042/2025/NĐ-QA"));
+    expect(field("subject").value).toBe("");
+    const subject=field("subject").closest(".metadata-field");expect(subject.querySelector(".field-status").textContent).toBe("Cần kiểm tra");
+    expect(subject.querySelector(".confirm-field")).toBeNull();
+    const candidate=subject.querySelector(".metadata-unverified-candidate");
+    expect(candidate.querySelector("summary").textContent).toBe("Ứng viên chưa xác minh — dấu đóng chồng");
+    expect(candidate.textContent).toContain("Ngày: 03/02/2025,");expect(subject.textContent).toContain("Trích yếu chưa xác minh");
+    await user.click(screen.getByRole("button",{name:"Xuất JSON 22 trường"}));
+    await user.click(within(screen.getByRole("alertdialog")).getByRole("button",{name:"Xuất bản nháp"}));
+    const blank=JSON.parse(await readBlob(blobs.filter(blob=>blob.type.startsWith("application/json")).at(-1)));
+    expect(Object.keys(blank)).toEqual(FIELD_KEYS);expect(blank.subject).toBe("");expect(JSON.stringify(blank)).not.toContain("Ngày: 03/02/2025,");
+    await user.click(field("subject"));await user.paste(STAMP_TEST_SUBJECT);
+    await user.click(document.querySelector('input[name=mode][value=native_text]'));await user.click(fast);
+    expect(field("subject").value).toBe(STAMP_TEST_SUBJECT);expect(field("subject").closest(".metadata-field").querySelector(".field-status").textContent).toBe("Đã xác nhận");
+    await user.click(screen.getByRole("button",{name:"Xuất JSON 22 trường"}));
+    await user.click(within(screen.getByRole("alertdialog")).getByRole("button",{name:"Xuất bản nháp"}));
+    const edited=JSON.parse(await readBlob(blobs.filter(blob=>blob.type.startsWith("application/json")).at(-1)));
+    expect(Object.keys(edited)).toEqual(FIELD_KEYS);expect(edited.subject).toBe(STAMP_TEST_SUBJECT);
+    await user.click(screen.getByRole("tab",{name:"Header (một phần)"}));expect(document.querySelector(".text-output pre").textContent).toBe(raw.text);
+    await user.click(screen.getByTitle("Tải JSON header (một phần)"));
+    expect(JSON.stringify(JSON.parse(await readBlob(blobs.filter(blob=>blob.type.startsWith("application/json")).at(-1))))).toBe(snapshot);
+  });
+  test("is optional, preserves native defaults and edits, and labels every partial text export", async () => {
+    const user=await start(), raw=fastMetadataDocument({stamp:true}), snapshot=JSON.stringify(raw);
+    const choice=document.querySelector('input[name=mode][value=metadata_fast]');
+    expect(choice.checked).toBe(false);
+    await user.type(field("arcDocCode"),"-FULL-EDIT");
+    apiResults.push(jsonResponse(raw)); await user.click(choice);
+    expect(screen.getByText(FAST_MODE_DESCRIPTION)).toBeTruthy();
+    await user.click(screen.getByRole("button",{name:FAST_MODE_LABEL}));
+    await waitFor(()=>expect(field("arcDocCode")?.value).toBe("00042/2025/NĐ-QA"));
+    expect(fetch.mock.calls.at(-1)[1].body.get("mode")).toBe("metadata_fast");
+    expect(field("numberOfPage").value).toBe("6"); expect(field("typeName").value).toBe("");
+    expect(document.querySelector(".metadata-summary").textContent).toContain("Nghị định");
+    expect(field("subject").value).toBe(DECREE_SUBJECT);
+    expect(document.querySelector(".partial-result-notice").textContent).toContain("Nguồn 6 trang");
+    expect(document.querySelector(".partial-result-notice").textContent).toContain("OCR trang 1");
+    await user.type(field("arcDocCode"),"-FAST-EDIT");
+    await user.click(screen.getByRole("tab",{name:"Header (một phần)"}));
+    expect(document.querySelector(".text-output pre").textContent).toBe(raw.text);
+    expect(screen.queryByRole("tab",{name:"Toàn văn"})).toBeNull();
+    await user.click(screen.getByTitle("Tải TXT header (một phần)"));
+    await user.click(screen.getByTitle("Tải JSON header (một phần)"));
+    const txt=await readBlob(blobs.find(blob=>blob.type.startsWith("text/plain")));
+    expect(txt).toContain("NỘI DUNG HEADER MỘT PHẦN");expect(txt).toContain("Nguồn 6 trang");expect(txt.endsWith(raw.text)).toBe(true);
+    const saved=JSON.parse(await readBlob(blobs.find(blob=>blob.type.startsWith("application/json"))));
+    expect(JSON.stringify(saved)).toBe(snapshot);expect(saved.processed_pages).toEqual([1]);
+    await user.click(document.querySelector('input[name=mode][value=native_text]'));
+    expect(field("arcDocCode").value).toBe("00103/TEST-CN-FULL-EDIT");
+    await user.click(choice);expect(field("arcDocCode").value).toBe("00042/2025/NĐ-QA-FAST-EDIT");
+    expect(fetch.mock.calls.filter(([url])=>url==="/api/ocr")).toHaveLength(2);
+  });
+  test("genuine native fast header works without models and a later OCR-needed error preserves edits", async () => {
+    fetch.mockImplementation(async(url,options)=>url==="/api/health" ? jsonResponse({state:"not_ready"})
+      : apiResults.shift() || jsonResponse(fastMetadataDocument({native:true})));
+    const user=userEvent.setup();render(<App/>);
+    await user.upload(screen.getByLabelText("Chọn tài liệu PDF hoặc ảnh"),file());
+    await screen.findByText("Thiếu model OCR");
+    await user.click(document.querySelector('input[name=mode][value=metadata_fast]'));
+    const run=screen.getByRole("button",{name:FAST_MODE_LABEL}); expect(run.disabled).toBe(false);
+    await user.click(run);await waitFor(()=>expect(field("numberOfPage")?.value).toBe("6"));
+    expect(document.querySelector(".partial-result-notice").textContent).toContain("không chạy OCR");
+    await user.type(field("arcDocCode"),"-KEEP");
+    apiResults.push(jsonResponse({detail:"Cần model OCR để đọc header ảnh; không dùng lớp chữ ký."},false));
+    await user.click(run);await user.click(within(screen.getByRole("alertdialog")).getByRole("button",{name:"Thay thế bản nháp"}));
+    await screen.findByText("Cần model OCR để đọc header ảnh; không dùng lớp chữ ký.");
+    expect(field("arcDocCode").value).toBe("00042/2025/NĐ-QA-KEEP");
+    await user.click(document.querySelector('input[name=mode][value=vietocr_ocr]'));
+    expect(document.querySelector(".run-button").disabled).toBe(true);
+  });
+});
 
 describe("metadata UI integration", () => {
   test("opens metadata after successful extraction and renders the exact 22 labeled controls", async () => {

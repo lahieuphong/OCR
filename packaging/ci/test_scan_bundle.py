@@ -64,6 +64,23 @@ class ScanBundleTest(unittest.TestCase):
         self.assertEqual(self.reasons(summary), ["AWS access key", "GitHub token", "private key block"])
         self.assertNotIn("cacert.pem", json.dumps(summary["findings"]))
 
+    def test_fast_partial_and_hybrid_downloads_cannot_ship_or_be_tracked(self):
+        import importlib.util
+
+        root = Path(__file__).resolve().parents[2]
+        spec = importlib.util.spec_from_file_location("tracked_file_gate", root / ".github/scripts/check_tracked_files.py")
+        tracked = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(tracked)
+        downloads = ["downloads/document_metadata_fast_partial.json", "downloads/document_metadata_fast_partial.txt",
+                     "downloads/document_metadata_fast_metadata.json", "downloads/document_hybrid_h1.txt"]
+        for rel in downloads:
+            write(self.root, rel, "private text")
+            self.assertIn("app OCR export", tracked.path_problems(rel))
+        code, summary, _ = run(self.root)
+        self.assertEqual(code, 1)
+        self.assertEqual({item["path"] for item in summary["findings"]}, set(downloads))
+        self.assertEqual(self.reasons(summary), ["OCR export"])
+
     def test_aws_pattern_inside_a_base64_blob_is_not_a_credential(self):
         write(self.root, "blob.bin", b"\0gFBgAEKAKI" + b"AKIA" + b"SAEKAKMAUEBQQIQ3" + b"RMMMQsgBEGYAW\0")
         code, summary, _ = run(self.root)

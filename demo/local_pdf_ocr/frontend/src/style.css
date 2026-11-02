@@ -156,6 +156,11 @@
 .action-wrap { display: inline-flex; border-radius: 7px; }
 .copy-feedback { display: flex; align-items: center; gap: 5px; color: #15803d; font-size: 11px; margin: -6px 20px 10px; }
 .result-origin { display: flex; align-items: center; gap: 7px; padding: 8px 12px; margin: 0 20px 10px; background: #eff6ff; border: 1px solid #dbeafe; border-radius: 7px; color: #1d4ed8; font-size: 11px; }
+.partial-result-notice { margin: 0 20px 10px; width: auto; background: #fffbeb; border-color: #fde68a; color: #78350f; font-size: 11px; }
+.fast-mode-option .mode-name { overflow-wrap: anywhere; }
+.metadata-unverified-candidate { margin-top: 8px; padding: 8px; border: 1px solid #fcd34d; border-radius: 6px; background: #fffbeb; color: #78350f; }
+.metadata-unverified-candidate summary { font-weight: 600; cursor: pointer; }
+.metadata-unverified-candidate blockquote { margin: 8px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .results-stats { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; color: #64748b; font-size: 11px; margin: 0 20px 14px; }
 .results-stats > span { display: flex; align-items: center; gap: 5px; }
 .results-stats b { color: #334155; font-weight: 600; }

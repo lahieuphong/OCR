@@ -144,9 +144,8 @@ class PaddleTextDetector:
         self.detector = TextDetection(model_name="PP-OCRv6_medium_det", device="cpu")
         self.cropper = CropByPolys(det_box_type="quad")
 
-    def detect_and_crop(self, page_image):
+    def detect_regions(self, page_image):
         import numpy as np
-        from PIL import Image
 
         bgr = self.cv2.cvtColor(np.asarray(page_image), self.cv2.COLOR_RGB2BGR)
         detections = list(self.detector.predict(bgr, batch_size=1))
@@ -167,23 +166,33 @@ class PaddleTextDetector:
             if self.cv2.contourArea(p) < 4:
                 continue
             bounded.append(p.tolist())
-        ordered = sort_detected_polygons(bounded)
-        for quad in ordered:
-            crop_bgr = self.cropper(bgr, [quad])[0]
-            if crop_bgr is None or crop_bgr.size == 0:
-                raise RuntimeError("PaddleX CropByPolys returned an empty text crop")
-            if crop_bgr.ndim != 3 or crop_bgr.shape[2] != 3:
-                raise RuntimeError("Unexpected crop BGR shape")
-            crop_rgb = self.cv2.cvtColor(crop_bgr, self.cv2.COLOR_BGR2RGB)
-            yield quad, Image.fromarray(crop_rgb)
+        return bgr, sort_detected_polygons(bounded)
+
+    def crop_region(self, bgr, quad):
+        from PIL import Image
+
+        crop_bgr = self.cropper(bgr, [quad])[0]
+        if crop_bgr is None or crop_bgr.size == 0:
+            raise RuntimeError("PaddleX CropByPolys returned an empty text crop")
+        if crop_bgr.ndim != 3 or crop_bgr.shape[2] != 3:
+            raise RuntimeError("Unexpected crop BGR shape")
+        crop_rgb = self.cv2.cvtColor(crop_bgr, self.cv2.COLOR_BGR2RGB)
+        return Image.fromarray(crop_rgb)
+
+    def detect_and_crop(self, page_image):
+        bgr, polygons = self.detect_regions(page_image)
+        for quad in polygons:
+            yield quad, self.crop_region(bgr, quad)
 
 
 class LocalOcrEngine:
     def __init__(self):
+        self.initialization_started_at = time.perf_counter()
         metadata = verify_frozen_onnx(require_weights=True)
         self.recognizer = OnnxVietocrB(metadata)
         self.detector = PaddleTextDetector()
         self.checkpoint_sha256 = metadata["checkpoint_sha256"]
+        self.initialization_ms = (time.perf_counter() - self.initialization_started_at) * 1000
 
     def process(self, source: bytes, filename: str) -> dict:
         extension = validate_upload(filename, source)

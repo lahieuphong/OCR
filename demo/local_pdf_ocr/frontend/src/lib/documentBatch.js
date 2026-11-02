@@ -1,4 +1,5 @@
 import {createDocumentDraft, validateDocumentDraft} from "./documentFields.js";
+import {PROCESSING_MODES, validateFastResult} from "./processingModes.js";
 
 export const BATCH_STATUS_LABELS = {pending:"Chưa xử lý", processing:"Đang xử lý", extracted:"Đã bóc tách", review:"Cần kiểm tra", error:"Lỗi", confirmed:"Đã xác nhận"};
 export function createBatchDocument(file, id = crypto.randomUUID()) {
@@ -36,8 +37,8 @@ export function batchExportState(documents) {
 }
 
 export async function requestDocumentOcr(doc, request = fetch) {
-  if (!["native_text", "vietocr_ocr", "hybrid_h1"].includes(doc.mode)
-    || (doc.mode !== "vietocr_ocr" && !/\.pdf$/iu.test(doc.name))) throw Error("Phương pháp xử lý không phù hợp với tài liệu.");
+  if (!PROCESSING_MODES.includes(doc.mode)
+    || (!["vietocr_ocr", "metadata_fast"].includes(doc.mode) && !/\.pdf$/iu.test(doc.name))) throw Error("Phương pháp xử lý không phù hợp với tài liệu.");
   const payload = new FormData();
   payload.append("file", doc.file, doc.name);
   payload.append("mode", doc.mode);
@@ -48,6 +49,10 @@ export async function requestDocumentOcr(doc, request = fetch) {
   if (!response.ok) throw Error(data.detail || "Không thể bóc tách văn bản. Vui lòng thử lại.");
   if (data.method !== doc.mode) throw Error("Backend trả sai chế độ xử lý đã chọn; dừng để bảo vệ kết quả.");
   if (!Array.isArray(data.pages)) throw Error("Định dạng phản hồi từ backend không hợp lệ.");
+  if (doc.mode === "metadata_fast") {
+    validateFastResult(data);
+    if (!/\.pdf$/iu.test(doc.name) && data.source_page_count !== 1) throw Error("Ảnh nguồn phải có đúng một trang.");
+  }
   if (doc.mode === "hybrid_h1" && (data.experimental !== true || data.ocr_result?.method !== "vietocr_ocr"
     || !Array.isArray(data.ocr_result.pages))) throw Error("Kết quả thử nghiệm thiếu bản OCR gốc để đối chiếu.");
   if (doc.mode === "native_text" && !data.text?.trim()) throw Error("PDF không có lớp chữ có thể trích xuất. Hãy chọn Nhận dạng OCR cho tài liệu này nếu cần; ứng dụng không tự chuyển phương pháp.");

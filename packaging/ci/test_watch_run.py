@@ -36,6 +36,30 @@ class WatchRunTest(unittest.TestCase):
         self.assertEqual(watch_run.system_path({"SYSTEMROOT": root}, "darwin"),
                          "/usr/bin:/bin:/usr/sbin:/sbin")
 
+    def test_unobserved_preexisting_backend_identity_is_excluded(self):
+        info = {"pid": 123, "name": "vietdoc-backend.exe", "exe": "/older-app/backend.exe", "create_time": 100.5}
+        self.assertEqual(watch_run.leftover_status(info, {}, "/new-app", {123: 100.5}), "preexisting")
+
+    def test_observed_backend_is_leftover_even_if_preexisting(self):
+        info = {"pid": 123, "name": "vietdoc-backend.exe", "exe": "/older-app/backend.exe", "create_time": 100.5}
+        self.assertEqual(watch_run.leftover_status(info, {123: {}}, "/new-app", {123: 100.5}), "leftover")
+
+    def test_pid_reuse_or_unknown_creation_time_cannot_hide_a_backend(self):
+        info = {"pid": 123, "name": "vietdoc-backend.exe", "exe": "/older-app/backend.exe", "create_time": 101.5}
+        self.assertEqual(watch_run.leftover_status(info, {}, "/new-app", {123: 100.5}), "leftover")
+        info["create_time"] = None
+        self.assertEqual(watch_run.leftover_status(info, {}, "/new-app", {123: 100.5}), "leftover")
+        info.update(create_time=100.5, exe=None)
+        self.assertEqual(watch_run.leftover_status(info, {}, "/new-app", {123: 100.5}), "leftover")
+
+    def test_new_unobserved_orphan_backend_remains_a_leftover(self):
+        info = {"pid": 456, "name": "vietdoc-backend.exe", "exe": "/other-app/backend.exe", "create_time": 101.5}
+        self.assertEqual(watch_run.leftover_status(info, {}, "/new-app", {123: 100.5}), "leftover")
+
+    def test_build_directory_ownership_wins_over_preexisting_exclusion(self):
+        info = {"pid": 123, "name": "vietdoc-backend.exe", "exe": "/new-app/backend.exe", "create_time": 100.5}
+        self.assertEqual(watch_run.leftover_status(info, {}, "/new-app", {123: 100.5}), "leftover")
+
     def test_large_stdout_and_stderr_do_not_block_the_app(self):
         with tempfile.TemporaryDirectory() as directory:
             # Do not use --strict here: the test runner itself shares the Python installation

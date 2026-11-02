@@ -2,7 +2,7 @@
 // Decides whether an Electron smoke run passed. The smoke test (electron/main.js --smoke-test) only
 // records what it saw; this checker turns that record into PASS/FAIL for CI and for local runs.
 //
-//   node scripts/check-smoke-report.js <smoke_report.json> --expect=no-models|ocr [--with-pdf]
+//   node scripts/check-smoke-report.js <smoke_report.json> --expect=no-models|ocr [--with-pdf] [--with-fast] [--with-subject-review]
 //
 // no-models: the frozen recognizer/detector are absent, so OCR must be refused (CI, no downloads).
 // ocr:       the models verified, so OCR must run through the UI (local DEV run; compare the export
@@ -10,7 +10,7 @@
 //            only: their failures are reported as warnings, never as a pass or a fail.
 const fs = require('node:fs');
 
-function checkReport(report, { expect = 'no-models', withPdf = false } = {}) {
+function checkReport(report, { expect = 'no-models', withPdf = false, withFast = false, withSubjectReview = false } = {}) {
   const c = report.checks || {};
   const failures = [];
   const warnings = [];
@@ -61,6 +61,26 @@ function checkReport(report, { expect = 'no-models', withPdf = false } = {}) {
     if (!(c.ui_preview && c.ui_preview.rendered)) warnings.push('PDF preview pixels not confirmed (evidence only)');
   }
 
+  if (withFast) {
+    const fast = c.fast || {}, batch = c.fast_batch || {};
+    need(fast.partial_result === true && Number.isInteger(fast.source_page_count) && fast.source_page_count >= 1
+      && fast.source_page_count <= 6 && JSON.stringify(fast.inspected_pages) === '[1]'
+      && Array.isArray(fast.processed_pages) && fast.processed_pages.length <= 1
+      && fast.processed_pages.every(page => page === 1), 'fast extraction scope/counts or appendix exclusion failed');
+    need(fast.partial_ui_label && fast.partial_exports && fast.metadata_export_22 && fast.raw_preserved_after_edit,
+      'fast UI, partial TXT/JSON, metadata22 or raw preservation checks did not pass');
+    need(batch.count === 3 && batch.max_concurrent === 1 && batch.metadata_fields === 22
+      && batch.edits_preserved && batch.raw_text_preserved && batch.xlsx_saved, 'fast batch/Excel checks did not pass');
+    need(Array.isArray(batch.scopes) && batch.scopes.length === 3 && batch.scopes.every(scope => scope.partial_result === true
+      && JSON.stringify(scope.inspected_pages) === '[1]' && Array.isArray(scope.processed_pages)
+      && scope.processed_pages.length <= 1 && scope.processed_pages.every(page => page === 1)), 'fast batch processed later pages or lost scope');
+  }
+  if (withSubjectReview) {
+    const review = c.fast?.automatic_subject_review || {};
+    need(review.subject_blank === true && review.review_badge === true && review.candidate_visible === true
+      && review.can_confirm === false && review.automatic_json_blank === true && review.core_fields_match_authored_gold === true,
+      'stamp-contaminated subject was not safely blank/reviewed before manual editing/export');
+  }
   for (const name of ['synthetic_ui.png', 'synthetic_ui.jpg']) {
     const image = c.images && c.images[name];
     need(image && Array.isArray(image.preview_px) && image.preview_px[0] > 0, `${name} preview did not render`);
@@ -87,7 +107,7 @@ function main(argv) {
   const file = argv.find((a) => !a.startsWith('--'));
   const expect = (argv.find((a) => a.startsWith('--expect=')) || '--expect=no-models').slice('--expect='.length);
   if (!file || !['no-models', 'ocr'].includes(expect)) {
-    console.error('usage: node scripts/check-smoke-report.js <smoke_report.json> --expect=no-models|ocr [--with-pdf]');
+    console.error('usage: node scripts/check-smoke-report.js <smoke_report.json> --expect=no-models|ocr [--with-pdf] [--with-fast] [--with-subject-review]');
     return 2;
   }
   let report;
@@ -97,7 +117,7 @@ function main(argv) {
     console.error(`SMOKE FAILED: no readable report at ${file} (${error.message})`);
     return 1;
   }
-  const result = checkReport(report, { expect, withPdf: argv.includes('--with-pdf') });
+  const result = checkReport(report, { expect, withPdf: argv.includes('--with-pdf'), withFast: argv.includes('--with-fast'), withSubjectReview: argv.includes('--with-subject-review') });
   for (const w of result.warnings) console.log(`warning: ${w}`);
   if (!result.ok) {
     console.error(`SMOKE FAILED (${expect}):\n  ${result.failures.join('\n  ')}`);
