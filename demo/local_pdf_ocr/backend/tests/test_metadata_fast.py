@@ -34,14 +34,12 @@ def pdf_bytes(rows=(), pages=6):
     pdf = fitz.open()
     page = pdf.new_page(width=600, height=800)
     if rows:
-        fonts = [Path("C:/Windows/Fonts/segoeui.ttf"), Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
-                 Path("/System/Library/Fonts/Supplemental/Arial.ttf"), Path("/Library/Fonts/Arial Unicode.ttf")]
-        font = next((p for p in fonts if p.is_file()), None)
-        if font is None:
-            raise RuntimeError("A Unicode fixture font is required, as in the Electron synthetic-PDF CI")
-        page.insert_font(fontname="qa", fontfile=str(font))
+        # Use PyMuPDF's bundled Helvetica and Unicode fallback fonts. Host
+        # font cmap aliases can extract authored ASCII spaces as NBSP instead.
+        writer = fitz.TextWriter(page.rect)
         for text, x, y in rows:
-            page.insert_text((x, y), text, fontsize=9, fontname="qa")
+            writer.append((x, y), text, fontsize=9)
+        writer.write_text(page)
     for _ in range(pages - 1):
         pdf.new_page(width=600, height=800)
     result = pdf.tobytes()
@@ -98,6 +96,19 @@ class FastMetadataTests(unittest.TestCase):
     def run_fast(self, payload, name, provider):
         with patch.object(fast, "offline_engine", side_effect=lambda callback: callback()):
             return fast.extract_metadata_fast(payload, name, provider)
+
+    def test_native_pdf_fixture_roundtrips_exact_unicode_without_host_fonts(self):
+        rows = header()
+        rows[5] = ("Triển khai ký số và quản lý chữ ký số.", 100, 165)
+        with patch.object(Path, "is_file", side_effect=AssertionError("Fixture must not select a host font")):
+            payload = pdf_bytes(rows)
+        # Prove the authored PDF contains the literal strings before testing
+        # production extraction: do not normalize font-generated substitutions.
+        with fitz.open(stream=payload, filetype="pdf") as pdf:
+            lines = ["".join(span["text"] for span in line["spans"])
+                     for block in pdf[0].get_text("dict")["blocks"] if block["type"] == 0
+                     for line in block["lines"]]
+        self.assertEqual(lines, [text for text, _x, _y in rows])
 
     def test_six_page_source_never_accesses_or_renders_page_two(self):
         renders = []
