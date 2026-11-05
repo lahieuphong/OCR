@@ -24,7 +24,7 @@ export default function useDocumentBatch(health) {
   const running = useRef(false), timer = useRef(null), mounted = useRef(true), pauseRequested = useRef(false);
   const active = documents.find(doc => doc.id === activeId) || null;
   const document = active?.file || null;
-  const selectedMode = active?.mode || "vietocr_ocr";
+  const selectedMode = active?.mode || NEW_DOCUMENT_MODE;
   const resultsByMode = active?.resultsByMode || {};
   const metadataByMode = active?.metadataByMode || {};
   // Fast PDF headers with a genuine text layer can work without models. If OCR

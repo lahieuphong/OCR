@@ -36,7 +36,7 @@ async function chooseFolder(files) {
   return user;
 }
 const queued = () => Array.from(document.querySelectorAll(".input-queue li .select-queued-file"),
-  item => Array.from(item.childNodes).filter(node => node.nodeName !== "SMALL").map(node => node.textContent).join(""));
+  item => `${item.querySelector(".queue-index").textContent}. ${item.querySelector(".queue-name").firstChild.textContent}`);
 const modes = () => Array.from(document.querySelectorAll(".input-queue li select"), item => item.value);
 const runAll = user => user.click(screen.getByRole("button", {name: /^Bóc tách tất cả \(/}));
 
@@ -112,7 +112,7 @@ test("without models a new PDF can run the fast header from its text layer; a ne
   await user.upload(screen.getByLabelText("Chọn tài liệu PDF hoặc ảnh"), [new File(["%PDF synthetic"], "a.pdf", {type: "application/pdf"}), new File(["png"], "b.png", {type: "image/png"})]);
   expect(modes()).toEqual(["metadata_fast", "metadata_fast"]);
   expect(document.querySelector(".run-button").disabled).toBe(false);
-  await user.click(screen.getByRole("button", {name: "1. a.pdfChưa xử lý"}).closest("li").nextElementSibling.querySelector(".select-queued-file"));
+  await user.click(document.querySelectorAll(".input-queue li .select-queued-file")[1]);
   expect(document.querySelector(".run-button").disabled).toBe(true);
   expect(screen.getByRole("button", {name: /^Bóc tách tất cả \(/}).disabled).toBe(true);
 });
