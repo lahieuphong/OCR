@@ -131,7 +131,9 @@
 .mode-note { font-size: 11px; color: #64748b; margin: -8px 0 0; }
 .run-button { width: 100%; min-height: 42px; font-size: 13px; box-shadow: none; }
 .input-actions { position: sticky; bottom: 0; z-index: 2; display: grid; gap: 12px; padding: 12px 0; background: #fff; border-top: 1px solid var(--border); }
-.run-button:not(:disabled):hover, button.bg-primary:not(:disabled):hover { background: #1d4ed8; }
+.run-button[data-variant="default"]:not(:disabled):hover, button.bg-primary:not(:disabled):hover { background: #1d4ed8; }
+.run-button[data-variant="outline"] { color: #1d4ed8; border-color: #bfdbfe; }
+.run-button[data-variant="outline"]:not(:disabled):hover { background: #eff6ff; }
 .processing-status { display: grid; gap: 9px; color: #2563eb; font-size: 12px; }
 .processing-status > span { display: flex; justify-content: center; align-items: center; gap: 7px; }
 .processing-progress { height: 3px; }
@@ -198,7 +200,7 @@
 .select-queued-file small { display: block; font-size: 9px; color: #64748b; }
 .input-queue select { border: 1px solid var(--border); border-radius: 5px; padding: 3px; max-width: 130px; min-width: 0; background: #fff; font-size: 10px; }
 .remove-document { border: 0; background: none; color: #64748b; font-size: 19px; line-height: 1; padding: 4px; }
-.batch-run-button { font-size: 12px; width: 100%; }
+.batch-run-button { width: 100%; min-height: 42px; font-size: 13px; font-weight: 700; box-shadow: none; }
 .queue-progress { display: grid; gap: 5px; font-size: 11px; color: #2563eb; text-align: center; margin: 0; }
 .queue-heading-actions { display: flex; gap: 5px; flex-shrink: 0; }
 .queue-bulk-mode { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 10px 8px; font-size: 10px; color: #64748b; }
@@ -207,7 +209,8 @@
 .import-notice { white-space: pre-line; max-height: 150px; overflow: auto; }
 .import-notice, .import-notice * { font-size: 11px; line-height: 1.5; }
 .import-notice button { display: block; margin-top: 4px; height: 24px; font-size: 11px; }
-.batch-pause-button, .batch-retry-button { font-size: 12px; width: 100%; }
+.batch-pause-button { width: 100%; min-height: 42px; font-size: 13px; }
+.batch-retry-button { font-size: 12px; width: 100%; }
 .metadata-editing { border: 0; padding: 0; margin: 0; min-width: 0; }
 .document-list { padding: 16px; min-width: 0; }
 .batch-summary { display: flex; flex-wrap: wrap; gap: 7px 14px; color: #64748b; font-size: 11px; margin-bottom: 14px; }

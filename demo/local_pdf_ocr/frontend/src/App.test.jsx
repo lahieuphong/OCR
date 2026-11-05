@@ -43,7 +43,7 @@ describe("explicit experimental PDF/OCR selection", () => {
     expect(choice.checked).toBe(false);
     apiResults.push(jsonResponse(hybrid));
     await user.click(choice);
-    await user.click(screen.getByRole("button", {name:"Bóc tách văn bản"}));
+    await user.click(screen.getByRole("button", {name:"Bóc tách văn bản này"}));
     await waitFor(() => expect(field("arcDocCode")?.value).toBe("003/MIX-TEST"));
     expect(fetch.mock.calls.at(-1)[1].body.get("mode")).toBe("hybrid_h1");
     expect(field("arcDocCode").closest(".metadata-field").textContent).toContain("Cần kiểm tra");
@@ -60,14 +60,14 @@ describe("explicit experimental PDF/OCR selection", () => {
   test("a new hybrid run never replaces existing OCR metadata edits", async () => {
     const user = await start();
     await user.click(document.querySelector('input[name=mode][value=vietocr_ocr]'));
-    await user.click(screen.getByRole("button", {name:"Bóc tách văn bản"}));
+    await user.click(screen.getByRole("button", {name:"Bóc tách văn bản này"}));
     await waitFor(() => expect(field("arcDocCode")?.value).toBe("002/OCR-TEST"));
     await user.type(field("arcDocCode"), "-KEEP");
     const hybrid = hybridResponse();
     hybrid.ocr_result = syntheticDocument({method:"vietocr_ocr",code:"007/FRESH-TEST"});
     apiResults.push(jsonResponse(hybrid));
     await user.click(document.querySelector('input[name=mode][value=hybrid_h1]'));
-    await user.click(screen.getByRole("button", {name:"Bóc tách văn bản"}));
+    await user.click(screen.getByRole("button", {name:"Bóc tách văn bản này"}));
     await waitFor(() => expect(field("arcDocCode")?.value).toBe("003/MIX-TEST"));
     await user.click(screen.getByRole("tab", {name:"So sánh"}));
     expect([...document.querySelectorAll(".comparison-columns pre")][1].textContent).toBe(hybrid.ocr_result.text);
@@ -86,7 +86,7 @@ async function start() {
   expect(document.querySelector('input[name=mode]:checked').value).toBe("metadata_fast");
   await user.click(document.querySelector('input[name=mode][value=native_text]'));
   await waitFor(() => expect(document.querySelector(".run-button").disabled).toBe(false));
-  await user.click(screen.getByRole("button", {name:"Bóc tách văn bản"}));
+  await user.click(screen.getByRole("button", {name:"Bóc tách văn bản này"}));
   await screen.findByRole("tab", {name:"Thông tin văn bản", selected:true});
   return user;
 }
@@ -95,7 +95,7 @@ describe("explicit fast metadata mode", () => {
   test("stamp candidate is visibly unverified, excluded from JSON, and manual edits survive modes and raw exports", async () => {
     const user=await start(),raw=stampSubjectDocument({stamp:true,merged:true}),snapshot=JSON.stringify(raw);
     apiResults.push(jsonResponse(raw));const fast=document.querySelector('input[name=mode][value=metadata_fast]');
-    await user.click(fast);await user.click(screen.getByRole("button",{name:FAST_MODE_LABEL}));
+    await user.click(fast);await user.click(screen.getByRole("button",{name:"Bóc tách nhanh văn bản này"}));
     await waitFor(()=>expect(field("arcDocCode")?.value).toBe("00042/2025/NĐ-QA"));
     expect(field("subject").value).toBe("");
     const subject=field("subject").closest(".metadata-field");expect(subject.querySelector(".field-status").textContent).toBe("Cần kiểm tra");
@@ -125,7 +125,7 @@ describe("explicit fast metadata mode", () => {
     await user.type(field("arcDocCode"),"-FULL-EDIT");
     apiResults.push(jsonResponse(raw)); await user.click(choice);
     expect(screen.getByText(FAST_MODE_DESCRIPTION)).toBeTruthy();
-    await user.click(screen.getByRole("button",{name:FAST_MODE_LABEL}));
+    await user.click(screen.getByRole("button",{name:"Bóc tách nhanh văn bản này"}));
     await waitFor(()=>expect(field("arcDocCode")?.value).toBe("00042/2025/NĐ-QA"));
     expect(fetch.mock.calls.at(-1)[1].body.get("mode")).toBe("metadata_fast");
     expect(field("numberOfPage").value).toBe("6"); expect(field("typeName").value).toBe("");
@@ -155,7 +155,7 @@ describe("explicit fast metadata mode", () => {
     await user.upload(screen.getByLabelText("Chọn tài liệu PDF hoặc ảnh"),file());
     await screen.findByText("Thiếu model OCR");
     await user.click(document.querySelector('input[name=mode][value=metadata_fast]'));
-    const run=screen.getByRole("button",{name:FAST_MODE_LABEL}); expect(run.disabled).toBe(false);
+    const run=screen.getByRole("button",{name:"Bóc tách nhanh văn bản này"}); expect(run.disabled).toBe(false);
     await user.click(run);await waitFor(()=>expect(field("numberOfPage")?.value).toBe("6"));
     expect(document.querySelector(".partial-result-notice").textContent).toContain("không chạy OCR");
     await user.type(field("arcDocCode"),"-KEEP");
@@ -235,11 +235,11 @@ describe("metadata UI integration", () => {
     const user = await start();
     await user.type(field("arcDocCode"), "-EDIT");
     const before = fetch.mock.calls.length;
-    await user.click(screen.getByRole("button", {name:"Bóc tách văn bản"}));
+    await user.click(screen.getByRole("button", {name:"Bóc tách văn bản này"}));
     expect(fetch.mock.calls.length).toBe(before);
     await user.click(within(screen.getByRole("alertdialog")).getByRole("button", {name:"Hủy"}));
     apiResults.push(jsonResponse({detail:"Lỗi tổng hợp để kiểm tra giữ bản nháp"}, false));
-    await user.click(screen.getByRole("button", {name:"Bóc tách văn bản"}));
+    await user.click(screen.getByRole("button", {name:"Bóc tách văn bản này"}));
     await user.click(within(screen.getByRole("alertdialog")).getByRole("button", {name:"Thay thế bản nháp"}));
     await screen.findByText("Lỗi tổng hợp để kiểm tra giữ bản nháp");
     expect(field("arcDocCode").value).toBe("00103/TEST-CN-EDIT");
@@ -261,7 +261,7 @@ describe("metadata UI integration", () => {
     const user = await start();
     await user.type(field("arcDocCode"), "-MANUAL");
     await user.click(document.querySelector('input[name=mode][value=vietocr_ocr]'));
-    await user.click(screen.getByRole("button", {name:"Bóc tách văn bản"}));
+    await user.click(screen.getByRole("button", {name:"Bóc tách văn bản này"}));
     await waitFor(() => expect(field("arcDocCode")?.value).toBe("002/OCR-TEST"));
     await user.click(screen.getByRole("tab", {name:"So sánh"}));
     expect(document.querySelectorAll(".comparison-columns pre")).toHaveLength(2);

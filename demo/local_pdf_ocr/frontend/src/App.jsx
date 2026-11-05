@@ -2,7 +2,7 @@ import {useEffect, useRef, useState} from "react";
 import {
   ScanText, FileText, FileImage, UploadCloud, ShieldCheck, ArrowRight,
   Download, Copy, Check, AlertTriangle, LoaderCircle, Clock3, FileJson,
-  ScanLine, CircleCheck, ChevronLeft, ChevronRight, RefreshCw, LockKeyhole, FolderOpen, Pause, RotateCcw,
+  ScanLine, CircleCheck, ChevronLeft, ChevronRight, RefreshCw, LockKeyhole, FolderOpen, Pause, RotateCcw, ListChecks,
 } from "lucide-react";
 import {Button} from "@/components/ui/button";
 import {Card, CardHeader, CardTitle, CardDescription, CardContent} from "@/components/ui/card";
@@ -19,7 +19,8 @@ import useDocumentBatch from "@/hooks/useDocumentBatch.js";
 import {batchDocumentStatus, BATCH_STATUS_LABELS} from "@/lib/documentBatch.js";
 import {EXCEL_FILENAME} from "@/lib/excelExport.js";
 import {editDocumentField, confirmDocumentField} from "@/lib/documentFields.js";
-import {FAST_MODE_LABEL, FAST_MODE_DESCRIPTION, PROCESSING_LABELS, partialScope, resultTextExport} from "@/lib/processingModes.js";
+import {FAST_MODE_LABEL, FAST_MODE_DESCRIPTION, PROCESSING_LABELS, RUN_ALL_DONE_LABEL, RUN_ALL_LABEL, RUN_ONE_FAST_LABEL, RUN_ONE_LABEL,
+  partialScope, resultTextExport, runAllLabel} from "@/lib/processingModes.js";
 import {dropHasFolder, filesFromDrop} from "@/lib/folderImport.js";
 
 function formatTime(ms) {
@@ -65,7 +66,7 @@ function EmptyResult({working, documentSelected, nativeText, fast}) {
     <h3>{working ? "Đang bóc tách văn bản" : "Văn bản sẽ xuất hiện tại đây"}</h3>
     <p>{working
       ? fast ? "Đang xét vùng header cần thiết; không OCR toàn bộ tài liệu." : nativeText ? "Đang trích xuất văn bản có sẵn trong PDF." : "Đang nhận dạng văn bản từ các trang tài liệu."
-      : documentSelected ? "Chọn phương pháp, sau đó nhấn “Bóc tách văn bản” để bắt đầu." : "Chọn một tài liệu ở bên trái để bắt đầu."}</p>
+      : documentSelected ? "Chọn phương pháp, sau đó nhấn “Bóc tách văn bản này” để bắt đầu." : "Chọn một tài liệu ở bên trái để bắt đầu."}</p>
     {!working && <span className="empty-result-note"><FileText size={14}/> {fast ? "Header một phần và metadata 22 trường" : "Toàn văn, theo trang và xuất kết quả"}</span>}
   </div>;
 }
@@ -255,20 +256,22 @@ export default function App() {
               </Alert>}
 
               <div className="input-actions">
-              <Button className="run-button" size="lg" onClick={() => runOcr()} disabled={!document || working || !canRun}>
-                {working ? <LoaderCircle className="spin" size={18}/> : <ScanText size={18}/>}
-                {working ? "Đang bóc tách…" : fast ? FAST_MODE_LABEL : "Bóc tách văn bản"}{!working && <ArrowRight size={17}/>}
+              {/* With several documents the whole-list button is the main action; the selected one is secondary. */}
+              <Button className="run-button" size="lg" variant={documents.length > 1 ? "outline" : "default"} onClick={() => runOcr()} disabled={!document || working || !canRun}>
+                {working && batchProgress?.total === 1 ? <LoaderCircle className="spin" size={18}/> : <ScanText size={18}/>}
+                {working && batchProgress?.total === 1 ? "Đang bóc tách…" : fast ? RUN_ONE_FAST_LABEL : RUN_ONE_LABEL}{!working && <ArrowRight size={17}/>}
               </Button>
               {documents.length > 1 && <div className="batch-actions">
                 {working && batchProgress?.total > 1
-                  ? <Button className="batch-pause-button" variant="outline" onClick={pause} disabled={pausing}><Pause size={15}/>{pausing ? "Sẽ dừng sau tài liệu đang xử lý…" : "Tạm dừng hàng chờ"}</Button>
-                  : <Button className="batch-run-button" variant="outline" onClick={runBatch} disabled={working || !canRunBatch}>Bóc tách tất cả tài liệu chưa xử lý</Button>}
+                  ? <Button className="batch-pause-button" size="lg" variant="outline" onClick={pause} disabled={pausing}><Pause size={15}/>{pausing ? "Sẽ dừng sau tài liệu đang xử lý…" : "Tạm dừng hàng chờ"}</Button>
+                  : <Button className="batch-run-button" size="lg" onClick={runBatch} disabled={working || !canRunBatch}>
+                    <ListChecks size={18}/>{pendingCount ? runAllLabel(pendingCount) : RUN_ALL_DONE_LABEL}</Button>}
                 {!working && failedCount > 0 && <Button className="batch-retry-button" variant="ghost" onClick={runFailed} disabled={!canRunFailed}><RotateCcw size={15}/> Chạy lại {failedCount} tài liệu lỗi</Button>}
               </div>}
               {batchProgress && documents.length > 1 && <div className="queue-progress" role="status">
                 {batchProgress.total > 1 && <Progress value={100 * batchProgress.completed / batchProgress.total} aria-label="Tiến độ hàng chờ"/>}
                 <span>Đã xử lý {batchProgress.completed}/{batchProgress.total} tài liệu trong lượt này{working ? remainingText(batchProgress.remainingMs) : ""}
-                  {batchProgress.paused ? ` · Đã tạm dừng, còn ${pendingCount} tài liệu chưa xử lý: bấm “Bóc tách tất cả tài liệu chưa xử lý” để tiếp tục.` : ""}</span>
+                  {batchProgress.paused ? ` · Đã tạm dừng, còn ${pendingCount} tài liệu chưa xử lý: bấm “${RUN_ALL_LABEL}” để tiếp tục.` : ""}</span>
               </div>}
               {working && <div className="processing-status" role="status"><Progress value={null} className="processing-progress" aria-label="Đang xử lý, chưa có tiến độ phần trăm"/><span><Clock3 size={14}/> Đang xử lý trên máy · {elapsed.toFixed(0)} giây</span></div>}
               {error && <Alert variant="destructive" className="error-box"><AlertTriangle size={17}/><AlertTitle>Không thể hoàn tất thao tác</AlertTitle><AlertDescription>{error}</AlertDescription></Alert>}

@@ -34,7 +34,7 @@ async function setup(names=["1.pdf","2.pdf","3.pdf"]){
   return user;
 }
 async function runBatch(user){
-  await user.click(screen.getByRole("button",{name:"Bóc tách tất cả tài liệu chưa xử lý"}));
+  await user.click(screen.getByRole("button",{name:/^Bóc tách tất cả \(/}));
   await screen.findByRole("tab",{name:"Danh sách văn bản",selected:true});
 }
 test("picker accepts duplicate names independently, add/drop/remove works before processing, export starts disabled",async()=>{
@@ -99,7 +99,7 @@ test.each(["native_text","metadata_fast"])("%s middle failure keeps results one/
 });
 test("unprocessed PDF cannot become an export row; invalid dates disable export",async()=>{
   const user=await setup(["1.pdf","2.pdf"]);
-  await user.click(screen.getByRole("button",{name:"Bóc tách văn bản"}));
+  await user.click(screen.getByRole("button",{name:"Bóc tách văn bản này"}));
   await waitFor(()=>expect(field("arcDocCode")?.value).toBe("001/NATIVE"));
   await user.click(list()); await user.click(screen.getByRole("button",{name:"Xuất danh sách Excel"}));
   expect(screen.getByRole("alertdialog").textContent).toContain("Xuất 1/2");

@@ -38,7 +38,7 @@ async function chooseFolder(files) {
 const queued = () => Array.from(document.querySelectorAll(".input-queue li .select-queued-file"),
   item => Array.from(item.childNodes).filter(node => node.nodeName !== "SMALL").map(node => node.textContent).join(""));
 const modes = () => Array.from(document.querySelectorAll(".input-queue li select"), item => item.value);
-const runAll = user => user.click(screen.getByRole("button", {name: "Bóc tách tất cả tài liệu chưa xử lý"}));
+const runAll = user => user.click(screen.getByRole("button", {name: /^Bóc tách tất cả \(/}));
 
 test("a chosen folder adds its PDFs and images in folder order, fast mode by default, and reports skipped files", async () => {
   const user = await chooseFolder([folderFile("Hồ sơ/10.pdf"), folderFile("Hồ sơ/2.pdf"), folderFile("Hồ sơ/con/3.png"),
@@ -114,5 +114,26 @@ test("without models a new PDF can run the fast header from its text layer; a ne
   expect(document.querySelector(".run-button").disabled).toBe(false);
   await user.click(screen.getByRole("button", {name: "1. a.pdfChưa xử lý"}).closest("li").nextElementSibling.querySelector(".select-queued-file"));
   expect(document.querySelector(".run-button").disabled).toBe(true);
-  expect(screen.getByRole("button", {name: "Bóc tách tất cả tài liệu chưa xử lý"}).disabled).toBe(true);
+  expect(screen.getByRole("button", {name: /^Bóc tách tất cả \(/}).disabled).toBe(true);
+});
+
+test("one button for the selected document; the whole-list button is emphasized and counts what is left", async () => {
+  const user = await chooseFolder([folderFile("d/1.pdf"), folderFile("d/2.pdf"), folderFile("d/3.pdf")]);
+  const one = screen.getByRole("button", {name: "Bóc tách nhanh văn bản này"});
+  const all = screen.getByRole("button", {name: "Bóc tách tất cả (3 tài liệu)"});
+  expect(one.dataset.variant).toBe("outline");
+  expect(all.dataset.variant).toBe("default");
+  await user.click(one);
+  await waitFor(() => expect(screen.getByRole("button", {name: "Bóc tách tất cả (2 tài liệu)"})).toBeTruthy());
+  expect(calls.map(call => call.name)).toEqual(["1.pdf"]);
+  await runAll(user);
+  await waitFor(() => expect(screen.getByRole("button", {name: "Đã bóc tách tất cả tài liệu"}).disabled).toBe(true));
+  expect(calls.map(call => call.name)).toEqual(["1.pdf", "2.pdf", "3.pdf"]);
+});
+
+test("a single document keeps one main button", async () => {
+  const user = userEvent.setup(); render(<App/>);
+  await user.upload(screen.getByLabelText("Chọn tài liệu PDF hoặc ảnh"), new File(["%PDF synthetic"], "a.pdf", {type: "application/pdf"}));
+  expect(screen.getByRole("button", {name: "Bóc tách nhanh văn bản này"}).dataset.variant).toBe("default");
+  expect(screen.queryByRole("button", {name: /^Bóc tách tất cả/})).toBeNull();
 });

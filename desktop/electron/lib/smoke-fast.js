@@ -72,7 +72,7 @@ async function runFastSmoke({wc, js, clickResultTab, setInputFile, waitFor, scre
     await wait(() => js(`Boolean(document.querySelector('input[name=mode][value=metadata_fast]'))`), 'fast mode is missing');
     assert.equal(await js(`document.querySelector('input[name=mode]:checked').value`), 'metadata_fast', 'a new PDF must default to the fast header mode');
     await js(`document.querySelector('input[name=mode][value=metadata_fast]').click(); true`);
-    await wait(() => js(`document.querySelector('.run-button').textContent.includes('Bóc tách nhanh thông tin văn bản')`), 'fast action must be explicit');
+    await wait(() => js(`document.querySelector('.run-button').textContent.includes('Bóc tách nhanh văn bản này')`), 'fast action must be explicit');
     const started = Date.now();
     await js(`document.querySelector('.run-button').click(); true`);
     await wait(() => js(`Boolean(window.__vietdocFastQA.requests[0]?.result) && !document.querySelector('.run-button').disabled`), 'fast extraction did not finish', 180_000);
