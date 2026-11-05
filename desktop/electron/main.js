@@ -766,6 +766,8 @@ async function runSmoke() {
       ok: added === supported && modes.every((m) => m === 'metadata_fast') && (others === 0 || message.includes(`bỏ qua ${others} tệp`)) };
     await screenshot('07_folder_import.png');
     assert.ok(c.folder_import.ok, `folder import: ${JSON.stringify(c.folder_import)}`);
+  } else {
+    c.folder_import = { not_run: 'no --smoke-batch-dir' };  // the batch above then uses generated PDFs
   }
   c.backend_status = (await backend.request('/__desktop__/status')).data;
   // The status window exists only on demand (as from the menu): create it hidden, screenshot() shows it
