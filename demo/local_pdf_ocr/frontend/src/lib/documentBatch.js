@@ -2,8 +2,15 @@ import {createDocumentDraft, validateDocumentDraft} from "./documentFields.js";
 import {PROCESSING_MODES, validateFastResult} from "./processingModes.js";
 
 export const BATCH_STATUS_LABELS = {pending:"Chưa xử lý", processing:"Đang xử lý", extracted:"Đã bóc tách", review:"Cần kiểm tra", error:"Lỗi", confirmed:"Đã xác nhận"};
-export function createBatchDocument(file, id = crypto.randomUUID()) {
-  return {id, file, name:file.name, mode:/\.pdf$/iu.test(file.name) ? "native_text" : "vietocr_ocr",
+export function defaultMode(name) {
+  return /\.pdf$/iu.test(name) ? "native_text" : "vietocr_ocr";
+}
+// Modes a document can use: images have no text layer, so only OCR or the fast header mode.
+export function modeAllowed(name, mode) {
+  return PROCESSING_MODES.includes(mode) && (/\.pdf$/iu.test(name) || ["vietocr_ocr", "metadata_fast"].includes(mode));
+}
+export function createBatchDocument(file, id = crypto.randomUUID(), {mode, path} = {}) {
+  return {id, file, name:file.name, path:path || file.name, mode:mode && modeAllowed(file.name, mode) ? mode : defaultMode(file.name),
     resultsByMode:{}, metadataByMode:{}, errorsByMode:{}, statesByMode:{}, confirmedByMode:{}, includeInExport:true};
 }
 export function batchReducer(documents, action) {
@@ -57,6 +64,12 @@ export async function requestDocumentOcr(doc, request = fetch) {
     || !Array.isArray(data.ocr_result.pages))) throw Error("Kết quả thử nghiệm thiếu bản OCR gốc để đối chiếu.");
   if (doc.mode === "native_text" && !data.text?.trim()) throw Error("PDF không có lớp chữ có thể trích xuất. Hãy chọn Nhận dạng OCR cho tài liệu này nếu cần; ứng dụng không tự chuyển phương pháp.");
   return {raw:data, draft:createDocumentDraft(data, {sourceKind:/\.pdf$/iu.test(doc.name) ? "pdf" : "image"})};
+}
+
+// Remaining time from the documents finished in this run (null until one has finished).
+export function estimateRemainingMs(startedAt, completed, total, now = Date.now()) {
+  if (!completed || completed >= total || !(now > startedAt)) return null;
+  return Math.round((now - startedAt) / completed * (total - completed));
 }
 
 // Await each request, including errors, before starting the next one. No fallback or parallel requests.

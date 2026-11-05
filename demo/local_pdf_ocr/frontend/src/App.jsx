@@ -2,7 +2,7 @@ import {useEffect, useRef, useState} from "react";
 import {
   ScanText, FileText, FileImage, UploadCloud, ShieldCheck, ArrowRight,
   Download, Copy, Check, AlertTriangle, LoaderCircle, Clock3, FileJson,
-  ScanLine, CircleCheck, ChevronLeft, ChevronRight, RefreshCw, LockKeyhole,
+  ScanLine, CircleCheck, ChevronLeft, ChevronRight, RefreshCw, LockKeyhole, FolderOpen, Pause, RotateCcw,
 } from "lucide-react";
 import {Button} from "@/components/ui/button";
 import {Card, CardHeader, CardTitle, CardDescription, CardContent} from "@/components/ui/card";
@@ -19,7 +19,8 @@ import useDocumentBatch from "@/hooks/useDocumentBatch.js";
 import {batchDocumentStatus, BATCH_STATUS_LABELS} from "@/lib/documentBatch.js";
 import {EXCEL_FILENAME} from "@/lib/excelExport.js";
 import {editDocumentField, confirmDocumentField} from "@/lib/documentFields.js";
-import {FAST_MODE_LABEL, FAST_MODE_DESCRIPTION, partialScope, resultTextExport} from "@/lib/processingModes.js";
+import {FAST_MODE_LABEL, FAST_MODE_DESCRIPTION, PROCESSING_LABELS, partialScope, resultTextExport} from "@/lib/processingModes.js";
+import {dropHasFolder, filesFromDrop} from "@/lib/folderImport.js";
 
 function formatTime(ms) {
   if (!Number.isFinite(ms)) return "—";
@@ -34,6 +35,12 @@ function downloadText(name, content, type = "text/plain;charset=utf-8") {
   a.click();
   a.remove();
   window.setTimeout(() => URL.revokeObjectURL(url), 1200);
+}
+function remainingText(ms) {
+  if (!Number.isFinite(ms)) return "";
+  const minutes = Math.ceil(ms / 60000);
+  return minutes <= 1 ? " · còn khoảng 1 phút" : minutes < 60 ? ` · còn khoảng ${minutes} phút`
+    : ` · còn khoảng ${Math.floor(minutes / 60)} giờ ${minutes % 60} phút`;
 }
 function shortName(name) {
   return (name || "ocr-result").replace(/\.[^.]+$/, "").replace(/[\\/:*?"<>|]/g, "_");
@@ -65,6 +72,7 @@ function EmptyResult({working, documentSelected, nativeText, fast}) {
 
 export default function App() {
   const fileInput = useRef(null);
+  const folderInput = useRef(null);
   const pickerIntent = useRef("add");
   const [hoverUpload, setHoverUpload] = useState(false);
   const [page, setPage] = useState(1);
@@ -73,7 +81,14 @@ export default function App() {
   const [healthAttempt, setHealthAttempt] = useState(0);
   const {documents,activeId,document,preview,selectedMode,resultsByMode,metadataByMode,setMetadataByMode,
     pendingDiscard,setPendingDiscard,working,elapsed,error,setError,activeView,setActiveView,canRun,canRunBatch,
-    batchProgress,chooseFiles,selectDocument,removeDocument,changeMode,restoreMetadata,runOcr,runBatch,confirmDocument,setIncluded} = useDocumentBatch(health);
+    batchProgress,chooseFiles,selectDocument,removeDocument,changeMode,restoreMetadata,runOcr,runBatch,confirmDocument,setIncluded,
+    pendingCount,failedCount,canRunFailed,runFailed,changeModeForPending,pause,pausing,notice,dismissNotice} = useDocumentBatch(health);
+  function dropDocuments(dataTransfer) {
+    // Plain files are added at once; a dropped folder is read (with subfolders) first.
+    if (!dropHasFolder(dataTransfer)) {chooseFiles(dataTransfer.files); return;}
+    filesFromDrop(dataTransfer).then(({files,fromFolder}) => chooseFiles(files,{fromFolder}))
+      .catch(() => setError("Không đọc được thư mục đã kéo thả. Hãy dùng nút “Chọn thư mục”."));
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -147,10 +162,12 @@ export default function App() {
               <div className={"dropzone " + (hoverUpload ? "drag-over " : "") + (document ? "has-file" : "")}
                 onDragOver={event => {event.preventDefault(); if (!working) setHoverUpload(true);}}
                 onDragLeave={event => {if (!event.currentTarget.contains(event.relatedTarget)) setHoverUpload(false);}}
-                onDrop={event => {event.preventDefault(); setHoverUpload(false); chooseFiles(event.dataTransfer.files);}}>
+                onDrop={event => {event.preventDefault(); setHoverUpload(false); if (!working) dropDocuments(event.dataTransfer);}}>
                 <input ref={fileInput} type="file" accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg"
                   aria-label="Chọn tài liệu PDF hoặc ảnh" multiple disabled={working} hidden
                   onChange={event => {chooseFiles(event.target.files, {replaceActive:pickerIntent.current === "replace"}); pickerIntent.current = "add"; event.target.value = "";}}/>
+                <input ref={folderInput} type="file" webkitdirectory="" directory="" multiple hidden disabled={working}
+                  aria-label="Chọn thư mục tài liệu" onChange={event => {chooseFiles(event.target.files, {fromFolder:true}); event.target.value = "";}}/>
                 {document ? <div className="selected-file">
                   <span className="selected-file-icon"><FileIcon size={23}/></span>
                   <div className="selected-file-info"><strong title={document.name}>{document.name}</strong>
@@ -158,16 +175,29 @@ export default function App() {
                   <Button variant="outline" size="sm" disabled={working} onClick={() => {pickerIntent.current = "replace"; fileInput.current?.click();}}>Đổi tệp</Button>
                 </div> : <div className="drop-empty">
                   <UploadCloud size={25} strokeWidth={1.6}/>
-                  <div><h3>Kéo thả tài liệu vào đây</h3><p>PDF, PNG, JPG/JPEG</p></div>
-                  <Button size="sm" onClick={() => {pickerIntent.current = "add"; fileInput.current?.click();}}>Chọn tài liệu</Button>
+                  <div><h3>Kéo thả tài liệu hoặc thư mục vào đây</h3><p>PDF, PNG, JPG/JPEG · gồm cả thư mục con</p></div>
+                  <div className="drop-actions">
+                    <Button size="sm" onClick={() => {pickerIntent.current = "add"; fileInput.current?.click();}}>Chọn tài liệu</Button>
+                    <Button size="sm" variant="outline" onClick={() => folderInput.current?.click()}><FolderOpen size={15}/> Chọn thư mục</Button>
+                  </div>
                 </div>}
-                <p className="file-limits">Tối đa 15 MB · PDF tối đa 6 trang · Ảnh tối đa 12 MP</p>
+                <p className="file-limits">Tối đa 15 MB/tệp · PDF tối đa 6 trang (Bóc tách nhanh: chỉ đọc trang 1) · Ảnh tối đa 12 MP</p>
               </div>
 
               {documents.length > 0 && <div className="input-queue">
-                <div className="queue-heading"><span>Đã chọn {documents.length} tài liệu</span><Button size="sm" variant="outline" disabled={working} onClick={() => {pickerIntent.current = "add"; fileInput.current?.click();}}>Thêm tài liệu</Button></div>
+                <div className="queue-heading"><span>Đã chọn {documents.length} tài liệu{pendingCount ? ` · ${pendingCount} chưa xử lý` : ""}</span>
+                  <span className="queue-heading-actions">
+                    <Button size="sm" variant="outline" disabled={working} onClick={() => {pickerIntent.current = "add"; fileInput.current?.click();}}>Thêm tài liệu</Button>
+                    <Button size="sm" variant="outline" disabled={working} onClick={() => folderInput.current?.click()}>Thêm thư mục</Button>
+                  </span></div>
+                {pendingCount > 1 && <label className="queue-bulk-mode"><span>Phương pháp cho {pendingCount} tài liệu chưa xử lý</span>
+                  <select aria-label="Phương pháp cho tất cả tài liệu chưa xử lý" value="" disabled={working}
+                    onChange={event => {if (event.target.value) changeModeForPending(event.target.value);}}>
+                    <option value="">Chọn để áp dụng…</option>
+                    {["metadata_fast","native_text","vietocr_ocr","hybrid_h1"].map(mode => <option key={mode} value={mode}>{PROCESSING_LABELS[mode]}</option>)}
+                  </select></label>}
                 <ol>{documents.map((doc,index) => <li key={doc.id} className={doc.id === activeId ? "active" : ""}>
-                  <button className="select-queued-file" onClick={() => selectDocument(doc.id)} title={doc.name}>{index+1}. {doc.name}<small>{BATCH_STATUS_LABELS[batchDocumentStatus(doc)]}</small></button>
+                  <button className="select-queued-file" onClick={() => selectDocument(doc.id)} title={doc.path || doc.name}>{index+1}. {doc.name}<small>{BATCH_STATUS_LABELS[batchDocumentStatus(doc)]}{doc.path && doc.path !== doc.name ? ` · ${doc.path}` : ""}</small></button>
                   <select aria-label={`Phương pháp tài liệu ${index+1}`} value={doc.mode} disabled={working} onChange={event => changeMode(event.target.value,doc.id)}>
                     {/\.pdf$/iu.test(doc.name) && <option value="native_text">Văn bản có sẵn</option>}<option value="vietocr_ocr">Nhận dạng OCR</option>
                     {/\.pdf$/iu.test(doc.name) && <option value="hybrid_h1">Kết hợp PDF + OCR (thử nghiệm)</option>}
@@ -176,6 +206,9 @@ export default function App() {
                   <button className="remove-document" aria-label={`Xóa tài liệu ${index+1}: ${doc.name}`} disabled={working} onClick={() => removeDocument(doc.id)}>×</button>
                 </li>)}</ol>
               </div>}
+
+              {notice && <Alert className="import-notice" role="status"><FolderOpen size={16}/><AlertTitle>Kết quả thêm tài liệu</AlertTitle>
+                <AlertDescription>{notice}<Button variant="ghost" size="sm" onClick={dismissNotice}>Đóng</Button></AlertDescription></Alert>}
 
               <div className="preview-area">
                 <div className="section-label"><span>Xem trước tài liệu</span>{preview && <span>{isPDF ? "PDF" : "Ảnh"}</span>}</div>
@@ -226,8 +259,17 @@ export default function App() {
                 {working ? <LoaderCircle className="spin" size={18}/> : <ScanText size={18}/>}
                 {working ? "Đang bóc tách…" : fast ? FAST_MODE_LABEL : "Bóc tách văn bản"}{!working && <ArrowRight size={17}/>}
               </Button>
-              {documents.length > 1 && <Button className="batch-run-button" variant="outline" onClick={runBatch} disabled={working || !canRunBatch}>Bóc tách tất cả tài liệu chưa xử lý</Button>}
-              {batchProgress && documents.length > 1 && <p className="queue-progress" role="status">Đã xử lý {batchProgress.completed}/{batchProgress.total} tài liệu trong lượt này</p>}
+              {documents.length > 1 && <div className="batch-actions">
+                {working && batchProgress?.total > 1
+                  ? <Button className="batch-pause-button" variant="outline" onClick={pause} disabled={pausing}><Pause size={15}/>{pausing ? "Sẽ dừng sau tài liệu đang xử lý…" : "Tạm dừng hàng chờ"}</Button>
+                  : <Button className="batch-run-button" variant="outline" onClick={runBatch} disabled={working || !canRunBatch}>Bóc tách tất cả tài liệu chưa xử lý</Button>}
+                {!working && failedCount > 0 && <Button className="batch-retry-button" variant="ghost" onClick={runFailed} disabled={!canRunFailed}><RotateCcw size={15}/> Chạy lại {failedCount} tài liệu lỗi</Button>}
+              </div>}
+              {batchProgress && documents.length > 1 && <div className="queue-progress" role="status">
+                {batchProgress.total > 1 && <Progress value={100 * batchProgress.completed / batchProgress.total} aria-label="Tiến độ hàng chờ"/>}
+                <span>Đã xử lý {batchProgress.completed}/{batchProgress.total} tài liệu trong lượt này{working ? remainingText(batchProgress.remainingMs) : ""}
+                  {batchProgress.paused ? ` · Đã tạm dừng, còn ${pendingCount} tài liệu chưa xử lý: bấm “Bóc tách tất cả tài liệu chưa xử lý” để tiếp tục.` : ""}</span>
+              </div>}
               {working && <div className="processing-status" role="status"><Progress value={null} className="processing-progress" aria-label="Đang xử lý, chưa có tiến độ phần trăm"/><span><Clock3 size={14}/> Đang xử lý trên máy · {elapsed.toFixed(0)} giây</span></div>}
               {error && <Alert variant="destructive" className="error-box"><AlertTriangle size={17}/><AlertTitle>Không thể hoàn tất thao tác</AlertTitle><AlertDescription>{error}</AlertDescription></Alert>}
               </div>

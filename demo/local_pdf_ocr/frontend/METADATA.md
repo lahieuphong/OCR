@@ -24,7 +24,7 @@ integration must verify these types before sending any data.
 | organName | Unicode uppercase issuing agency from an unambiguous header |
 | subject | Literal title/subject words, joining relevant lines with spaces |
 | language | `01` Vietnamese; `02` English; ambiguous/bilingual text stays empty |
-| numberOfPage | Source reader's PDF count (1–6), or `"1"` for a source image |
+| numberOfPage | Source reader's PDF count (1–6; up to 1000 in `metadata_fast`, which reads only page 1), or `"1"` for a source image |
 | inforSign | Manual only |
 | keyword | Manual only; no generated keywords |
 | mode | `01` public; `02` conditional; `03` secret; initially empty |

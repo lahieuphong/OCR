@@ -22,6 +22,9 @@ EXPECTED_ENCODER_SHA256 = "f20d629ad81171267b517794d9f23cbf48bd74d3b45c9747aa5a0
 EXPECTED_DECODER_SHA256 = "67029da541d1904ab04d6de3aec0b0cbe9ab3d2efca15108f155b4c5e4abeb51"
 MAX_UPLOAD_BYTES = 15 * 1024 * 1024
 MAX_PDF_PAGES = 6
+# metadata_fast opens only page 1 of a PDF (never renders or OCRs the others), so its source document may be
+# longer than the full-text modes allow. The 15 MB upload limit still applies.
+MAX_FAST_SOURCE_PAGES = 1000
 MAX_IMAGE_PIXELS = 12_000_000
 ACCEPTED_EXTENSIONS = frozenset({".pdf", ".png", ".jpg", ".jpeg"})
 
