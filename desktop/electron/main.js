@@ -12,6 +12,7 @@ const { smokeArgs, smokeAllowed } = require('./lib/smoke-gate');
 const { configureAppIdentity } = require('./lib/app-identity');
 const { matchesTextView } = require('./lib/smoke-text');
 const { STATUS_SCHEME, STATUS_ORIGIN, STATUS_URL, STATUS_SCHEME_PRIVILEGES, statusHandler } = require('./lib/status-protocol');
+const { SPLASH_URL, statusWindowNeeded } = require('./lib/splash');
 
 // The status page is served over vietdoc-status://app/ (see lib/status-protocol.js), not file://.
 const STATIC_PREFIX = `${STATUS_ORIGIN}/`;
@@ -73,7 +74,9 @@ app.on('web-contents-created', (_event, contents) => {
   security.hardenContents(contents, () => ({ origin: backend && backend.origin, statusUrl: STATUS_URL }));
 });
 
-function createStatusWindow() {
+// The status window is created on demand only (startup error, backend crash, status menu, smoke checks):
+// the app itself opens as one window (createMainWindow). Resolves when its page has loaded.
+function createStatusWindow({ show = true } = {}) {
   const statusSession = session.fromPartition('vietdoc-status');
   statusSession.setPermissionRequestHandler((_wc, _permission, callback) => callback(false));
   statusSession.setPermissionCheckHandler(() => false);
@@ -82,31 +85,41 @@ function createStatusWindow() {
   });
   if (!statusSession.protocol.isProtocolHandled(STATUS_SCHEME)) statusSession.protocol.handle(STATUS_SCHEME, statusHandler(__dirname));
   statusWindow = new BrowserWindow({
-    width: 680, height: 680, minHeight: 420, title: 'VietDoc OCR · Trạng thái', autoHideMenuBar: true, backgroundColor: '#ffffff',
+    width: 680, height: 680, minHeight: 420, show: false, title: 'VietDoc OCR · Trạng thái', autoHideMenuBar: true, backgroundColor: '#ffffff',
     webPreferences: {
       contextIsolation: true, nodeIntegration: false, sandbox: true, session: statusSession, spellcheck: false,
       preload: path.join(__dirname, 'preload-status.js'), devTools: DEV,
     },
   });
   statusWindow.on('close', (event) => {
-    if (!quitting && mainWindow) {  // kept for the menu while the app runs; quitting closes it for real
+    if (!quitting && mainWindow && mainWindow.isVisible()) {  // kept for the menu while the app runs
       event.preventDefault();
       statusWindow.hide();
     }
   });
-  statusWindow.on('closed', () => { statusWindow = null; });
+  statusWindow.on('closed', () => {
+    statusWindow = null;
+    // After a startup error the main window is hidden: closing the status window ends the app.
+    if (!quitting && !(mainWindow && mainWindow.isVisible())) app.quit();
+  });
+  if (show) statusWindow.once('ready-to-show', () => { if (statusWindow) statusWindow.show(); });
   statusWindow.webContents.on('console-message', (event) => {
     if (SMOKE_DIR) smoke.console.push({ level: event.level, message: event.message, source: event.sourceId, phase: smoke.step, window: 'status' });
   });
+  const loaded = new Promise((r) => statusWindow.webContents.once('did-finish-load', r));
   statusWindow.loadURL(STATUS_URL);
+  return loaded;
 }
 
 function showStatusWindow() {
-  if (!statusWindow) createStatusWindow();
+  if (!statusWindow) return createStatusWindow({ show: true });
   statusWindow.show();
   statusWindow.focus();
+  return Promise.resolve();
 }
 
+// The one window of the app: it appears at once with the startup page (lib/splash.js) while the backend
+// starts, then loadApp() replaces that page with the real UI in the same window.
 function createMainWindow() {
   if (!appSession) {
     appSession = session.fromPartition('vietdoc-app');  // in memory only: no cache or storage on disk
@@ -132,10 +145,8 @@ function createMainWindow() {
       // plugins: Chromium's built-in PDF viewer (PDFium) for the existing PDF preview; it is the only plugin left.
       webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true, session: appSession, spellcheck: false, devTools: DEV, plugins: true },
     });
-    mainWindow.once('ready-to-show', () => {
-      mainWindow.show();
-      if (statusWindow && lastStatus.desktop && lastStatus.desktop.ocr_allowed) statusWindow.hide();
-    });
+    // First paint is the startup page; a startup error may hide the window before that.
+    mainWindow.once('ready-to-show', () => { if (mainWindow && !statusWindowNeeded(lastStatus)) mainWindow.show(); });
     mainWindow.webContents.on('console-message', (event) => {
       if (SMOKE_DIR) smoke.console.push({ level: event.level, message: event.message, source: event.sourceId, phase: smoke.step });
     });
@@ -143,8 +154,17 @@ function createMainWindow() {
       mainWindow = null;
       if (!quitting) app.quit();  // the hidden status window must not keep the app (and backend) alive
     });
+    // ERR_ABORTED only means the real UI replaced the startup page before it finished loading.
+    mainWindow.loadURL(SPLASH_URL).catch((error) => { if (error.code !== 'ERR_ABORTED') logMainError('startup page', error); });
   }
-  return mainWindow.loadURL(`${backend.origin}/`);
+  return mainWindow;
+}
+
+// Loads the real UI from the backend into the main window (after startup or a successful retry).
+async function loadApp() {
+  createMainWindow();
+  await mainWindow.loadURL(`${backend.origin}/`);
+  if (!mainWindow.isVisible()) mainWindow.show();
 }
 
 async function startBackend() {
@@ -186,8 +206,11 @@ function onBackendExit(info) {
 
 async function restart() {
   if (backend) await backend.stop();
+  const afterStartupError = !(mainWindow && mainWindow.isVisible());
   if (await startBackend()) {
-    await createMainWindow();
+    await loadApp();
+    // Retried from a startup error: the app window takes over, as after a normal start.
+    if (afterStartupError && statusWindow) statusWindow.hide();
     return true;
   }
   return false;
@@ -728,8 +751,10 @@ async function runSmoke() {
       smokeDir:SMOKE_DIR, pdf:ARGS['smoke-fast-pdf'], batchDir:ARGS['smoke-batch-dir'], goldFile:ARGS['smoke-fast-gold'], checks:c});
   }
   c.backend_status = (await backend.request('/__desktop__/status')).data;
+  // The status window exists only on demand (as from the menu): create it hidden, screenshot() shows it
+  // without focus first.
+  if (!statusWindow) await createStatusWindow({ show: false });
   if (statusWindow) {
-    // The status window is hidden once OCR is allowed: screenshot() shows it without focus first.
     if (!statusWindow.isVisible()) statusWindow.showInactive();
     await sleep(500);
     await screenshot('05_status_window.png', statusWindow);
@@ -779,7 +804,7 @@ if (SMOKE_REFUSED) {
   app.quit();
 } else {
   app.on('second-instance', () => {
-    const win = mainWindow || statusWindow;
+    const win = mainWindow && mainWindow.isVisible() ? mainWindow : statusWindow || mainWindow;
     if (win) {
       if (win.isMinimized()) win.restore();
       win.show();
@@ -789,20 +814,34 @@ if (SMOKE_REFUSED) {
   app.whenReady().then(async () => {
     smoke.step = 'ready';
     buildMenu();
-    createStatusWindow();
-    await new Promise((r) => statusWindow.webContents.once('did-finish-load', r));
-    smoke.step = 'status-window-loaded';
+    // One window from the start: the main window shows the startup page while the backend starts.
+    createMainWindow();
+    if (SMOKE_DIR) {  // evidence of the startup page (smoke only; a capture failure is a warning)
+      await waitFor(async () => mainWindow.webContents.getURL().startsWith('data:') && !mainWindow.webContents.isLoading(), 10_000);
+      await screenshot('00_startup.png');
+    }
+    smoke.step = 'startup-page';
     if (await startBackend()) {
       smoke.step = 'backend-started';
-      await createMainWindow();
+      await loadApp();
       smoke.step = 'main-window-loaded';
-      if (SMOKE_DIR) await runSmoke().catch((error) => { smoke.error = String((error && error.stack) || error); app.quit(); });
-    } else if (SMOKE_DIR) {
-      smoke.step = 'startup-failed';
-      smoke.error = lastStatus.message;
-      await sleep(1000);  // let the status page render the error before capturing it
-      await screenshot('00_status_error.png', statusWindow);
-      app.quit();
+      if (SMOKE_DIR) {
+        const visible = BrowserWindow.getAllWindows().filter((w) => w.isVisible());
+        smoke.checks.startup = { visible_windows: visible.length, main_window_visible: visible.includes(mainWindow),
+          status_window_created: Boolean(statusWindow), state: lastStatus.state };
+        await runSmoke().catch((error) => { smoke.error = String((error && error.stack) || error); app.quit(); });
+      }
+    } else {
+      // Startup error: the status window (Thử lại / Mở log / Thoát) replaces the startup page.
+      await showStatusWindow();
+      if (mainWindow) mainWindow.hide();
+      if (SMOKE_DIR) {
+        smoke.step = 'startup-failed';
+        smoke.error = lastStatus.message;
+        await sleep(1000);  // let the status page render the error before capturing it
+        await screenshot('00_status_error.png', statusWindow);
+        app.quit();
+      }
     }
   }).catch((error) => {
     logMainError('startup', error);
