@@ -141,6 +141,17 @@ class FastMetadataTests(unittest.TestCase):
         self.assertLessEqual(renders[0][3], 800 * .45)
         self.assertFalse(any(text.startswith("Điều 1") for text in engine.predictions))
 
+    def test_long_source_pdf_reads_only_page_one_while_full_modes_keep_six_pages(self):
+        from demo.local_pdf_ocr.backend.text_layer import extract_pdf_text
+        payload = pdf_bytes(header("CÔNG VĂN", boundary="Kính gửi: Cơ quan QA"), pages=40)
+        with patch.object(fast, "offline_engine", side_effect=AssertionError("native header must not initialize OCR")):
+            result = fast.extract_metadata_fast(payload, "long.pdf", Mock())
+        self.assertEqual(result["source_page_count"], 40)
+        self.assertEqual((result["page_count"], result["inspected_pages"], result["processed_pages"]), (1, [1], []))
+        self.assertTrue(result["partial_result"])
+        with self.assertRaises(ValueError):
+            extract_pdf_text(payload, "long.pdf")
+
     def test_genuine_native_headers_need_no_model_or_render(self):
         for title in ("NGHỊ ĐỊNH", "CÔNG VĂN", "QUYẾT ĐỊNH", "NGHỊ QUYẾT"):
             with self.subTest(title=title), patch.object(fast, "offline_engine", side_effect=AssertionError("native must not initialize OCR")):
@@ -221,7 +232,7 @@ class FastMetadataTests(unittest.TestCase):
 
     def test_invalid_input_and_pixel_page_limits_fail_before_models(self):
         provider = Mock(side_effect=AssertionError("invalid upload must not load models"))
-        invalid = [(b"%PDF-1.7 broken", "broken.pdf"), (pdf_bytes(pages=7), "seven.pdf"),
+        invalid = [(b"%PDF-1.7 broken", "broken.pdf"), (pdf_bytes(pages=1001), "too_long.pdf"),
                    (b"not png", "false.png"), (b"\x89PNG\r\n\x1a\nBAD", "broken.png"),
                    (image_bytes(size=(4001, 3000)), "huge.png"), (b"x", "bad.exe")]
         for data, name in invalid:

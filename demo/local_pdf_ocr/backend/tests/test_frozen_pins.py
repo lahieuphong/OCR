@@ -30,6 +30,7 @@ class AppLimits(unittest.TestCase):
     def test_upload_limits(self):
         self.assertEqual(contract.MAX_UPLOAD_BYTES, 15 * 1024 * 1024)
         self.assertEqual(contract.MAX_PDF_PAGES, 6)
+        self.assertEqual(contract.MAX_FAST_SOURCE_PAGES, 1000)
         self.assertEqual(contract.MAX_IMAGE_PIXELS, 12_000_000)
         self.assertEqual(contract.ACCEPTED_EXTENSIONS, frozenset({".pdf", ".png", ".jpg", ".jpeg"}))
 

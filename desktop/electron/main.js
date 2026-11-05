@@ -328,11 +328,11 @@ async function screenshot(name, win = mainWindow) {
   return false;
 }
 
-async function setInputFile(wc, file) {
+async function setInputFile(wc, file, selector = 'input[type=file]') {
   wc.debugger.attach('1.3');
   try {
     const { root } = await wc.debugger.sendCommand('DOM.getDocument', { depth: 1 });
-    const { nodeId } = await wc.debugger.sendCommand('DOM.querySelector', { nodeId: root.nodeId, selector: 'input[type=file]' });
+    const { nodeId } = await wc.debugger.sendCommand('DOM.querySelector', { nodeId: root.nodeId, selector });
     await wc.debugger.sendCommand('DOM.setFileInputFiles', { nodeId, files: Array.isArray(file) ? file : [file] });
   } finally {
     wc.debugger.detach();
@@ -686,7 +686,7 @@ async function runSmoke() {
     });
     await setInputFile(wc, batchFiles);
     assert.ok(await waitFor(() => js(`document.querySelectorAll('.input-queue li').length === 3`), 5000));
-    assert.deepEqual(await js(`Array.from(document.querySelectorAll('.input-queue select'), s => s.value)`), ['native_text','native_text','native_text']);
+    assert.deepEqual(await js(`Array.from(document.querySelectorAll('.input-queue li select'), s => s.value)`), ['native_text','native_text','native_text']);
     await js(`(() => {
       const original = window.fetch;
       window.__vietdocBatchQA = {original, active:0, peak:0, requests:[]};
@@ -749,6 +749,23 @@ async function runSmoke() {
     assert.ok(ARGS['smoke-batch-dir'], 'fast smoke requires the permitted batch fixtures');
     await require('./lib/smoke-fast').runFastSmoke({wc, js, clickResultTab, setInputFile, waitFor, screenshot,
       smokeDir:SMOKE_DIR, pdf:ARGS['smoke-fast-pdf'], batchDir:ARGS['smoke-batch-dir'], goldFile:ARGS['smoke-fast-gold'], checks:c});
+  }
+  if (ARGS['smoke-batch-dir']) {
+    // The folder picker (webkitdirectory) with the real synthetic folder: its PDFs are queued with the
+    // fast header mode, the other files (JSON) are reported as skipped. Nothing is processed here.
+    smoke.step = 'folder-import';
+    const dir = ARGS['smoke-batch-dir'];
+    const supported = fs.readdirSync(dir, { recursive: true }).filter((name) => /\.(pdf|png|jpe?g)$/i.test(name)).length;
+    const others = fs.readdirSync(dir, { recursive: true }).filter((name) => fs.statSync(path.join(dir, name)).isFile()).length - supported;
+    const before = await js(`document.querySelectorAll('.input-queue li').length`);
+    await setInputFile(wc, dir, 'input[webkitdirectory]');
+    const added = await waitFor(() => js(`document.querySelectorAll('.input-queue li').length - ${before} || null`), 10_000);
+    const modes = await js(`Array.from(document.querySelectorAll('.input-queue li select'), s => s.value).slice(${before})`);
+    const message = await js(`document.querySelector('.import-notice')?.textContent || ''`);
+    c.folder_import = { supported, others, added, fast_modes: modes.filter((m) => m === 'metadata_fast').length, message: message.slice(0, 300),
+      ok: added === supported && modes.every((m) => m === 'metadata_fast') && (others === 0 || message.includes(`bỏ qua ${others} tệp`)) };
+    await screenshot('07_folder_import.png');
+    assert.ok(c.folder_import.ok, `folder import: ${JSON.stringify(c.folder_import)}`);
   }
   c.backend_status = (await backend.request('/__desktop__/status')).data;
   // The status window exists only on demand (as from the menu): create it hidden, screenshot() shows it

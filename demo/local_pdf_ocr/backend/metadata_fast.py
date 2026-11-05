@@ -14,7 +14,7 @@ import time
 import unicodedata
 from pathlib import Path
 
-from .contract import (MAX_IMAGE_PIXELS, MAX_PDF_PAGES, DemoConfigurationError,
+from .contract import (MAX_FAST_SOURCE_PAGES, MAX_IMAGE_PIXELS, DemoConfigurationError,
                        sha256_file, validate_upload, verify_frozen_onnx)
 from .engine import iter_images
 
@@ -163,8 +163,8 @@ def extract_metadata_fast(raw: bytes, filename: str, engine_provider) -> dict:
                 raise ValueError("PDF không thể đọc được hoặc đã hỏng.") from error
             if document.needs_pass:
                 raise ValueError("PDF được bảo vệ bằng mật khẩu; hãy cung cấp bản không khóa.")
-            if not 1 <= len(document) <= MAX_PDF_PAGES:
-                raise ValueError(f"Demo hỗ trợ tối đa {MAX_PDF_PAGES} trang PDF mỗi lần.")
+            if not 1 <= len(document) <= MAX_FAST_SOURCE_PAGES:
+                raise ValueError(f"Bóc tách nhanh hỗ trợ PDF tối đa {MAX_FAST_SOURCE_PAGES} trang.")
             source_count = len(document)
             page = document[0]  # No other page is opened/rendered/OCRed in this strategy.
             width, height = float(page.rect.width), float(page.rect.height)

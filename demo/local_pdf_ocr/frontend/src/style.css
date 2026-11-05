@@ -100,6 +100,8 @@
 .drop-empty h3 { color: #334155; font-size: 13px; font-weight: 600; margin: 0 0 2px; }
 .drop-empty p { font-size: 11px; margin: 0; }
 .drop-empty button { margin-left: auto; flex-shrink: 0; }
+.drop-actions { display: flex; gap: 6px; margin-left: auto; flex-shrink: 0; }
+.drop-actions button { margin-left: 0; }
 .file-limits { font-size: 10.5px; color: #64748b; margin: 12px 0 0; padding-top: 9px; border-top: 1px solid #e2e8f0; }
 .selected-file { display: flex; align-items: center; gap: 10px; }
 .selected-file-icon { display: grid; place-items: center; width: 39px; height: 43px; color: #2563eb; background: #eff6ff; border: 1px solid #dbeafe; border-radius: 7px; }
@@ -197,7 +199,15 @@
 .input-queue select { border: 1px solid var(--border); border-radius: 5px; padding: 3px; max-width: 130px; min-width: 0; background: #fff; font-size: 10px; }
 .remove-document { border: 0; background: none; color: #64748b; font-size: 19px; line-height: 1; padding: 4px; }
 .batch-run-button { font-size: 12px; width: 100%; }
-.queue-progress { font-size: 11px; color: #2563eb; text-align: center; margin: 0; }
+.queue-progress { display: grid; gap: 5px; font-size: 11px; color: #2563eb; text-align: center; margin: 0; }
+.queue-heading-actions { display: flex; gap: 5px; flex-shrink: 0; }
+.queue-bulk-mode { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 10px 8px; font-size: 10px; color: #64748b; }
+.queue-bulk-mode select { border: 1px solid var(--border); border-radius: 5px; padding: 3px; max-width: 190px; min-width: 0; background: #fff; font-size: 10px; }
+.batch-actions { display: grid; gap: 6px; }
+.import-notice { white-space: pre-line; max-height: 150px; overflow: auto; }
+.import-notice, .import-notice * { font-size: 11px; line-height: 1.5; }
+.import-notice button { display: block; margin-top: 4px; height: 24px; font-size: 11px; }
+.batch-pause-button, .batch-retry-button { font-size: 12px; width: 100%; }
 .metadata-editing { border: 0; padding: 0; margin: 0; min-width: 0; }
 .document-list { padding: 16px; min-width: 0; }
 .batch-summary { display: flex; flex-wrap: wrap; gap: 7px 14px; color: #64748b; font-size: 11px; margin-bottom: 14px; }
@@ -279,6 +289,7 @@
   .input-content { padding: 16px; gap: 14px; }
   .drop-empty { flex-wrap: wrap; gap: 9px; }
   .drop-empty button { margin-left: 0; }
+  .drop-actions { margin-left: 0; }
   .result-toolbar { padding-inline: 16px; flex-wrap: wrap; }
   .document-state { font-size: 9px; white-space: normal; max-width: 92px; }
   .result-origin, .results-stats { margin-inline: 16px; }

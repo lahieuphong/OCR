@@ -1,3 +1,5 @@
+// Fast mode opens only page 1, so its PDF may be longer than the full-text modes allow (backend MAX_FAST_SOURCE_PAGES).
+export const MAX_FAST_SOURCE_PAGES = 1000;
 export const FAST_MODE_LABEL = "Bóc tách nhanh thông tin văn bản";
 export const FAST_MODE_DESCRIPTION = "Ưu tiên trang đầu để lấy số văn bản, ngày ban hành, cơ quan, trích yếu và 22 trường metadata. Không OCR toàn bộ tài liệu.";
 export const PROCESSING_MODES = ["native_text", "vietocr_ocr", "hybrid_h1", "metadata_fast"];
@@ -29,7 +31,7 @@ export function validateFastResult(data) {
   const validText = validLines && typeof data.text === "string" && page.text === data.text
     && page.lines.map(line => line.text).join("\n") === data.text
     && Number.isInteger(data.line_count) && data.line_count === page.lines.length;
-  if (data.partial_result !== true || !Number.isInteger(data.source_page_count) || data.source_page_count < 1 || data.source_page_count > 6
+  if (data.partial_result !== true || !Number.isInteger(data.source_page_count) || data.source_page_count < 1 || data.source_page_count > MAX_FAST_SOURCE_PAGES
     || !onePage(data.inspected_pages)
     || !Array.isArray(data.processed_pages) || !(data.processed_pages.length === 0 || onePage(data.processed_pages))
     || !Array.isArray(data.pages) || data.page_count !== 1 || data.pages.length !== 1 || page?.page !== 1

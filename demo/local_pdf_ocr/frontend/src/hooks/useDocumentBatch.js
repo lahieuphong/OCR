@@ -1,7 +1,10 @@
 import {useEffect, useReducer, useRef, useState} from "react";
-import {batchReducer, createBatchDocument, runDocumentQueue} from "@/lib/documentBatch.js";
+import {batchReducer, createBatchDocument, estimateRemainingMs, modeAllowed, runDocumentQueue} from "@/lib/documentBatch.js";
 import {createDocumentDraft, validateDocumentDraft} from "@/lib/documentFields.js";
-import {PROCESSING_MODES} from "@/lib/processingModes.js";
+import {describeImport, documentPath, planImport} from "@/lib/folderImport.js";
+
+// A folder usually serves a list of documents (Excel): its files start with the fast header mode.
+export const FOLDER_MODE = "metadata_fast";
 
 export default function useDocumentBatch(health) {
   const [documents, dispatch] = useReducer(batchReducer, []);
@@ -13,7 +16,9 @@ export default function useDocumentBatch(health) {
   const [activeView, setActiveView] = useState("text");
   const [pendingDiscard, setPendingDiscard] = useState(null);
   const [batchProgress, setBatchProgress] = useState(null);
-  const running = useRef(false), timer = useRef(null), mounted = useRef(true);
+  const [pausing, setPausing] = useState(false);
+  const [notice, setNotice] = useState("");
+  const running = useRef(false), timer = useRef(null), mounted = useRef(true), pauseRequested = useRef(false);
   const active = documents.find(doc => doc.id === activeId) || null;
   const document = active?.file || null;
   const selectedMode = active?.mode || "vietocr_ocr";
@@ -25,6 +30,8 @@ export default function useDocumentBatch(health) {
   const canRun = canRunMode(selectedMode);
   const pending = documents.filter(doc => !doc.resultsByMode[doc.mode]);
   const canRunBatch = pending.length > 0 && pending.every(doc => canRunMode(doc.mode));
+  const failed = documents.filter(doc => doc.errorsByMode[doc.mode]);
+  const canRunFailed = failed.length > 0 && failed.every(doc => canRunMode(doc.mode));
 
   useEffect(() => {
     mounted.current = true;
@@ -46,17 +53,19 @@ export default function useDocumentBatch(health) {
     setActiveId(id); setError("");
     setActiveView(view || (doc.metadataByMode[doc.mode] ? "metadata" : "text"));
   }
-  function chooseFiles(files, {replaceActive = false} = {}) {
+  // files: a FileList/array from the file picker, the folder picker (webkitRelativePath) or a drop.
+  function chooseFiles(files, {replaceActive = false, fromFolder = false} = {}) {
     if (running.current) return;
-    const issues = [], valid = [];
-    for (const file of Array.from(files || [])) {
-      if (!/\.(pdf|png|jpe?g)$/iu.test(file.name)) issues.push(`${file.name}: Vui lòng chọn tệp PDF, PNG hoặc JPG.`);
-      else if (file.size > 15 * 1024 * 1024) issues.push(`${file.name}: Giới hạn kích thước tệp là 15 MB.`);
-      else if (file.size < 1) issues.push(`${file.name}: Tệp rỗng.`);
-      else valid.push(createBatchDocument(file));
-    }
-    setError(issues.join("\n"));
+    const list = Array.from(files || []);
+    fromFolder ||= list.some(file => file.webkitRelativePath || file.vietdocPath);
+    const kept = replaceActive && active ? documents.filter(doc => doc.id !== active.id) : documents;
+    const plan = planImport(list, {existing: kept.map(doc => doc.file), fromFolder});
+    const valid = plan.accepted.map(file => createBatchDocument(file, undefined, {path: documentPath(file), mode: fromFolder ? FOLDER_MODE : undefined}));
+    // Skipped files next to added ones are information, not a failed action; nothing added is an error.
+    const summary = fromFolder && !list.length ? "Thư mục không có tệp nào." : describeImport(plan, {fromFolder});
+    setError(valid.length ? "" : summary); setNotice(valid.length ? summary : "");
     if (!valid.length) return;
+    if (fromFolder) replaceActive = false;  // a folder always adds to the list
     const apply = () => {
       if (replaceActive && active) {
         dispatch({type:"replace",id:active.id,document:valid[0]});
@@ -84,19 +93,37 @@ export default function useDocumentBatch(health) {
   }
   function changeMode(mode, id = activeId) {
     const target = documents.find(doc => doc.id === id);
-    if (!target || running.current || !PROCESSING_MODES.includes(mode)
-      || (!/\.pdf$/iu.test(target.name) && !["vietocr_ocr", "metadata_fast"].includes(mode))) return;
+    if (!target || running.current || !modeAllowed(target.name, mode)) return;
     update(target.id, doc => ({...doc,mode})); setError("");
     if (id === activeId) setActiveView(target.metadataByMode[mode] ? "metadata" : "text");
   }
+  // One method for every document still without a result; finished results and edits are untouched.
+  // Images keep their own method when the chosen one needs a PDF text layer.
+  function changeModeForPending(mode) {
+    if (running.current) return 0;
+    const targets = documents.filter(doc => !doc.resultsByMode[doc.mode] && modeAllowed(doc.name, mode) && doc.mode !== mode);
+    for (const doc of targets) update(doc.id, current => ({...current,mode}));
+    setError("");
+    return targets.length;
+  }
+  // Pause = stop after the document being processed (a request is never cut off); "continue" runs what is left.
+  function pause() {
+    if (!running.current) return;
+    pauseRequested.current = true; setPausing(true);
+  }
   async function process(entries, batch = false) {
     if (running.current || !entries.length || entries.some(doc => !canRunMode(doc.mode))) return;
-    running.current = true; setWorking(true); setError(""); setBatchProgress({completed:0,total:entries.length});
+    running.current = true; pauseRequested.current = false; setPausing(false);
+    setWorking(true); setError(""); setNotice("");
+    const startedAt = Date.now();
+    setBatchProgress({completed:0,total:entries.length,remainingMs:null,paused:false});
+    if (batch) setActiveView("list");
+    let completedCount = 0;
     try {
       await runDocumentQueue(entries, {
-        shouldContinue:() => mounted.current,
+        shouldContinue:() => mounted.current && !pauseRequested.current,
         onStart:doc => {
-          setActiveId(doc.id); setActiveView("text"); setElapsed(0);
+          setActiveId(doc.id); if (!batch) setActiveView("text"); setElapsed(0);
           const start = performance.now(); window.clearInterval(timer.current);
           timer.current = window.setInterval(() => setElapsed((performance.now() - start) / 1000),350);
           update(doc.id, current => ({...current,resultsByMode:{...current.resultsByMode,[doc.mode]:undefined},
@@ -119,10 +146,20 @@ export default function useDocumentBatch(health) {
             errorsByMode:{...current.errorsByMode,[doc.mode]:error},statesByMode:{...current.statesByMode,[doc.mode]:"error"}}));
           if (!batch && doc.resultsByMode[doc.mode]) setActiveView("metadata");
         },
-        onProgress:(completed,total) => {window.clearInterval(timer.current); setBatchProgress({completed,total});},
+        onProgress:(completed,total) => {
+          window.clearInterval(timer.current); completedCount = completed;
+          setBatchProgress({completed,total,remainingMs:estimateRemainingMs(startedAt,completed,total),paused:false});
+        },
       });
       if (batch && mounted.current) setActiveView("list");
-    } finally {window.clearInterval(timer.current); running.current = false; if (mounted.current) setWorking(false);}
+    } finally {
+      window.clearInterval(timer.current); running.current = false;
+      const paused = pauseRequested.current && completedCount < entries.length; pauseRequested.current = false;
+      if (mounted.current) {
+        setWorking(false); setPausing(false);
+        if (paused) setBatchProgress(progress => ({...progress,remainingMs:null,paused:true}));
+      }
+    }
   }
   function runOcr(id = activeId) {
     const doc = documents.find(item => item.id === id);
@@ -145,5 +182,7 @@ export default function useDocumentBatch(health) {
     pendingDiscard,setPendingDiscard,working,elapsed,error:uiError || active?.errorsByMode[selectedMode] || "",setError,
     activeView,setActiveView,canRun,canRunBatch,batchProgress,chooseFiles,selectDocument,removeDocument,changeMode,restoreMetadata,
     runOcr,runBatch:() => process(pending,true),confirmDocument,
+    pendingCount:pending.length,failedCount:failed.length,canRunFailed,runFailed:() => process(failed,true),
+    changeModeForPending,pause,pausing,notice,dismissNotice:() => setNotice(""),
     setIncluded:(id,checked) => update(id, doc => ({...doc,includeInExport:checked}))};
 }

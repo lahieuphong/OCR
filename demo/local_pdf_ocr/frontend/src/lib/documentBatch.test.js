@@ -29,7 +29,7 @@ describe("document queue", () => {
     ["missing source count",raw=>{delete raw.source_page_count;}],
     ["not partial",raw=>{raw.partial_result=false;}],
     ["invalid source count",raw=>{raw.source_page_count=0;}],
-    ["source count over limit",raw=>{raw.source_page_count=7;}],
+    ["source count over limit",raw=>{raw.source_page_count=1001;}],
     ["OCR beyond inspected pages",raw=>{raw.processed_pages=[2];}],
     ["page IDs do not match",raw=>{raw.pages[0].page=2;}],
     ["appendix substituted consistently",raw=>{raw.pages[0].page=2;raw.inspected_pages=[2];raw.processed_pages=[2];}],
@@ -55,6 +55,11 @@ describe("document queue", () => {
     const request=vi.fn(async()=>response(raw));
     await expect(requestDocumentOcr(doc,request)).rejects.toThrow("số trang nguồn");
     expect(request).toHaveBeenCalledOnce();
+  });
+  test("fast contract accepts a long source PDF: only page 1 was read", async () => {
+    const doc=make(); doc.mode="metadata_fast"; const raw=fastMetadataDocument(); raw.source_page_count=40;
+    const {draft}=await requestDocumentOcr(doc,vi.fn(async()=>response(raw)));
+    expect(draft.fields.numberOfPage.value).toBe("40");
   });
   test("fast queue continues after second failure and retry leaves prior manual drafts isolated", async () => {
     const docs=[make("1"),make("2"),make("3")]; docs.forEach(doc=>{doc.mode="metadata_fast";});

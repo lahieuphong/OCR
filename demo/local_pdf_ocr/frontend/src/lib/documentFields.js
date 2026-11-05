@@ -1,3 +1,5 @@
+import {MAX_FAST_SOURCE_PAGES} from "./processingModes.js";
+
 // Business codes supplied by the project brief. No unverified document-type codes.
 export const CATALOGS = {
   maintenance: {"01": "Vĩnh viễn", "02": "75 năm", "03": "50 năm", "04": "30 năm", "05": "20 năm", "06": "10 năm", "07": "5 năm"},
@@ -319,7 +321,7 @@ export function createDocumentDraft(result, {sourceKind = "pdf"} = {}) {
 
   const fast = result?.method === "metadata_fast";
   const count = fast ? result?.source_page_count : sourceKind === "image" ? 1 : result?.page_count;
-  if (Number.isInteger(count) && count >= 1 && count <= 6 && Array.isArray(result?.pages)
+  if (Number.isInteger(count) && count >= 1 && count <= (fast ? MAX_FAST_SOURCE_PAGES : 6) && Array.isArray(result?.pages)
     && (fast ? result.pages.length > 0 && result.pages.length <= count : result.pages.length === count)) {
     fields.numberOfPage = {...field(String(count), "recognized"), evidence: [{text: fast ? `Bộ đọc nguồn trả về source_page_count = ${count}; kết quả chỉ chứa vùng header đã xét.`
       : sourceKind === "image" ? "Ảnh nguồn: 1 trang." : `Bộ đọc PDF nguồn trả về page_count = ${count}.`, source: "source_page_count"}]};
@@ -371,7 +373,9 @@ export function validateDocumentDraft(draft) {
   if (values.arcDocCode && codePattern.exec(values.arcDocCode)?.[0] !== values.arcDocCode) errors.arcDocCode = "Nhập đầy đủ số/ký hiệu, ngăn cách bằng dấu /; không tự sửa ký tự OCR.";
   if (values.issuedDate && !isValidIssuedDate(values.issuedDate)) errors.issuedDate = "Ngày phải hợp lệ, theo DD-MM-YYYY.";
   for (const [key, catalog] of Object.entries(CATALOGS)) if (values[key] && !Object.hasOwn(catalog, values[key])) errors[key] = "Mã chưa có trong danh mục nghiệp vụ đã xác minh.";
-  if (values.numberOfPage && !/^[1-6]$/u.test(values.numberOfPage)) errors.numberOfPage = "Số trang nguồn phải từ 1 đến 6.";
+  // Full-text modes read at most 6 pages; the fast header mode reports the page count of longer sources.
+  if (values.numberOfPage && !(/^[1-9]\d*$/u.test(values.numberOfPage) && Number(values.numberOfPage) <= MAX_FAST_SOURCE_PAGES))
+    errors.numberOfPage = `Số trang nguồn phải là số nguyên từ 1 đến ${MAX_FAST_SOURCE_PAGES}.`;
   return {errors, missing: FIELD_KEYS.filter(key => key !== "docId" && !values[key]),
     review: FIELD_KEYS.filter(key => draft.fields[key].status === "review"),
     unclassifiedMode: !values.mode};

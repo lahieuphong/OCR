@@ -27,6 +27,15 @@ in Git; they live in the ignored `models/` folder and are checked by SHA-256.
     page and extracts only header regions for metadata; it does not OCR the
     remaining pages or appendices. A genuine native header may avoid OCR;
     an electronic-signature text layer alone is not a usable header.
+- **Folders and long lists**: "Chọn thư mục" (or dropping a folder) adds every
+  PDF/PNG/JPG of the folder and its subfolders, in folder order, with the fast
+  header mode preselected; other, empty, >15 MB or already listed files are
+  reported as skipped. One method can be applied to all unprocessed documents.
+  The queue still sends ONE document at a time to the backend (no parallel OCR):
+  it shows progress and remaining time, can pause after the current document and
+  continue later, and retries only failed documents. Up to 1000 documents per list.
+  metadata_fast accepts PDFs up to 1000 pages (it reads only page 1); the other
+  modes keep the 6-page limit.
 - PNG/JPEG support full vietocr_ocr or the explicit metadata_fast header mode.
   A missing model blocks required OCR; it never authorizes guessing text.
 - Each mode is cached separately per selected file in the frontend;

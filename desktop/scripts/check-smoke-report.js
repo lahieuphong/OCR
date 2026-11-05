@@ -19,6 +19,8 @@ function checkReport(report, { expect = 'no-models', withPdf = false, withFast =
   need(!report.error, `smoke run error: ${report.error}`);
   need(!(report.main_errors && report.main_errors.length), `main-process errors: ${JSON.stringify(report.main_errors)}`);
   need(c.ui && c.ui.title, 'the UI did not render');
+  // With the batch fixtures the folder picker must queue the folder's documents (fast mode) and report the rest.
+  if (c.batch) need(c.folder_import && c.folder_import.ok === true, `folder import: ${JSON.stringify(c.folder_import)}`);
   // The app opens as exactly one window, also without models: no status window next to the main window.
   need(c.startup && c.startup.visible_windows === 1 && c.startup.main_window_visible === true
     && c.startup.status_window_created === false,
