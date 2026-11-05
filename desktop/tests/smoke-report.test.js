@@ -74,10 +74,12 @@ test('a batch run without a working folder import fails', () => {
     r.checks.folder_import = folder;
     assert.ok(checkReport(r, { expect: 'no-models', withPdf: true }).failures.some((f) => f.startsWith('folder import:')));
   }
-  const r = passingNoModels();
-  r.checks.batch = { count: 3, max_concurrent: 1 };
-  r.checks.folder_import = { ok: true, added: 10, supported: 10 };
-  assert.deepEqual(checkReport(r, { expect: 'no-models', withPdf: true }).failures, []);
+  for (const folder of [{ ok: true, added: 10, supported: 10 }, { not_run: 'no --smoke-batch-dir' }]) {
+    const r = passingNoModels();
+    r.checks.batch = { count: 3, max_concurrent: 1 };
+    r.checks.folder_import = folder;
+    assert.deepEqual(checkReport(r, { expect: 'no-models', withPdf: true }).failures, [], JSON.stringify(folder));
+  }
 });
 
 test('a missing image check or a downloads flag other than disabled fails', () => {
