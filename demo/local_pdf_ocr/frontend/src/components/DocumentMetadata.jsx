@@ -7,7 +7,26 @@ import ConfirmDialog from "./ConfirmDialog.jsx";
 import NumberCodeReview from "./NumberCodeReview.jsx";
 import {CATALOGS, FIELD_GROUPS, FIELD_KEYS, FIELD_LABELS, READ_ONLY, STATUS_LABELS,
   serializeDocumentFields, validateDocumentDraft} from "@/lib/documentFields.js";
-import {partialScope} from "@/lib/processingModes.js";
+
+// Notes every OCR field or every confirmed field carries. They are stated once above the form (or by the
+// status badge) and kept in the badge tooltip, instead of being repeated under each field.
+const ROUTINE_NOTES = [
+  "Nguồn OCR: đối chiếu bản gốc trước khi xác nhận; không tự sửa chữ hoặc dấu.",
+  "Kết quả header một phần: đối chiếu trích yếu với ảnh nguồn, nhất là vùng dấu đóng chồng hoặc dòng bị cắt.",
+  "Luôn để trống theo schema nghiệp vụ; không tự sinh mã.",
+  "Đã chỉnh sửa thủ công; nguồn tự động chỉ để đối chiếu.",
+  "Đã được người dùng kiểm tra và xác nhận.",
+  "Tính từ mã văn bản đã được người dùng xác nhận.",
+];
+export function visibleNote(note = "") {
+  return ROUTINE_NOTES.reduce((text, routine) => text.replace(routine, ""), note).replace(/\s+/gu, " ").trim();
+}
+// Business-code notes are explanations, not warnings: tooltip only.
+const TOOLTIP_ONLY = new Set(["confidenceLevel", "isCan"]);
+
+function evidenceLabel(source) {
+  return source.page ? `trang ${source.page}, dòng ${source.line}` : "quy tắc nghiệp vụ";
+}
 
 export default function DocumentMetadata({draft, onEdit, onConfirmField, onReset, onExport, result, sourceFile, disabled = false}) {
   const [checked, setChecked] = useState(false);
@@ -17,6 +36,7 @@ export default function DocumentMetadata({draft, onEdit, onConfirmField, onReset
   const validation = validateDocumentDraft(draft);
   const recognized = FIELD_KEYS.filter(key => draft.fields[key].value && draft.fields[key].evidence.some(source => source.page || source.source === "source_page_count")).length;
   const confirmed = FIELD_KEYS.filter(key => draft.fields[key].status === "confirmed").length;
+  const fromOcr = Boolean(result?.used_ocr);
 
   async function performExport(kind) {
     setExportError("");
@@ -34,17 +54,25 @@ export default function DocumentMetadata({draft, onEdit, onConfirmField, onReset
   }
 
   return <section className="document-metadata" aria-label="Thông tin văn bản 22 trường">
-    <div className="metadata-summary"><strong>Tự động trích xuất: {recognized}/22 trường</strong><span>Đã xác nhận: {confirmed} · Cần kiểm tra: {validation.review.length}</span>
-      <p>Số trường có bằng chứng, không phải độ chính xác OCR.</p>
-      {draft.typeLabel && !draft.fields.typeName.value && <p className="detected-document-type">Loại văn bản nhận diện: <strong>{draft.typeLabel}</strong> · Chưa có mã nghiệp vụ được xác minh; cần xác nhận.</p>}
-      {result?.method === "metadata_fast" && <p className="metadata-partial-scope">Header một phần · {partialScope(result)}</p>}</div>
-    <div className="metadata-actions">
-      <Button size="sm" title="Xuất JSON 22 trường" onClick={() => requestExport("download")}><Download/> Xuất JSON 22 trường</Button>
-      <Button variant="outline" size="sm" onClick={() => requestExport("copy")}><Copy/> Sao chép JSON</Button>
-      <Button variant="ghost" size="sm" onClick={() => {setChecked(true); setMessage(`Còn ${validation.missing.length} trường chưa xác định; ${validation.review.length} trường cần kiểm tra.`);}}><ListChecks/> Kiểm tra trường thiếu</Button>
-      <Button variant="ghost" size="sm" onClick={onReset}><RotateCcw/> Khôi phục giá trị tự động</Button>
+    <div className="metadata-toolbar">
+      <div className="metadata-summary" title="Số trường có bằng chứng, không phải độ chính xác OCR.">
+        <strong>{recognized}/22 trường tự động</strong>
+        <span className={validation.review.length ? "summary-review" : ""}>{validation.review.length} cần kiểm tra</span>
+        <span>{confirmed} đã xác nhận</span>
+      </div>
+      <div className="metadata-actions">
+        <Button size="sm" title="Xuất JSON 22 trường" aria-label="Xuất JSON 22 trường" onClick={() => requestExport("download")}><Download/> Xuất JSON</Button>
+        <Button variant="outline" size="icon" title="Sao chép JSON" aria-label="Sao chép JSON" onClick={() => requestExport("copy")}><Copy/></Button>
+        <Button variant="ghost" size="icon" title="Kiểm tra trường thiếu" aria-label="Kiểm tra trường thiếu"
+          onClick={() => {setChecked(true); setMessage(`Còn ${validation.missing.length} trường chưa xác định; ${validation.review.length} trường cần kiểm tra.`);}}><ListChecks/></Button>
+        <Button variant="ghost" size="icon" title="Khôi phục giá trị tự động" aria-label="Khôi phục giá trị tự động" onClick={onReset}><RotateCcw/></Button>
+      </div>
     </div>
-    {validation.unclassifiedMode && <Alert className="metadata-warning"><AlertTriangle/><AlertDescription>Chưa phân loại chế độ sử dụng. Hệ thống lưu trữ có thể mặc định “Công khai” khi mã rỗng. JSON xuất vẫn giữ giá trị rỗng; hãy kiểm tra trước khi chuyển dữ liệu.</AlertDescription></Alert>}
+    <p className="metadata-hint">
+      {fromOcr ? "Giá trị từ OCR: đối chiếu bản gốc rồi bấm ✓ để xác nhận. Ứng dụng không tự sửa chữ hay dấu." : "Đối chiếu bản gốc rồi bấm ✓ để xác nhận."}
+    </p>
+    {draft.typeLabel && !draft.fields.typeName.value && <p className="detected-document-type">Loại nhận diện: <strong>{draft.typeLabel}</strong> · chưa có mã nghiệp vụ, hãy chọn ở “Loại tài liệu”.</p>}
+    {validation.unclassifiedMode && checked && <Alert className="metadata-warning"><AlertTriangle/><AlertDescription>Chưa phân loại chế độ sử dụng. Hệ thống lưu trữ có thể mặc định “Công khai” khi mã rỗng; JSON vẫn giữ giá trị rỗng.</AlertDescription></Alert>}
     {message && <p className="metadata-message" role="status">{message}</p>}
     {exportError && <p className="metadata-errors" role="alert">{exportError}</p>}
     {checked && validation.missing.length > 0 && <p className="missing-fields">Chưa xác định: {validation.missing.map(key => FIELD_LABELS[key]).join("; ")}. Mã tài liệu luôn để trống theo schema.</p>}
@@ -54,25 +82,29 @@ export default function DocumentMetadata({draft, onEdit, onConfirmField, onReset
         {group.keys.map(key => {
           const entry = draft.fields[key];
           const invalid = checked && validation.errors[key];
+          // The detected type line above already explains a missing type code.
+          const note = TOOLTIP_ONLY.has(key) || (key === "typeName" && draft.typeLabel) ? "" : visibleNote(entry.note);
+          // Read-only fields follow Mã văn bản / the source and cannot be confirmed on their own: no badge.
+          const showStatus = !READ_ONLY.has(key) && (entry.status === "review" || entry.status === "confirmed");
           const controlProps = {id: `metadata-${key}`, name: key, value: entry.value,
             onChange: event => {onEdit(key, event.target.value); setMessage("");},
-            "aria-invalid": Boolean(invalid), "aria-describedby": `metadata-${key}-help`};
-          return <div className={"metadata-field " + (["subject","organName","description"].includes(key) ? "wide-field" : "")} key={key}>
+            "aria-invalid": Boolean(invalid), "aria-describedby": `metadata-${key}-help`, title: entry.note || undefined};
+          return <div className={`metadata-field status-${entry.status}` + (["subject","organName","description"].includes(key) ? " wide-field" : "")} key={key}>
             <div className="field-heading"><label htmlFor={controlProps.id}>{FIELD_LABELS[key]}</label>
-              <Badge variant="outline" className={"field-status " + entry.status}>{STATUS_LABELS[entry.status]}</Badge>
+              {showStatus && <Badge variant="outline" className={"field-status " + entry.status} title={entry.note || undefined}>{STATUS_LABELS[entry.status]}</Badge>}
               {!READ_ONLY.has(key) && entry.value && entry.status !== "confirmed" && <button type="button" className="confirm-field" title={`Xác nhận ${FIELD_LABELS[key]}`} aria-label={`Xác nhận ${FIELD_LABELS[key]}`} onClick={() => onConfirmField(key)}><Check size={13}/></button>}
+              {entry.evidence.length > 0 && <details className="field-evidence"><summary title="Xem dòng nguồn"><FileSearch size={11}/> {evidenceLabel(entry.evidence[0])}</summary>
+                <div className="field-evidence-popover">{entry.evidence.map((source, i) => <blockquote key={i}>{source.page && <span>Trang {source.page}, dòng {source.line}{source.precision === "block" ? " · vị trí theo khối" : ""}</span>}{source.text}</blockquote>)}</div>
+              </details>}
             </div>
             {CATALOGS[key] ? <select {...controlProps}><option value="">Chưa xác định</option>{Object.entries(CATALOGS[key]).sort(([a],[b]) => a.localeCompare(b)).map(([code,label]) => <option value={code} key={code}>{code} · {label}</option>)}</select>
               : ["subject","description","autograph"].includes(key) ? <textarea {...controlProps} rows={key === "subject" ? 3 : 2} placeholder="Chưa xác định"/>
-                : <input {...controlProps} type="text" readOnly={READ_ONLY.has(key)} placeholder={key === "docId" ? "Luôn để trống" : "Chưa xác định"}/>}
-            <div id={`metadata-${key}-help`} className="field-help">
-              {invalid ? <p className="metadata-errors">{invalid}</p> : entry.note ? <p>{entry.note}</p> : key === "issuedDate" ? <p>Định dạng DD-MM-YYYY.</p> : null}
+                : <input {...controlProps} type="text" readOnly={READ_ONLY.has(key)} placeholder={key === "docId" ? "Luôn để trống" : key === "issuedDate" ? "DD-MM-YYYY" : "Chưa xác định"}/>}
+            {(invalid || note || entry.candidate) && <div id={`metadata-${key}-help`} className="field-help">
+              {invalid ? <p className="metadata-errors">{invalid}</p> : note ? <p className="field-note">{note}</p> : null}
               {entry.candidate && <details className="metadata-unverified-candidate"><summary>Ứng viên chưa xác minh — dấu đóng chồng</summary>
                 <p>Chỉ để đối chiếu ảnh nguồn. Nội dung này không tự điền hoặc xuất thành trích yếu.</p><blockquote>{entry.candidate}</blockquote></details>}
-              {entry.evidence.length > 0 && <details className="field-evidence"><summary><FileSearch size={12}/> {entry.evidence[0].page ? `Nguồn: trang ${entry.evidence[0].page}, dòng ${entry.evidence[0].line}` : "Nguồn: dữ liệu nguồn / quy tắc nghiệp vụ"}</summary>
-                {entry.evidence.map((source, i) => <blockquote key={i}>{source.page && <span>Trang {source.page}, dòng {source.line}{source.precision === "block" ? " · vị trí theo khối" : ""}</span>}{source.text}</blockquote>)}
-              </details>}
-            </div>
+            </div>}
             {key === "arcDocCode" && <NumberCodeReview result={result} sourceFile={sourceFile} disabled={disabled}/>}
           </div>;
         })}

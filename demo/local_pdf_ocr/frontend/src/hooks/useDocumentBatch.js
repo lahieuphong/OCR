@@ -3,8 +3,10 @@ import {batchReducer, createBatchDocument, estimateRemainingMs, modeAllowed, run
 import {createDocumentDraft, validateDocumentDraft} from "@/lib/documentFields.js";
 import {describeImport, documentPath, planImport} from "@/lib/folderImport.js";
 
-// A folder usually serves a list of documents (Excel): its files start with the fast header mode.
-export const FOLDER_MODE = "metadata_fast";
+
+// The 22 fields are the main purpose: every document added in the app starts with the fast header mode
+// (first page only, about 7-15 s per PDF). Full text (native/OCR/H1) stays one click away.
+export const NEW_DOCUMENT_MODE = "metadata_fast";
 
 export default function useDocumentBatch(health) {
   const [documents, dispatch] = useReducer(batchReducer, []);
@@ -26,12 +28,14 @@ export default function useDocumentBatch(health) {
   const metadataByMode = active?.metadataByMode || {};
   // Fast PDF headers with a genuine text layer can work without models. If OCR
   // is needed the backend refuses that request; never fall back to e-sign text.
-  const canRunMode = mode => health === "connected" || (health === "not-ready" && ["native_text", "metadata_fast"].includes(mode));
+  // Without models only a PDF's own text works: the text layer, or a fast header from it. An image always needs OCR.
+  const canRunMode = (mode, name = active?.name || "") => health === "connected"
+    || (health === "not-ready" && (mode === "native_text" || (mode === "metadata_fast" && /\.pdf$/iu.test(name))));
   const canRun = canRunMode(selectedMode);
   const pending = documents.filter(doc => !doc.resultsByMode[doc.mode]);
-  const canRunBatch = pending.length > 0 && pending.every(doc => canRunMode(doc.mode));
+  const canRunBatch = pending.length > 0 && pending.every(doc => canRunMode(doc.mode, doc.name));
   const failed = documents.filter(doc => doc.errorsByMode[doc.mode]);
-  const canRunFailed = failed.length > 0 && failed.every(doc => canRunMode(doc.mode));
+  const canRunFailed = failed.length > 0 && failed.every(doc => canRunMode(doc.mode, doc.name));
 
   useEffect(() => {
     mounted.current = true;
@@ -60,7 +64,7 @@ export default function useDocumentBatch(health) {
     fromFolder ||= list.some(file => file.webkitRelativePath || file.vietdocPath);
     const kept = replaceActive && active ? documents.filter(doc => doc.id !== active.id) : documents;
     const plan = planImport(list, {existing: kept.map(doc => doc.file), fromFolder});
-    const valid = plan.accepted.map(file => createBatchDocument(file, undefined, {path: documentPath(file), mode: fromFolder ? FOLDER_MODE : undefined}));
+    const valid = plan.accepted.map(file => createBatchDocument(file, undefined, {path: documentPath(file), mode: NEW_DOCUMENT_MODE}));
     // Skipped files next to added ones are information, not a failed action; nothing added is an error.
     const summary = fromFolder && !list.length ? "Thư mục không có tệp nào." : describeImport(plan, {fromFolder});
     setError(valid.length ? "" : summary); setNotice(valid.length ? summary : "");
@@ -112,7 +116,7 @@ export default function useDocumentBatch(health) {
     pauseRequested.current = true; setPausing(true);
   }
   async function process(entries, batch = false) {
-    if (running.current || !entries.length || entries.some(doc => !canRunMode(doc.mode))) return;
+    if (running.current || !entries.length || entries.some(doc => !canRunMode(doc.mode, doc.name))) return;
     running.current = true; pauseRequested.current = false; setPausing(false);
     setWorking(true); setError(""); setNotice("");
     const startedAt = Date.now();
@@ -163,7 +167,7 @@ export default function useDocumentBatch(health) {
   }
   function runOcr(id = activeId) {
     const doc = documents.find(item => item.id === id);
-    if (!doc || !canRunMode(doc.mode)) return;
+    if (!doc || !canRunMode(doc.mode, doc.name)) return;
     if (doc.metadataByMode[doc.mode]?.dirty) setPendingDiscard({run:() => process([doc]),message:"Chạy lại sẽ thay thế bản nháp metadata đã chỉnh sửa của phương pháp đang chọn nếu xử lý thành công."});
     else process([doc]);
   }

@@ -423,7 +423,8 @@ async function runSmoke() {
     // Real UI path: choose the file, run "Text có sẵn trong PDF", export TXT and JSON with the UI buttons.
     await setInputFile(wc, pdf);
     c.ui_file_selected = await waitFor(() => js(`document.querySelector('.selected-file strong')?.textContent || null`), 10_000);
-    assert.equal(await js(`document.querySelector('input[name=mode]:checked').value`), 'native_text', 'PDF must visibly default to native_text');
+    // A new document starts with the fast header mode (22 fields); this path then picks the text layer explicitly.
+    assert.equal(await js(`document.querySelector('input[name=mode]:checked').value`), 'metadata_fast', 'a new PDF must visibly default to metadata_fast');
     c.ui_hybrid_choice = await js(`(() => { const h = document.querySelector('input[name=mode][value=hybrid_h1]');
       return { present: Boolean(h), selected: Boolean(h?.checked) }; })()`);
     assert.deepEqual(c.ui_hybrid_choice, { present: true, selected: false }, 'experimental H1 must be available for PDF and off by default');
@@ -523,7 +524,7 @@ async function runSmoke() {
     const clipboardBeforeMetadata = await clipboard.readText();
     try {
       mainWindow.focus(); wc.focus();
-      await js(`Array.from(document.querySelectorAll('.metadata-actions button')).find(b => b.textContent.includes('Sao chép JSON')).click(); true`);
+      await js(`Array.from(document.querySelectorAll('.metadata-actions button')).find(b => b.getAttribute('aria-label') === 'Sao chép JSON').click(); true`);
       assert.ok(await waitFor(() => js(`Boolean(document.querySelector('dialog[open]'))`), 5000));
       await js(`document.querySelector('dialog .confirm-actions button:last-child').click(); true`);
       c.metadata.copy_exact = Boolean(await waitFor(async () => {
@@ -532,11 +533,11 @@ async function runSmoke() {
       }, 5000));
       assert.equal(c.metadata.copy_exact, true, 'metadata clipboard JSON must preserve edits and schema');
     } finally { await clipboard.writeText(clipboardBeforeMetadata); }
-    await js(`Array.from(document.querySelectorAll('.metadata-actions button')).find(b => b.textContent.includes('Khôi phục')).click(); true`);
+    await js(`Array.from(document.querySelectorAll('.metadata-actions button')).find(b => b.getAttribute('aria-label') === 'Khôi phục giá trị tự động').click(); true`);
     assert.ok(await waitFor(() => js(`Boolean(document.querySelector('dialog[open]'))`), 5000), 'reset must confirm loss of manual edits');
     await js(`document.querySelector('dialog .confirm-actions button:first-child').click(); true`);
     assert.equal(await js(`document.querySelector('#metadata-subject').value`), manualSubject, 'cancel reset must preserve the draft');
-    await js(`Array.from(document.querySelectorAll('.metadata-actions button')).find(b => b.textContent.includes('Khôi phục')).click(); true`);
+    await js(`Array.from(document.querySelectorAll('.metadata-actions button')).find(b => b.getAttribute('aria-label') === 'Khôi phục giá trị tự động').click(); true`);
     await js(`document.querySelector('dialog .confirm-actions button:last-child').click(); true`);
     assert.equal(await js(`document.querySelector('#metadata-subject').value`), metadata.subject, 'accepted reset must restore automatic values');
     c.metadata.manual_edits_and_reset = true;
@@ -686,7 +687,13 @@ async function runSmoke() {
     });
     await setInputFile(wc, batchFiles);
     assert.ok(await waitFor(() => js(`document.querySelectorAll('.input-queue li').length === 3`), 5000));
-    assert.deepEqual(await js(`Array.from(document.querySelectorAll('.input-queue li select'), s => s.value)`), ['native_text','native_text','native_text']);
+    assert.deepEqual(await js(`Array.from(document.querySelectorAll('.input-queue li select'), s => s.value)`), ['metadata_fast','metadata_fast','metadata_fast']);
+    // One choice for every pending document (the bulk method control), as a user would do for a full-text batch.
+    await js(`(() => { const s = document.querySelector('.queue-bulk-mode select');
+      Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(s, 'native_text');
+      s.dispatchEvent(new Event('change', {bubbles: true})); return true; })()`);
+    assert.ok(await waitFor(() => js(`Array.from(document.querySelectorAll('.input-queue li select'), s => s.value).every(v => v === 'native_text')`), 5000),
+      'the bulk method must switch the three pending PDFs to native_text');
     await js(`(() => {
       const original = window.fetch;
       window.__vietdocBatchQA = {original, active:0, peak:0, requests:[]};

@@ -27,6 +27,9 @@ afterEach(()=>{vi.restoreAllMocks();vi.unstubAllGlobals();});
 async function setup(names=["1.pdf","2.pdf","3.pdf"]){
   const user=userEvent.setup(); render(<App/>);
   await user.upload(screen.getByLabelText("Chọn tài liệu PDF hoặc ảnh"),names.map(file));
+  // New documents start in the fast header mode; one choice switches every pending document.
+  expect(Array.from(document.querySelectorAll(".input-queue li select"),s=>s.value).every(v=>v==="metadata_fast")).toBe(true);
+  await user.selectOptions(screen.getByLabelText("Phương pháp cho tất cả tài liệu chưa xử lý"),"native_text");
   await waitFor(()=>expect(document.querySelector(".run-button").disabled).toBe(false));
   return user;
 }

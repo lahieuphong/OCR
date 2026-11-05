@@ -70,7 +70,7 @@ async function runFastSmoke({wc, js, clickResultTab, setInputFile, waitFor, scre
   try {
     await setInputFile(wc, pdf);
     await wait(() => js(`Boolean(document.querySelector('input[name=mode][value=metadata_fast]'))`), 'fast mode is missing');
-    assert.equal(await js(`document.querySelector('input[name=mode]:checked').value`), 'native_text', 'PDF default must stay native_text');
+    assert.equal(await js(`document.querySelector('input[name=mode]:checked').value`), 'metadata_fast', 'a new PDF must default to the fast header mode');
     await js(`document.querySelector('input[name=mode][value=metadata_fast]').click(); true`);
     await wait(() => js(`document.querySelector('.run-button').textContent.includes('Bóc tách nhanh thông tin văn bản')`), 'fast action must be explicit');
     const started = Date.now();

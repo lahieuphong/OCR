@@ -82,6 +82,9 @@ const readBlob = blob => new Promise(resolve => {const reader = new FileReader()
 async function start() {
   const user = userEvent.setup(); render(<App/>);
   await user.upload(screen.getByLabelText("Chọn tài liệu PDF hoặc ảnh"), file());
+  // New documents start in the fast header mode; these cases exercise the full-text metadata path.
+  expect(document.querySelector('input[name=mode]:checked').value).toBe("metadata_fast");
+  await user.click(document.querySelector('input[name=mode][value=native_text]'));
   await waitFor(() => expect(document.querySelector(".run-button").disabled).toBe(false));
   await user.click(screen.getByRole("button", {name:"Bóc tách văn bản"}));
   await screen.findByRole("tab", {name:"Thông tin văn bản", selected:true});
@@ -126,7 +129,7 @@ describe("explicit fast metadata mode", () => {
     await waitFor(()=>expect(field("arcDocCode")?.value).toBe("00042/2025/NĐ-QA"));
     expect(fetch.mock.calls.at(-1)[1].body.get("mode")).toBe("metadata_fast");
     expect(field("numberOfPage").value).toBe("6"); expect(field("typeName").value).toBe("");
-    expect(document.querySelector(".metadata-summary").textContent).toContain("Nghị định");
+    expect(document.querySelector(".detected-document-type").textContent).toContain("Nghị định");
     expect(field("subject").value).toBe(DECREE_SUBJECT);
     expect(document.querySelector(".partial-result-notice").textContent).toContain("Nguồn 6 trang");
     expect(document.querySelector(".partial-result-notice").textContent).toContain("OCR trang 1");
@@ -173,7 +176,7 @@ describe("metadata UI integration", () => {
     expect(field("issuedDate").value).toBe("08-10-2026");
     expect(field("docId").readOnly).toBe(true); expect(field("docId").value).toBe("");
     expect(field("isCan").value).toBe(""); expect(field("confidenceLevel").value).toBe("02");
-    expect(screen.getByText("Số trường có bằng chứng, không phải độ chính xác OCR.")).toBeTruthy();
+    expect(screen.getByTitle("Số trường có bằng chứng, không phải độ chính xác OCR.")).toBeTruthy();
   });
   test("shows literal page/line evidence without fake highlights", async () => {
     const user = await start();

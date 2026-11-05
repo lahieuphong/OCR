@@ -304,12 +304,11 @@ export default function App() {
 
             {result && <>
               <div className={"result-origin " + (fast ? "fast-origin " : "") + (result.used_ocr ? "ocr-origin" : "native-origin")}>
-                <ShieldCheck size={14}/><span>{fast ? "Bóc tách nhanh · Chỉ header, không phải toàn văn"
+                <ShieldCheck size={14}/><span>{fast ? "Bóc tách nhanh · chỉ header trang 1, không phải toàn văn"
                   : result.method === "hybrid_h1" ? "Kết hợp PDF + OCR · Thử nghiệm, cần đối chiếu"
                   : result.used_ocr ? "Nhận dạng từ ảnh · PaddleOCR + VietOCR B1024" : "Trích xuất văn bản có sẵn trong PDF · Không chạy OCR"}</span>
+                {fast && <span className="partial-result-notice" role="status" title="Nội dung các trang chưa xét vẫn thuộc tài liệu nguồn.">{partialScope(result)}</span>}
               </div>
-              {fast && <Alert className="partial-result-notice" role="status"><AlertTriangle size={16}/><AlertTitle>Kết quả header — chỉ một phần tài liệu</AlertTitle>
-                <AlertDescription>{partialScope(result)}. Nội dung chưa xét vẫn thuộc tài liệu nguồn. {result.fast_metadata?.needs_review ? "Header cần đối chiếu với ảnh gốc trước khi xác nhận metadata." : "Hãy kiểm tra metadata trước khi xuất."}</AlertDescription></Alert>}
               <div className="results-stats">
                 <span><b>{fast ? result.source_page_count : result.page_count}</b> {fast ? "trang nguồn" : "trang"}</span><span><b>{result.line_count}</b> {fast ? "dòng header" : "dòng"}</span>
                 <span><Clock3 size={14}/><b>{formatTime(result.elapsed_ms)}</b></span>

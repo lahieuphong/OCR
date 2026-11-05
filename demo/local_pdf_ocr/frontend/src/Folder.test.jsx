@@ -102,5 +102,17 @@ test("a dropped folder is read with its subfolders; dropped files are still adde
   expect(modes()).toEqual(["metadata_fast", "metadata_fast"]);
   fireEvent.drop(document.querySelector(".dropzone"), {dataTransfer: {files: [pdf("c.pdf")]}});
   expect(queued()).toHaveLength(3);
-  expect(modes()[2]).toBe("native_text");
+  expect(modes()[2]).toBe("metadata_fast");
+});
+
+test("without models a new PDF can run the fast header from its text layer; a new image cannot", async () => {
+  fetch.mockImplementation(async url => url === "/api/health" ? {ok: true, json: async () => ({state: "missing_model_files"})} : {ok: false, json: async () => ({})});
+  const user = userEvent.setup(); render(<App/>);
+  await screen.findByText("Thiếu model OCR");
+  await user.upload(screen.getByLabelText("Chọn tài liệu PDF hoặc ảnh"), [new File(["%PDF synthetic"], "a.pdf", {type: "application/pdf"}), new File(["png"], "b.png", {type: "image/png"})]);
+  expect(modes()).toEqual(["metadata_fast", "metadata_fast"]);
+  expect(document.querySelector(".run-button").disabled).toBe(false);
+  await user.click(screen.getByRole("button", {name: "1. a.pdfChưa xử lý"}).closest("li").nextElementSibling.querySelector(".select-queued-file"));
+  expect(document.querySelector(".run-button").disabled).toBe(true);
+  expect(screen.getByRole("button", {name: "Bóc tách tất cả tài liệu chưa xử lý"}).disabled).toBe(true);
 });
