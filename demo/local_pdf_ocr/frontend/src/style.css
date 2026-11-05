@@ -158,6 +158,9 @@
 .toolbar-actions button { width: 34px; height: 34px; color: #64748b; box-shadow: none; border-radius: 7px; }
 .toolbar-actions button:hover { color: #2563eb; background: #eff6ff; }
 .action-wrap { display: inline-flex; border-radius: 7px; }
+.document-nav { display: flex; align-items: center; gap: 6px; margin: -4px 20px 10px; }
+.document-nav select { flex: 1; min-width: 0; height: 32px; border: 1px solid var(--border); border-radius: 7px; padding: 0 8px; background: #fff; color: #0f172a; font: inherit; font-size: 12px; font-weight: 500; }
+.document-nav button { width: 32px; height: 32px; flex: none; }
 .copy-feedback { display: flex; align-items: center; gap: 5px; color: #15803d; font-size: 11px; margin: -6px 20px 10px; }
 .result-origin { display: flex; align-items: center; gap: 7px; padding: 8px 12px; margin: 0 20px 10px; background: #eff6ff; border: 1px solid #dbeafe; border-radius: 7px; color: #1d4ed8; font-size: 11px; }
 .partial-result-notice { margin-left: auto; color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: help; }

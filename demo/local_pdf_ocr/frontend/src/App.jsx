@@ -15,6 +15,7 @@ import {Progress} from "@/components/ui/progress";
 import DocumentMetadata from "@/components/DocumentMetadata.jsx";
 import ConfirmDialog from "@/components/ConfirmDialog.jsx";
 import DocumentList from "@/components/DocumentList.jsx";
+import DocumentNavigator from "@/components/DocumentNavigator.jsx";
 import useDocumentBatch from "@/hooks/useDocumentBatch.js";
 import {batchDocumentStatus, BATCH_STATUS_LABELS} from "@/lib/documentBatch.js";
 import {EXCEL_FILENAME} from "@/lib/excelExport.js";
@@ -306,6 +307,12 @@ export default function App() {
               </div>
             </div>
             {copied && <span className="copy-feedback" role="status"><Check size={14}/> Đã sao chép văn bản</span>}
+            {activeView !== "list" && <DocumentNavigator documents={documents} activeId={activeId} onSelect={id => {
+              // Stay on the same tab; a document without metadata (or a comparison) falls back to its text.
+              const target = documents.find(doc => doc.id === id);
+              const view = activeView === "compare" || (activeView === "metadata" && !target?.metadataByMode[target.mode]) ? (target?.metadataByMode[target.mode] ? "metadata" : "text") : activeView;
+              selectDocument(id, view);
+            }}/>}
 
             {result && <>
               <div className={"result-origin " + (fast ? "fast-origin " : "") + (result.used_ocr ? "ocr-origin" : "native-origin")}>
