@@ -6,8 +6,9 @@ export const FAST_MODE_DESCRIPTION = "Ưu tiên trang đầu để lấy số v�
 export const RUN_ONE_LABEL = "Bóc tách văn bản này";
 export const RUN_ONE_FAST_LABEL = "Bóc tách nhanh văn bản này";
 export const RUN_ALL_LABEL = "Bóc tách tất cả";
-export const RUN_ALL_DONE_LABEL = "Đã bóc tách tất cả tài liệu";
-export const runAllLabel = pending => `${RUN_ALL_LABEL} (${pending} tài liệu)`;
+export const runAllLabel = count => `${RUN_ALL_LABEL} (${count} tài liệu)`;
+export const RESUME_LABEL = "Tiếp tục";
+export const resumeLabel = left => `${RESUME_LABEL} (${left} tài liệu còn lại)`;
 export const PROCESSING_MODES = ["native_text", "vietocr_ocr", "hybrid_h1", "metadata_fast"];
 export const PROCESSING_LABELS = {native_text:"Văn bản có sẵn",vietocr_ocr:"Nhận dạng OCR",hybrid_h1:"Kết hợp PDF + OCR (thử nghiệm)",metadata_fast:"Bóc tách nhanh · Header một phần"};
 

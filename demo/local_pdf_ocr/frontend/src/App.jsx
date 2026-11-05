@@ -19,8 +19,8 @@ import useDocumentBatch from "@/hooks/useDocumentBatch.js";
 import {batchDocumentStatus, BATCH_STATUS_LABELS} from "@/lib/documentBatch.js";
 import {EXCEL_FILENAME} from "@/lib/excelExport.js";
 import {editDocumentField, confirmDocumentField} from "@/lib/documentFields.js";
-import {FAST_MODE_LABEL, FAST_MODE_DESCRIPTION, PROCESSING_LABELS, RUN_ALL_DONE_LABEL, RUN_ALL_LABEL, RUN_ONE_FAST_LABEL, RUN_ONE_LABEL,
-  partialScope, resultTextExport, runAllLabel} from "@/lib/processingModes.js";
+import {FAST_MODE_LABEL, FAST_MODE_DESCRIPTION, PROCESSING_LABELS, RESUME_LABEL, RUN_ONE_FAST_LABEL, RUN_ONE_LABEL,
+  partialScope, resultTextExport, resumeLabel, runAllLabel} from "@/lib/processingModes.js";
 import {dropHasFolder, filesFromDrop} from "@/lib/folderImport.js";
 
 function formatTime(ms) {
@@ -83,7 +83,7 @@ export default function App() {
   const {documents,activeId,document,preview,selectedMode,resultsByMode,metadataByMode,setMetadataByMode,
     pendingDiscard,setPendingDiscard,working,elapsed,error,setError,activeView,setActiveView,canRun,canRunBatch,
     batchProgress,chooseFiles,selectDocument,removeDocument,changeMode,restoreMetadata,runOcr,runBatch,confirmDocument,setIncluded,
-    pendingCount,failedCount,canRunFailed,runFailed,changeModeForPending,pause,pausing,notice,dismissNotice} = useDocumentBatch(health);
+    pendingCount,failedCount,canRunFailed,runFailed,changeModeForAll,pause,pausing,notice,dismissNotice,resumeCount,resume} = useDocumentBatch(health);
   function dropDocuments(dataTransfer) {
     // Plain files are added at once; a dropped folder is read (with subfolders) first.
     if (!dropHasFolder(dataTransfer)) {chooseFiles(dataTransfer.files); return;}
@@ -191,9 +191,9 @@ export default function App() {
                     <Button size="sm" variant="outline" disabled={working} onClick={() => {pickerIntent.current = "add"; fileInput.current?.click();}}>Thêm tài liệu</Button>
                     <Button size="sm" variant="outline" disabled={working} onClick={() => folderInput.current?.click()}>Thêm thư mục</Button>
                   </span></div>
-                {pendingCount > 1 && <label className="queue-bulk-mode"><span>Phương pháp cho {pendingCount} tài liệu chưa xử lý</span>
-                  <select aria-label="Phương pháp cho tất cả tài liệu chưa xử lý" value="" disabled={working}
-                    onChange={event => {if (event.target.value) changeModeForPending(event.target.value);}}>
+                {documents.length > 1 && <label className="queue-bulk-mode"><span>Phương pháp cho tất cả {documents.length} tài liệu</span>
+                  <select aria-label="Phương pháp cho tất cả tài liệu" value="" disabled={working}
+                    onChange={event => {if (event.target.value) changeModeForAll(event.target.value);}}>
                     <option value="">Chọn để áp dụng…</option>
                     {["metadata_fast","native_text","vietocr_ocr","hybrid_h1"].map(mode => <option key={mode} value={mode}>{PROCESSING_LABELS[mode]}</option>)}
                   </select></label>}
@@ -264,14 +264,16 @@ export default function App() {
               {documents.length > 1 && <div className="batch-actions">
                 {working && batchProgress?.total > 1
                   ? <Button className="batch-pause-button" size="lg" variant="outline" onClick={pause} disabled={pausing}><Pause size={15}/>{pausing ? "Sẽ dừng sau tài liệu đang xử lý…" : "Tạm dừng hàng chờ"}</Button>
-                  : <Button className="batch-run-button" size="lg" onClick={runBatch} disabled={working || !canRunBatch}>
-                    <ListChecks size={18}/>{pendingCount ? runAllLabel(pendingCount) : RUN_ALL_DONE_LABEL}</Button>}
+                  : resumeCount > 0
+                    ? <Button className="batch-run-button batch-resume-button" size="lg" onClick={resume}><ListChecks size={18}/>{resumeLabel(resumeCount)}</Button>
+                    : <Button className="batch-run-button" size="lg" onClick={runBatch} disabled={working || !canRunBatch}>
+                      <ListChecks size={18}/>{runAllLabel(documents.length)}</Button>}
                 {!working && failedCount > 0 && <Button className="batch-retry-button" variant="ghost" onClick={runFailed} disabled={!canRunFailed}><RotateCcw size={15}/> Chạy lại {failedCount} tài liệu lỗi</Button>}
               </div>}
               {batchProgress && documents.length > 1 && <div className="queue-progress" role="status">
                 {batchProgress.total > 1 && <Progress value={100 * batchProgress.completed / batchProgress.total} aria-label="Tiến độ hàng chờ"/>}
                 <span>Đã xử lý {batchProgress.completed}/{batchProgress.total} tài liệu trong lượt này{working ? remainingText(batchProgress.remainingMs) : ""}
-                  {batchProgress.paused ? ` · Đã tạm dừng, còn ${pendingCount} tài liệu chưa xử lý: bấm “${RUN_ALL_LABEL}” để tiếp tục.` : ""}</span>
+                  {batchProgress.paused && resumeCount ? ` · Đã tạm dừng, còn ${resumeCount} tài liệu: bấm “${RESUME_LABEL}” để chạy tiếp.` : ""}</span>
               </div>}
               {working && <div className="processing-status" role="status"><Progress value={null} className="processing-progress" aria-label="Đang xử lý, chưa có tiến độ phần trăm"/><span><Clock3 size={14}/> Đang xử lý trên máy · {elapsed.toFixed(0)} giây</span></div>}
               {error && <Alert variant="destructive" className="error-box"><AlertTriangle size={17}/><AlertTitle>Không thể hoàn tất thao tác</AlertTitle><AlertDescription>{error}</AlertDescription></Alert>}

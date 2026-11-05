@@ -20,6 +20,7 @@ export default function useDocumentBatch(health) {
   const [batchProgress, setBatchProgress] = useState(null);
   const [pausing, setPausing] = useState(false);
   const [notice, setNotice] = useState("");
+  const [resumeIds, setResumeIds] = useState([]);  // documents a paused "all" run has not reached yet
   const running = useRef(false), timer = useRef(null), mounted = useRef(true), pauseRequested = useRef(false);
   const active = documents.find(doc => doc.id === activeId) || null;
   const document = active?.file || null;
@@ -33,7 +34,9 @@ export default function useDocumentBatch(health) {
     || (health === "not-ready" && (mode === "native_text" || (mode === "metadata_fast" && /\.pdf$/iu.test(name))));
   const canRun = canRunMode(selectedMode);
   const pending = documents.filter(doc => !doc.resultsByMode[doc.mode]);
-  const canRunBatch = pending.length > 0 && pending.every(doc => canRunMode(doc.mode, doc.name));
+  // "Bóc tách tất cả" runs EVERY document of the list with its own method, processed or not.
+  const canRunBatch = documents.length > 0 && documents.every(doc => canRunMode(doc.mode, doc.name));
+  const resumable = resumeIds.map(id => documents.find(doc => doc.id === id)).filter(Boolean);
   const failed = documents.filter(doc => doc.errorsByMode[doc.mode]);
   const canRunFailed = failed.length > 0 && failed.every(doc => canRunMode(doc.mode, doc.name));
 
@@ -101,11 +104,11 @@ export default function useDocumentBatch(health) {
     update(target.id, doc => ({...doc,mode})); setError("");
     if (id === activeId) setActiveView(target.metadataByMode[mode] ? "metadata" : "text");
   }
-  // One method for every document still without a result; finished results and edits are untouched.
-  // Images keep their own method when the chosen one needs a PDF text layer.
-  function changeModeForPending(mode) {
+  // One method for every document of the list. Results and edits are kept per method, so switching
+  // never deletes anything. Images keep their own method when the chosen one needs a PDF text layer.
+  function changeModeForAll(mode) {
     if (running.current) return 0;
-    const targets = documents.filter(doc => !doc.resultsByMode[doc.mode] && modeAllowed(doc.name, mode) && doc.mode !== mode);
+    const targets = documents.filter(doc => modeAllowed(doc.name, mode) && doc.mode !== mode);
     for (const doc of targets) update(doc.id, current => ({...current,mode}));
     setError("");
     return targets.length;
@@ -117,7 +120,7 @@ export default function useDocumentBatch(health) {
   }
   async function process(entries, batch = false) {
     if (running.current || !entries.length || entries.some(doc => !canRunMode(doc.mode, doc.name))) return;
-    running.current = true; pauseRequested.current = false; setPausing(false);
+    running.current = true; pauseRequested.current = false; setPausing(false); setResumeIds([]);
     setWorking(true); setError(""); setNotice("");
     const startedAt = Date.now();
     setBatchProgress({completed:0,total:entries.length,remainingMs:null,paused:false});
@@ -161,9 +164,23 @@ export default function useDocumentBatch(health) {
       const paused = pauseRequested.current && completedCount < entries.length; pauseRequested.current = false;
       if (mounted.current) {
         setWorking(false); setPausing(false);
-        if (paused) setBatchProgress(progress => ({...progress,remainingMs:null,paused:true}));
+        if (paused) {
+          setBatchProgress(progress => ({...progress,remainingMs:null,paused:true}));
+          setResumeIds(entries.slice(completedCount).map(doc => doc.id));
+        }
       }
     }
+  }
+  // Every document; asks first when finished results (and possibly manual edits) would be replaced.
+  function runAll() {
+    if (running.current || !canRunBatch) return;
+    const done = documents.filter(doc => doc.resultsByMode[doc.mode]);
+    const edited = done.filter(doc => doc.metadataByMode[doc.mode]?.dirty);
+    if (!done.length) {process(documents, true); return;}
+    setPendingDiscard({title:"Bóc tách lại tất cả tài liệu?", confirmLabel:"Bóc tách tất cả",
+      message:`${done.length}/${documents.length} tài liệu đã có kết quả với phương pháp đang chọn và sẽ được bóc tách lại.`
+        + (edited.length ? ` ${edited.length} tài liệu có chỉnh sửa metadata sẽ bị thay bằng giá trị tự động mới.` : ""),
+      run:() => process(documents, true)});
   }
   function runOcr(id = activeId) {
     const doc = documents.find(item => item.id === id);
@@ -185,8 +202,8 @@ export default function useDocumentBatch(health) {
   return {documents,activeId,active,document,preview,selectedMode,resultsByMode,metadataByMode,setMetadataByMode,
     pendingDiscard,setPendingDiscard,working,elapsed,error:uiError || active?.errorsByMode[selectedMode] || "",setError,
     activeView,setActiveView,canRun,canRunBatch,batchProgress,chooseFiles,selectDocument,removeDocument,changeMode,restoreMetadata,
-    runOcr,runBatch:() => process(pending,true),confirmDocument,
+    runOcr,runBatch:runAll,confirmDocument,resumeCount:resumable.length,resume:() => process(resumable,true),
     pendingCount:pending.length,failedCount:failed.length,canRunFailed,runFailed:() => process(failed,true),
-    changeModeForPending,pause,pausing,notice,dismissNotice:() => setNotice(""),
+    changeModeForAll,pause,pausing,notice,dismissNotice:() => setNotice(""),
     setIncluded:(id,checked) => update(id, doc => ({...doc,includeInExport:checked}))};
 }
