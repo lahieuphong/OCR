@@ -19,6 +19,10 @@ function checkReport(report, { expect = 'no-models', withPdf = false, withFast =
   need(!report.error, `smoke run error: ${report.error}`);
   need(!(report.main_errors && report.main_errors.length), `main-process errors: ${JSON.stringify(report.main_errors)}`);
   need(c.ui && c.ui.title, 'the UI did not render');
+  // The app opens as exactly one window, also without models: no status window next to the main window.
+  need(c.startup && c.startup.visible_windows === 1 && c.startup.main_window_visible === true
+    && c.startup.status_window_created === false,
+    `startup: the app did not open as one main window: ${JSON.stringify(c.startup)}`);
   need(c.renderer_has_node === false, 'the renderer can reach Node (require/process)');
   need(c.external_fetch_blocked === true, 'a fetch to the Internet was not blocked');
   need(c.external_navigation_blocked === true, 'navigation/new window to the Internet was not blocked');

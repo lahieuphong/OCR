@@ -7,6 +7,7 @@ function passingNoModels() {
   return {
     checks: {
       ui: { title: 'VietDoc OCR', pill_class: 'server-pill not-ready' },
+      startup: { visible_windows: 1, main_window_visible: true, status_window_created: false, state: 'limited' },
       renderer_has_node: false, external_fetch_blocked: true, external_navigation_blocked: true,
       request_without_token_status: 403, request_localhost_host_status: 403,
       ui_file_selected: 'synthetic.pdf', ui_preview: { rendered: true },
@@ -51,6 +52,19 @@ test('security, crash and shutdown regressions fail', () => {
   const r = passingNoModels();
   r.error = 'watchdog: smoke test did not finish in 300 s';
   assert.equal(checkReport(r, { expect: 'no-models' }).ok, false);
+});
+
+test('an app that does not open as exactly one main window fails', () => {
+  for (const startup of [undefined,
+    { visible_windows: 2, main_window_visible: true, status_window_created: true, state: 'limited' },
+    { visible_windows: 1, main_window_visible: true, status_window_created: true, state: 'limited' },
+    { visible_windows: 1, main_window_visible: false, status_window_created: true, state: 'limited' }]) {
+    const r = passingNoModels();
+    r.checks.startup = startup;
+    const result = checkReport(r, { expect: 'no-models', withPdf: true });
+    assert.equal(result.ok, false, JSON.stringify(startup));
+    assert.ok(result.failures.some((f) => f.startsWith('startup:')));
+  }
 });
 
 test('a missing image check or a downloads flag other than disabled fails', () => {
