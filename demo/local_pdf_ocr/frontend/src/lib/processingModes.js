@@ -1,7 +1,7 @@
 // Fast mode opens only page 1, so its PDF may be longer than the full-text modes allow (backend MAX_FAST_SOURCE_PAGES).
 export const MAX_FAST_SOURCE_PAGES = 1000;
 export const FAST_MODE_LABEL = "Bóc tách nhanh thông tin văn bản";
-export const FAST_MODE_DESCRIPTION = "Ưu tiên trang đầu để lấy số văn bản, ngày ban hành, cơ quan, trích yếu và 22 trường metadata. Không OCR toàn bộ tài liệu.";
+export const FAST_MODE_DESCRIPTION = "Lấy 22 trường từ trang đầu (số văn bản, ngày ban hành, cơ quan, trích yếu…). Không OCR toàn bộ tài liệu.";
 // Run buttons: one for the selected document, one (emphasized when several are listed) for the whole list.
 export const RUN_ONE_LABEL = "Bóc tách văn bản này";
 export const RUN_ONE_FAST_LABEL = "Bóc tách nhanh văn bản này";

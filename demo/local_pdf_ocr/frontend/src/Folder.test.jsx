@@ -37,7 +37,7 @@ async function chooseFolder(files) {
 }
 const queued = () => Array.from(document.querySelectorAll(".input-queue li .select-queued-file"),
   item => `${item.querySelector(".queue-index").textContent}. ${item.querySelector(".queue-name").firstChild.textContent}`);
-const modes = () => Array.from(document.querySelectorAll(".input-queue li select"), item => item.value);
+const modes = () => Array.from(document.querySelectorAll(".input-queue li"), item => item.dataset.mode);
 const runAll = user => user.click(screen.getByRole("button", {name: /^Bóc tách tất cả \(/}));
 
 test("a chosen folder adds its PDFs and images in folder order, fast mode by default, and reports skipped files", async () => {
@@ -45,7 +45,8 @@ test("a chosen folder adds its PDFs and images in folder order, fast mode by def
     folderFile("Hồ sơ/ghi chú.docx"), folderFile("Hồ sơ/lớn.pdf", 16 * 1024 * 1024), folderFile("Hồ sơ/Thumbs.db")]);
   expect(queued()).toEqual(["1. 2.pdf", "2. 10.pdf", "3. 3.png"]);
   expect(modes()).toEqual(["metadata_fast", "metadata_fast", "metadata_fast"]);
-  expect(document.querySelector(".input-queue li:nth-child(3) small").textContent).toContain("Hồ sơ/con/3.png");
+  expect(document.querySelector(".input-queue li:nth-child(3) small").textContent).toBe("con");
+  expect(document.querySelector(".input-queue li:nth-child(3) .select-queued-file").title).toBe("Hồ sơ/con/3.png");
   expect(document.querySelector(".error-box")).toBeNull();
   const error = document.querySelector(".import-notice").textContent;
   expect(error).toContain("Đã thêm 3 tài liệu, bỏ qua 2 tệp: 1 không phải PDF/PNG/JPG, 1 lớn hơn 15 MB.");
@@ -141,4 +142,63 @@ test("a single document keeps one main button", async () => {
   await user.upload(screen.getByLabelText("Chọn tài liệu PDF hoặc ảnh"), new File(["%PDF synthetic"], "a.pdf", {type: "application/pdf"}));
   expect(screen.getByRole("button", {name: "Bóc tách nhanh văn bản này"}).dataset.variant).toBe("default");
   expect(screen.queryByRole("button", {name: /^Bóc tách tất cả/})).toBeNull();
+});
+
+test("the list can be searched and filtered without changing what the run-all button runs", async () => {
+  failures.add("3.pdf");
+  const user = await chooseFolder([folderFile("Hồ sơ/1 Quyết định.pdf"), folderFile("Hồ sơ/con/2 Nghị định.pdf"), folderFile("Hồ sơ/3.pdf")]);
+  await user.type(screen.getByLabelText("Tìm tài liệu"), "quyet dinh");
+  expect(queued()).toEqual(["1. 1 Quyết định.pdf"]);
+  expect(document.querySelector(".queue-summary").textContent).toContain("Đang hiện 1/3 tài liệu");
+  await user.clear(screen.getByLabelText("Tìm tài liệu"));
+  await user.type(screen.getByLabelText("Tìm tài liệu"), "con");
+  expect(queued()).toEqual(["3. 2 Nghị định.pdf"]);
+  await user.type(screen.getByLabelText("Tìm tài liệu"), "khong co");
+  expect(queued()).toEqual([]);
+  await user.click(screen.getByRole("button", {name: "Xóa bộ lọc"}));
+  expect(queued()).toHaveLength(3);
+  expect(document.querySelector(".queue-summary")).toBeNull();
+  await user.click(screen.getByRole("button", {name: "Chưa xử lý3"}));
+  await user.type(screen.getByLabelText("Tìm tài liệu"), "1 quyet");
+  expect(queued()).toEqual(["1. 1 Quyết định.pdf"]);
+  await runAll(user);
+  await waitFor(() => expect(calls).toHaveLength(3));
+  await waitFor(() => expect(screen.getByRole("button", {name: "Lỗi1"})).toBeTruthy());
+  await user.click(screen.getByRole("button", {name: "Xóa bộ lọc"}));
+  await user.click(screen.getByRole("button", {name: "Lỗi1"}));
+  expect(queued()).toEqual(["2. 3.pdf"]);
+  expect(document.querySelector(".queue-status.error").textContent).toBe("Lỗi");
+});
+
+test("a row selects or removes its document; another method than the usual one is written on it", async () => {
+  const user = await chooseFolder([folderFile("d/1.pdf"), folderFile("d/2.pdf"), folderFile("d/3.pdf")]);
+  const row = index => document.querySelectorAll(".input-queue li")[index];
+  expect(row(0).querySelector(".queue-tag")).toBeNull();
+  await user.click(row(1).querySelector(".select-queued-file"));
+  expect(row(1).className).toBe("active");
+  await user.click(document.querySelector("input[name=mode][value=vietocr_ocr]"));
+  expect(modes()).toEqual(["metadata_fast", "vietocr_ocr", "metadata_fast"]);
+  expect(row(1).querySelector(".queue-tag").textContent).toBe("OCR");
+  await user.click(screen.getByRole("button", {name: "Xóa tài liệu 3: 3.pdf"}));
+  expect(queued()).toEqual(["1. 1.pdf", "2. 2.pdf"]);
+  expect(row(1).className).toBe("active");
+  await user.upload(screen.getByLabelText("Chọn thư mục tài liệu"), [folderFile("d/3.pdf"), folderFile("d/4.pdf")]);
+  await user.click(row(1).querySelector(".select-queued-file"));
+  await user.click(screen.getByRole("button", {name: "Xóa tài liệu 2: 2.pdf"}));
+  expect(document.querySelector(".selected-file strong").textContent).toBe("3.pdf");
+  await user.click(row(2).querySelector(".select-queued-file"));
+  await user.click(screen.getByRole("button", {name: "Xóa tài liệu 3: 4.pdf"}));
+  expect(document.querySelector(".selected-file strong").textContent).toBe("3.pdf");
+});
+
+test("the preview can be hidden and stays hidden while moving between documents", async () => {
+  const user = await chooseFolder([folderFile("d/1.pdf"), folderFile("d/2.pdf")]);
+  expect(document.querySelector("iframe.pdf-view")).toBeTruthy();
+  await user.click(screen.getByRole("button", {name: "Ẩn xem trước"}));
+  expect(document.querySelector("iframe.pdf-view")).toBeNull();
+  await user.click(document.querySelectorAll(".input-queue .select-queued-file")[1]);
+  expect(document.querySelector(".selected-file strong").textContent).toBe("2.pdf");
+  expect(document.querySelector("iframe.pdf-view")).toBeNull();
+  await user.click(screen.getByRole("button", {name: "Hiện xem trước"}));
+  expect(document.querySelector("iframe.pdf-view")).toBeTruthy();
 });

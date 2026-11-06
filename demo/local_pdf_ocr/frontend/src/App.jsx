@@ -2,7 +2,7 @@ import {useEffect, useRef, useState} from "react";
 import {
   ScanText, FileText, FileImage, UploadCloud, ShieldCheck, ArrowRight,
   Download, Copy, Check, AlertTriangle, LoaderCircle, Clock3, FileJson,
-  ScanLine, CircleCheck, ChevronLeft, ChevronRight, RefreshCw, LockKeyhole, FolderOpen, Pause, RotateCcw, ListChecks,
+  ScanLine, CircleCheck, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, RefreshCw, LockKeyhole, FolderOpen, Pause, RotateCcw, ListChecks,
 } from "lucide-react";
 import {Button} from "@/components/ui/button";
 import {Card} from "@/components/ui/card";
@@ -15,8 +15,8 @@ import DocumentMetadata from "@/components/DocumentMetadata.jsx";
 import ConfirmDialog from "@/components/ConfirmDialog.jsx";
 import DocumentList from "@/components/DocumentList.jsx";
 import DocumentNavigator from "@/components/DocumentNavigator.jsx";
+import DocumentQueue from "@/components/DocumentQueue.jsx";
 import useDocumentBatch from "@/hooks/useDocumentBatch.js";
-import {batchDocumentStatus, BATCH_STATUS_LABELS} from "@/lib/documentBatch.js";
 import {EXCEL_FILENAME} from "@/lib/excelExport.js";
 import {editDocumentField, confirmDocumentField} from "@/lib/documentFields.js";
 import {FAST_MODE_DESCRIPTION, PROCESSING_LABELS, RESUME_LABEL, RUN_ONE_FAST_LABEL, RUN_ONE_LABEL,
@@ -76,6 +76,7 @@ export default function App() {
   const folderInput = useRef(null);
   const pickerIntent = useRef("add");
   const [hoverUpload, setHoverUpload] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(true);
   const [page, setPage] = useState(1);
   const [copied, setCopied] = useState(false);
   const [health, setHealth] = useState("checking");
@@ -83,7 +84,7 @@ export default function App() {
   const {documents,activeId,document,preview,selectedMode,resultsByMode,metadataByMode,setMetadataByMode,
     pendingDiscard,setPendingDiscard,working,elapsed,error,setError,activeView,setActiveView,canRun,canRunBatch,
     batchProgress,chooseFiles,selectDocument,removeDocument,changeMode,restoreMetadata,runOcr,runBatch,confirmDocument,setIncluded,
-    pendingCount,failedCount,canRunFailed,runFailed,changeModeForAll,pause,pausing,notice,dismissNotice,resumeCount,resume} = useDocumentBatch(health);
+    failedCount,canRunFailed,runFailed,changeModeForAll,pause,pausing,notice,dismissNotice,resumeCount,resume} = useDocumentBatch(health);
   function dropDocuments(dataTransfer) {
     // Plain files are added at once; a dropped folder is read (with subfolders) first.
     if (!dropHasFolder(dataTransfer)) {chooseFiles(dataTransfer.files); return;}
@@ -169,7 +170,7 @@ export default function App() {
             <div className="pane-header">
               <span className="pane-number">1</span>
               <div className="pane-title"><h2>Tài liệu</h2>
-                <p>{documents.length ? `${documents.length} tài liệu${pendingCount ? ` · ${pendingCount} chưa xử lý` : " · đã xử lý hết"}` : "PDF, PNG, JPG · tối đa 15 MB/tệp"}</p></div>
+                <p>{documents.length ? `${documents.length} tài liệu` : "PDF, PNG, JPG · tối đa 15 MB/tệp"}</p></div>
               {documents.length > 0 && <div className="pane-header-actions">
                 <Button size="sm" variant="outline" disabled={working} onClick={() => openFiles("add")} title="Thêm tệp PDF/PNG/JPG"><UploadCloud size={14}/> Thêm tệp</Button>
                 <Button size="sm" variant="outline" disabled={working} onClick={() => folderInput.current?.click()} title="Thêm cả thư mục (gồm thư mục con)"><FolderOpen size={14}/> Thư mục</Button>
@@ -196,44 +197,25 @@ export default function App() {
                 </div>
                 <p className="file-limits">Tối đa 15 MB/tệp · PDF tối đa 6 trang (Bóc tách nhanh: chỉ đọc trang 1) · Ảnh tối đa 12 MP</p>
               </div> : <>
-                <div className="input-queue">
-                  {documents.length > 1 && <label className="queue-bulk-mode"><span>Áp dụng cho cả {documents.length} tài liệu</span>
-                    <select aria-label="Phương pháp cho tất cả tài liệu" value="" disabled={working}
-                      onChange={event => {if (event.target.value) changeModeForAll(event.target.value);}}>
-                      <option value="">Chọn phương pháp…</option>
-                      {["metadata_fast","native_text","vietocr_ocr","hybrid_h1"].map(mode => <option key={mode} value={mode}>{PROCESSING_LABELS[mode]}</option>)}
-                    </select></label>}
-                  <ol>{documents.map((doc,index) => {
-                    const status = batchDocumentStatus(doc);
-                    return <li key={doc.id} className={doc.id === activeId ? "active" : ""}>
-                      <button className="select-queued-file" onClick={() => selectDocument(doc.id)} title={doc.path || doc.name}>
-                        <span className="queue-index">{index+1}</span>
-                        <span className="queue-name">{doc.name}<small><i className={"queue-dot " + status}/>{BATCH_STATUS_LABELS[status]}{doc.path && doc.path !== doc.name ? ` · ${doc.path}` : ""}</small></span>
-                      </button>
-                      <select aria-label={`Phương pháp tài liệu ${index+1}`} value={doc.mode} disabled={working} onChange={event => changeMode(event.target.value,doc.id)}>
-                        <option value="metadata_fast">Bóc tách nhanh</option>
-                        {/\.pdf$/iu.test(doc.name) && <option value="native_text">Văn bản có sẵn</option>}<option value="vietocr_ocr">Nhận dạng OCR</option>
-                        {/\.pdf$/iu.test(doc.name) && <option value="hybrid_h1">PDF + OCR (thử nghiệm)</option>}
-                      </select>
-                      <button className="remove-document" aria-label={`Xóa tài liệu ${index+1}: ${doc.name}`} title="Xóa khỏi danh sách" disabled={working} onClick={() => removeDocument(doc.id)}>×</button>
-                    </li>;
-                  })}</ol>
-                </div>
-
                 {notice && <Alert className="import-notice" role="status"><FolderOpen size={16}/><AlertTitle>Kết quả thêm tài liệu</AlertTitle>
                   <AlertDescription>{notice}<Button variant="ghost" size="sm" onClick={dismissNotice}>Đóng</Button></AlertDescription></Alert>}
 
-                <div className="preview-area">
+                <DocumentQueue documents={documents} activeId={activeId} working={working} onSelect={selectDocument} onRemove={removeDocument}/>
+
+                <div className={"preview-area" + (previewOpen ? "" : " collapsed")}>
                   {document && <div className="selected-file">
-                    <span className="selected-file-icon"><FileIcon size={17}/></span>
-                    <div className="selected-file-info"><strong title={document.name}>{document.name}</strong>
-                      <small>{(document.size / (1024 * 1024)).toFixed(2)} MB · {isPDF ? "Tài liệu PDF" : "Hình ảnh"}</small></div>
-                    <Button variant="outline" size="sm" disabled={working} onClick={() => openFiles("replace")}>Đổi tệp</Button>
+                    <FileIcon size={15}/>
+                    <strong title={document.name}>{document.name}</strong>
+                    <small>{(document.size / (1024 * 1024)).toFixed(2)} MB · {isPDF ? "PDF" : "Ảnh"}</small>
+                    <Button variant="ghost" size="sm" disabled={working} onClick={() => openFiles("replace")}>Đổi tệp</Button>
+                    <Button variant="ghost" size="icon" aria-expanded={previewOpen} aria-label={previewOpen ? "Ẩn xem trước" : "Hiện xem trước"} title={previewOpen ? "Ẩn xem trước để danh sách rộng hơn" : "Hiện xem trước"} onClick={() => setPreviewOpen(open => !open)}>
+                      {previewOpen ? <ChevronDown size={15}/> : <ChevronUp size={15}/>}
+                    </Button>
                   </div>}
-                  {preview ? isPDF
+                  {previewOpen && (preview ? isPDF
                     ? <iframe className="pdf-view" src={preview + "#toolbar=0"} title="Bản xem trước PDF"/>
                     : <div className="image-view"><img src={preview} alt="Bản xem trước tài liệu"/></div>
-                    : <div className="preview-placeholder"><FileText size={28} strokeWidth={1.3}/><span>Chọn một tài liệu để xem trước</span></div>}
+                    : <div className="preview-placeholder"><FileText size={28} strokeWidth={1.3}/><span>Chọn một tài liệu để xem trước</span></div>)}
                 </div>
               </>}
             </div>
@@ -241,18 +223,24 @@ export default function App() {
             <div className="pane-footer">
               <fieldset className="ocr-mode-selector" disabled={!document || working}>
                 <legend>Phương pháp xử lý</legend>
+                {documents.length > 1 && <label className="queue-bulk-mode"><span>Áp dụng cho cả {documents.length} tài liệu</span>
+                  <select aria-label="Phương pháp cho tất cả tài liệu" value="" disabled={working}
+                    onChange={event => {if (event.target.value) changeModeForAll(event.target.value);}}>
+                    <option value="">Chọn…</option>
+                    {["metadata_fast","native_text","vietocr_ocr","hybrid_h1"].map(mode => <option key={mode} value={mode}>{PROCESSING_LABELS[mode]}</option>)}
+                  </select></label>}
                 <div className="mode-grid">
                   {modeOptions.filter(option => !(option.mode === "hybrid_h1" && !isPDF)).map(({mode, icon: Icon, name, hint, pdfOnly}) => {
                     const unavailable = pdfOnly && !isPDF;
                     return <label key={mode} className={"mode-option " + (mode === "metadata_fast" ? "fast-mode-option " : "") + (selectedMode === mode ? "selected" : "") + (unavailable ? " unavailable" : "")} title={hint}>
                       <input type="radio" name="mode" value={mode} checked={selectedMode === mode} onChange={() => changeMode(mode)} disabled={unavailable || working}/>
-                      <Icon size={16}/><span className="mode-copy"><span className="mode-name">{name}</span><small>{hint}</small></span>
+                      <Icon size={15}/><span className="mode-name">{name}</span>
                       {resultsByMode[mode] && <Check className="mode-done" size={14} aria-label="Đã có kết quả"/>}
                     </label>;
                   })}
                 </div>
               </fieldset>
-              <p className="mode-note">{modeNote}</p>
+              <p className="mode-note" title={modeNote}>{modeNote}</p>
               {health === "not-ready" && <p className="model-alert" role="status"><AlertTriangle size={14}/> Thiếu model OCR: PDF có sẵn chữ vẫn bóc tách được; ảnh và bản scan cần model.</p>}
 
               <div className="input-actions">
@@ -269,12 +257,12 @@ export default function App() {
                       : <Button className="batch-run-button" size="lg" onClick={runBatch} disabled={working || !canRunBatch}>
                         <ListChecks size={18}/>{runAllLabel(documents.length)}</Button>)}
                 </div>
-                {!working && failedCount > 0 && <Button className="batch-retry-button" variant="ghost" size="sm" onClick={runFailed} disabled={!canRunFailed}><RotateCcw size={14}/> Chạy lại {failedCount} tài liệu lỗi</Button>}
                 {batchProgress && documents.length > 1 && <div className="queue-progress" role="status">
-                  {batchProgress.total > 1 && <Progress value={100 * batchProgress.completed / batchProgress.total} aria-label="Tiến độ hàng chờ"/>}
+                  {batchProgress.total > 1 && batchProgress.completed < batchProgress.total && <Progress value={100 * batchProgress.completed / batchProgress.total} aria-label="Tiến độ hàng chờ"/>}
                   <span>Đã xử lý {batchProgress.completed}/{batchProgress.total} tài liệu trong lượt này{working ? remainingText(batchProgress.remainingMs) : ""}
                     {batchProgress.paused && resumeCount ? ` · Đã tạm dừng, còn ${resumeCount} tài liệu: bấm “${RESUME_LABEL}” để chạy tiếp.` : ""}</span>
                 </div>}
+                {!working && failedCount > 0 && <Button className="batch-retry-button" variant="ghost" size="sm" onClick={runFailed} disabled={!canRunFailed}><RotateCcw size={14}/> Chạy lại {failedCount} tài liệu lỗi</Button>}
                 {working && <div className="processing-status" role="status"><Progress value={null} className="processing-progress" aria-label="Đang xử lý, chưa có tiến độ phần trăm"/><span><Clock3 size={14}/> Đang xử lý trên máy · {elapsed.toFixed(0)} giây</span></div>}
                 {error && <Alert variant="destructive" className="error-box"><AlertTriangle size={17}/><AlertTitle>Không thể hoàn tất thao tác</AlertTitle><AlertDescription>{error}</AlertDescription></Alert>}
               </div>

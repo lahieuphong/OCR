@@ -153,13 +153,8 @@ async function runFastSmoke({wc, js, clickResultTab, setInputFile, waitFor, scre
     await clearQueue();
     const files = [pdf, path.join(batchDir, 'decision.pdf'), path.join(batchDir, 'resolution.pdf')];
     await setInputFile(wc, files);
-    await wait(() => js(`document.querySelectorAll('.input-queue li select').length === 3`), 'three fast inputs were not selected');
-    for (let index=0; index<3; index++) {
-      await js(`(() => { const field=document.querySelectorAll('.input-queue li select')[${index}];
-        Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(field,'metadata_fast');
-        field.dispatchEvent(new Event('change',{bubbles:true})); })()`);
-    }
-    assert.deepEqual(await js(`Array.from(document.querySelectorAll('.input-queue li select'), x=>x.value)`), ['metadata_fast','metadata_fast','metadata_fast']);
+    await wait(() => js(`document.querySelectorAll('.input-queue li').length === 3`), 'three fast inputs were not selected');
+    assert.deepEqual(await js(`Array.from(document.querySelectorAll('.input-queue li'), row=>row.dataset.mode)`), ['metadata_fast','metadata_fast','metadata_fast']);
     await js(`window.__vietdocFastQA.requests=[]; window.__vietdocFastQA.peak=0; document.querySelector('.batch-run-button').click(); true`);
     await wait(() => js(`document.querySelectorAll('.batch-table tbody tr').length === 3
       && document.querySelectorAll('.batch-status.review, .batch-status.extracted').length === 3`), 'fast batch did not complete', 180_000);

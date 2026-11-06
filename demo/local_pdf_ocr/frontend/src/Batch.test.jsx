@@ -28,7 +28,7 @@ async function setup(names=["1.pdf","2.pdf","3.pdf"]){
   const user=userEvent.setup(); render(<App/>);
   await user.upload(screen.getByLabelText("Chọn tài liệu PDF hoặc ảnh"),names.map(file));
   // New documents start in the fast header mode; one choice switches every pending document.
-  expect(Array.from(document.querySelectorAll(".input-queue li select"),s=>s.value).every(v=>v==="metadata_fast")).toBe(true);
+  expect(Array.from(document.querySelectorAll(".input-queue li"),row=>row.dataset.mode).every(mode=>mode==="metadata_fast")).toBe(true);
   await user.selectOptions(screen.getByLabelText("Phương pháp cho tất cả tài liệu"),"native_text");
   await waitFor(()=>expect(document.querySelector(".run-button").disabled).toBe(false));
   return user;
@@ -52,7 +52,8 @@ test("picker accepts duplicate names independently, add/drop/remove works before
 });
 test("three PDF results retain per-file modes and manual metadata across documents and tabs",async()=>{
   const user=await setup();
-  await user.selectOptions(screen.getByLabelText("Phương pháp tài liệu 2"),"vietocr_ocr");
+  await user.click(document.querySelectorAll(".input-queue .select-queued-file")[1]);
+  await user.click(document.querySelector("input[name=mode][value=vietocr_ocr]"));
   await runBatch(user);
   expect(calls).toEqual([{name:"1.pdf",mode:"native_text"},{name:"2.pdf",mode:"vietocr_ocr"},{name:"3.pdf",mode:"native_text"}]);
   expect(document.querySelectorAll(".batch-table tbody tr")).toHaveLength(3);
@@ -73,7 +74,7 @@ test("three PDF results retain per-file modes and manual metadata across documen
 });
 test.each(["native_text","metadata_fast"])("%s middle failure keeps results one/three, warns on partial export, retries only failed file",async mode=>{
   failures.add("2.pdf"); const user=await setup();
-  if(mode==="metadata_fast")for(let i=1;i<=3;i++) await user.selectOptions(screen.getByLabelText(`Phương pháp tài liệu ${i}`),mode);
+  if(mode==="metadata_fast") await user.selectOptions(screen.getByLabelText("Phương pháp cho tất cả tài liệu"),mode);
   await runBatch(user);
   expect(calls).toHaveLength(3);
   expect(calls.every(call=>call.mode===mode)).toBe(true);
