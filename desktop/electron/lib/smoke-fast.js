@@ -70,9 +70,9 @@ async function runFastSmoke({wc, js, clickResultTab, setInputFile, waitFor, scre
   try {
     await setInputFile(wc, pdf);
     await wait(() => js(`Boolean(document.querySelector('input[name=mode][value=metadata_fast]'))`), 'fast mode is missing');
-    assert.equal(await js(`document.querySelector('input[name=mode]:checked').value`), 'native_text', 'PDF default must stay native_text');
+    assert.equal(await js(`document.querySelector('input[name=mode]:checked').value`), 'metadata_fast', 'a new PDF must default to the fast header mode');
     await js(`document.querySelector('input[name=mode][value=metadata_fast]').click(); true`);
-    await wait(() => js(`document.querySelector('.run-button').textContent.includes('Bóc tách nhanh thông tin văn bản')`), 'fast action must be explicit');
+    await wait(() => js(`document.querySelector('.run-button').textContent.includes('Bóc tách nhanh văn bản này')`), 'fast action must be explicit');
     const started = Date.now();
     await js(`document.querySelector('.run-button').click(); true`);
     await wait(() => js(`Boolean(window.__vietdocFastQA.requests[0]?.result) && !document.querySelector('.run-button').disabled`), 'fast extraction did not finish', 180_000);
@@ -186,6 +186,17 @@ async function runFastSmoke({wc, js, clickResultTab, setInputFile, waitFor, scre
     }
     await js(`document.querySelector('.open-document').click(); true`);
     assert.equal((await values()).subject, subject, 'fast document edits must survive switches');
+    // The result panel's document switcher: "next" opens File 2 on the same tab, with its own values.
+    await js(`document.querySelector('.document-nav button[aria-label="Tài liệu sau"]').click(); true`);
+    await wait(() => js(`document.querySelector('.document-nav select')?.selectedOptions[0]?.textContent.startsWith('File 2/3')`), 'document switcher did not open File 2');
+    assert.equal((await values()).arcDocCode, expected[1].arcDocCode, 'File 2 must show its own metadata');
+    // Evidence only: a DevTools capture renders a fresh frame (capturePage can return a stale one here).
+    try {
+      wc.debugger.attach('1.3');
+      const shot = await wc.debugger.sendCommand('Page.captureScreenshot', {format: 'png'});
+      fs.writeFileSync(path.join(smokeDir, '08a_document_switcher.png'), Buffer.from(shot.data, 'base64'));
+    } catch { await screenshot('08a_document_switcher.png'); } finally { try { wc.debugger.detach(); } catch { /* not attached */ } }
+    checks.fast_document_switcher = {options:await js(`document.querySelectorAll('.document-nav option').length`), file2:true};
     fs.writeFileSync(path.join(smokeDir, 'fast_batch_expected.json'), JSON.stringify(expected, null, 2), 'utf8');
     fs.writeFileSync(path.join(smokeDir, 'fast_batch_responses.json'), JSON.stringify(requests, null, 2), 'utf8');
     await clickResultTab('Danh sách văn bản');

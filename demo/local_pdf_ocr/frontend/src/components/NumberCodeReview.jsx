@@ -53,12 +53,16 @@ export default function NumberCodeReview({result, sourceFile, disabled = false})
   }
 
   if (!result) return null;
+  // The fast header mode has no image crop yet; the form hint already asks to compare with the source.
+  if (result.method === "metadata_fast") return null;
   if (!["vietocr_ocr", "hybrid_h1"].includes(result.method) || result.used_ocr !== true) {
-    return <p className="number-code-native-note">Đối chiếu số/ký hiệu với tài liệu gốc ở khung xem trước trước khi xác nhận.</p>;
+    return <p className="number-code-native-note">Đối chiếu số/ký hiệu với tài liệu gốc ở khung xem trước.</p>;
   }
-  return <section className="number-code-review" aria-label="Đối chiếu số và ký hiệu văn bản">
-    <strong>Đối chiếu số/ký hiệu</strong>
+  // Compact by default: one row with the image button; a warning box only when a rule found something.
+  const warned = Boolean(selected?.reasons.length);
+  return <section className={"number-code-review" + (warned ? " warned" : "")} aria-label="Đối chiếu số và ký hiệu văn bản">
     {!targets.length ? <p>Chưa có vùng ảnh đủ thông tin vị trí. Hãy xem trang 1 của tài liệu gốc.</p> : <>
+      {warned && <strong>Cần kiểm tra số/ký hiệu</strong>}
       {targets.length > 1 && <div className="number-code-choices" aria-label="Các dòng số/ký hiệu">
         {targets.map((item, i) => <button type="button" key={item.review_key} disabled={disabled}
           aria-pressed={i === index} onClick={() => {cancelPreview(); setPreview(null); setChoice({result, file: sourceFile, index: i});}}>
@@ -66,19 +70,18 @@ export default function NumberCodeReview({result, sourceFile, disabled = false})
         </button>)}
       </div>}
       {selected && <>
-        {selected.reasons.length > 0 ? <ul className="number-code-warnings">{selected.reasons.map(reason => <li key={reason}>{NUMBER_REVIEW_REASONS[reason]}</li>)}</ul>
-          : <p>Chưa thấy dấu hiệu bất thường theo quy tắc. Vẫn cần đối chiếu số/ký hiệu với ảnh gốc.</p>}
-        {selected.text && <p className="number-code-original"><span>Văn bản nhận được:</span> <q>{selected.text}</q></p>}
-        {selected.polygon ? <>
+        {warned && <ul className="number-code-warnings">{selected.reasons.map(reason => <li key={reason}>{NUMBER_REVIEW_REASONS[reason]}</li>)}</ul>}
+        {warned && selected.text && <p className="number-code-original"><span>OCR đọc được:</span> <q>{selected.text}</q></p>}
+        {selected.polygon ? <div className="number-code-row">
           <Button type="button" variant="outline" size="sm" disabled={disabled || !sourceFile || current?.phase === "loading"} onClick={showPreview}>
             {current?.phase === "loading" ? "Đang mở ảnh…" : "Xem ảnh đối chiếu"}
           </Button>
-          {!sourceFile && <p>Chọn lại tài liệu gốc để mở ảnh đối chiếu.</p>}
-        </> : <p>Chưa có vị trí đáng tin cậy để cắt ảnh. Hãy đối chiếu toàn bộ trang 1 ở khung xem trước.</p>}
+          {!sourceFile ? <span>Chọn lại tài liệu gốc để mở ảnh.</span> : !warned && <span>Không thấy dấu hiệu bất thường.</span>}
+        </div> : <p>Chưa có vị trí đáng tin cậy để cắt ảnh. Hãy đối chiếu toàn bộ trang 1 ở khung xem trước.</p>}
         {current?.phase === "loading" && <p role="status">Đang dựng vùng ảnh từ tài liệu gốc.</p>}
         {current?.phase === "error" && <p role="alert">{current.error} Hãy xem tài liệu gốc ở khung xem trước.</p>}
         {current?.phase === "ready" && <figure><img src={current.url} alt={`Ảnh gốc đối chiếu số/ký hiệu, trang ${selected.page}${selected.line_index ? ` dòng ${selected.line_index}` : ""}`}/>
-          <figcaption>Ảnh từ tài liệu gốc. Sửa Mã văn bản phía trên nếu cần rồi xác nhận giá trị đã kiểm tra.</figcaption></figure>}
+          <figcaption>Ảnh từ tài liệu gốc. Sửa Mã văn bản phía trên nếu cần rồi bấm ✓.</figcaption></figure>}
       </>}
     </>}
   </section>;

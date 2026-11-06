@@ -27,11 +27,14 @@ afterEach(()=>{vi.restoreAllMocks();vi.unstubAllGlobals();});
 async function setup(names=["1.pdf","2.pdf","3.pdf"]){
   const user=userEvent.setup(); render(<App/>);
   await user.upload(screen.getByLabelText("Chọn tài liệu PDF hoặc ảnh"),names.map(file));
+  // New documents start in the fast header mode; one choice switches every pending document.
+  expect(Array.from(document.querySelectorAll(".input-queue li select"),s=>s.value).every(v=>v==="metadata_fast")).toBe(true);
+  await user.selectOptions(screen.getByLabelText("Phương pháp cho tất cả tài liệu"),"native_text");
   await waitFor(()=>expect(document.querySelector(".run-button").disabled).toBe(false));
   return user;
 }
 async function runBatch(user){
-  await user.click(screen.getByRole("button",{name:"Bóc tách tất cả tài liệu chưa xử lý"}));
+  await user.click(screen.getByRole("button",{name:/^Bóc tách tất cả \(/}));
   await screen.findByRole("tab",{name:"Danh sách văn bản",selected:true});
 }
 test("picker accepts duplicate names independently, add/drop/remove works before processing, export starts disabled",async()=>{
@@ -96,7 +99,7 @@ test.each(["native_text","metadata_fast"])("%s middle failure keeps results one/
 });
 test("unprocessed PDF cannot become an export row; invalid dates disable export",async()=>{
   const user=await setup(["1.pdf","2.pdf"]);
-  await user.click(screen.getByRole("button",{name:"Bóc tách văn bản"}));
+  await user.click(screen.getByRole("button",{name:"Bóc tách văn bản này"}));
   await waitFor(()=>expect(field("arcDocCode")?.value).toBe("001/NATIVE"));
   await user.click(list()); await user.click(screen.getByRole("button",{name:"Xuất danh sách Excel"}));
   expect(screen.getByRole("alertdialog").textContent).toContain("Xuất 1/2");
@@ -104,4 +107,24 @@ test("unprocessed PDF cannot become an export row; invalid dates disable export"
   await user.click(screen.getByRole("button",{name:"Mở thông tin tài liệu 1: 1.pdf"}));
   await user.clear(field("issuedDate")); await user.type(field("issuedDate"),"31-02-2026"); await user.click(list());
   expect(screen.getByRole("button",{name:"Xuất danh sách Excel"}).disabled).toBe(true);
+});
+test("the result panel switches between documents with previous/next and a file picker, keeping the tab",async()=>{
+  const user=await setup(); await runBatch(user);
+  await user.click(screen.getByRole("button",{name:"Mở thông tin tài liệu 1: 1.pdf"}));
+  expect(field("arcDocCode").value).toBe("001/NATIVE");
+  expect(screen.getByRole("button",{name:"Tài liệu trước"}).disabled).toBe(true);
+  const picker=screen.getByLabelText("Chọn tài liệu");
+  expect(Array.from(picker.options,o=>o.textContent)).toEqual(["File 1/3 · 1.pdf · Cần kiểm tra","File 2/3 · 2.pdf · Cần kiểm tra","File 3/3 · 3.pdf · Cần kiểm tra"]);
+  await user.click(screen.getByRole("button",{name:"Tài liệu sau"}));
+  expect(field("arcDocCode").value).toBe("002/NATIVE");
+  expect(screen.getByRole("tab",{name:"Thông tin văn bản",selected:true})).toBeTruthy();
+  await user.selectOptions(screen.getByLabelText("Chọn tài liệu"),screen.getByRole("option",{name:/^File 3\/3/}));
+  expect(field("arcDocCode").value).toBe("003/NATIVE");
+  expect(screen.getByRole("button",{name:"Tài liệu sau"}).disabled).toBe(true);
+  await user.click(screen.getByRole("tab",{name:"Toàn văn"}));
+  await user.click(screen.getByRole("button",{name:"Tài liệu trước"}));
+  expect(screen.getByRole("tab",{name:"Toàn văn",selected:true})).toBeTruthy();
+  expect(screen.getByLabelText("Chọn tài liệu").selectedOptions[0].textContent).toMatch(/^File 2\/3 · 2\.pdf/);
+  expect(document.querySelector(".input-queue li.active").textContent).toContain("2.pdf");
+  await user.click(list()); expect(screen.queryByLabelText("Chọn tài liệu")).toBeNull();
 });

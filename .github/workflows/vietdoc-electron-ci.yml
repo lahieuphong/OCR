@@ -175,6 +175,7 @@ jobs:
           fi
       - name: Upload smoke evidence (report, screenshots, backend logs; synthetic input only)
         if: always()
+        continue-on-error: true  # Evidence only: full artifact storage must not fail a smoke test that passed.
         uses: actions/upload-artifact@v4
         with:
           name: electron-smoke-${{ matrix.os }}
