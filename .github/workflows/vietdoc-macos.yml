@@ -102,16 +102,20 @@ jobs:
           npm --prefix demo/local_pdf_ocr/frontend ci --no-audit --no-fund
       - name: Test, freeze, package, verify and create DMG
         run: bash packaging/macos/build.sh
+      # About 350 MB each, so only when the owner asks for one with "Run workflow": keeping one per push
+      # and pull request used up the account's artifact storage. Every run still builds and tests the DMG.
       - name: Downloadable test DMG and SHA-256 (no models)
+        if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
         with:
           name: VietDoc-OCR-macOS-arm64
           path: ${{ env.OUT }}/download/
           if-no-files-found: error
-          retention-days: 30
+          retention-days: 7
           compression-level: 0
       - name: Build diagnostics (synthetic inputs only)
         if: always()
+        continue-on-error: true  # Evidence only: full artifact storage must not fail a build whose checks passed.
         uses: actions/upload-artifact@v4
         with:
           name: VietDoc-macOS-checks

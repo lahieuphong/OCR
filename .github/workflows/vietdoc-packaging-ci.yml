@@ -261,6 +261,7 @@ jobs:
 
       - name: Keep reports and build manifests only (never the builds)
         if: always() && steps.stage.outcome == 'success'
+        continue-on-error: true  # Evidence only: full artifact storage must not fail a build whose checks passed.
         uses: actions/upload-artifact@v4
         with:
           name: vietdoc-packaging-reports
