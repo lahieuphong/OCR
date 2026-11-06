@@ -8,6 +8,7 @@ import {FIELD_KEYS} from "./lib/documentFields.js";
 import {syntheticDocument} from "./test/fixtures/administrativeDocuments.js";
 import {fastMetadataDocument, DECREE_SUBJECT} from "./test/fixtures/fastMetadata.js";
 import {FAST_MODE_LABEL, FAST_MODE_DESCRIPTION} from "./lib/processingModes.js";
+import {pick} from "./test/select.js";
 import {STAMP_TEST_SUBJECT,stampSubjectDocument} from "./test/fixtures/stampSubject.js";
 
 let blobs, apiResults;
@@ -171,7 +172,7 @@ describe("explicit fast metadata mode", () => {
 describe("metadata UI integration", () => {
   test("opens metadata after successful extraction and renders the exact 22 labeled controls", async () => {
     await start();
-    expect(document.querySelectorAll(".metadata-field input, .metadata-field select, .metadata-field textarea").length).toBe(22);
+    expect(document.querySelectorAll(".metadata-field input, .metadata-field [role=combobox], .metadata-field textarea").length).toBe(22);
     expect(field("arcDocCode").value).toBe("00103/TEST-CN");
     expect(field("issuedDate").value).toBe("08-10-2026");
     expect(field("docId").readOnly).toBe(true); expect(field("docId").value).toBe("");
@@ -272,9 +273,9 @@ describe("metadata UI integration", () => {
     const storage = vi.spyOn(Storage.prototype, "setItem");
     const user = await start();
     await user.click(screen.getByText("Tình trạng và xử lý", {exact:true}));
-    await user.selectOptions(field("isCan"), "0");
+    await pick(user, field("isCan"), "0");
     expect(field("confidenceLevel").value).toBe("01");
-    await user.selectOptions(field("isCan"), "1");
+    await pick(user, field("isCan"), "1");
     expect(field("confidenceLevel").value).toBe("02");
     expect(storage).not.toHaveBeenCalled();
     expect(fetch.mock.calls.every(([url]) => ["/api/health","/api/ocr"].includes(url))).toBe(true);

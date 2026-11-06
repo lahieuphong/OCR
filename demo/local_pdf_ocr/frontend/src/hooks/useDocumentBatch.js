@@ -33,7 +33,6 @@ export default function useDocumentBatch(health) {
   const canRunMode = (mode, name = active?.name || "") => health === "connected"
     || (health === "not-ready" && (mode === "native_text" || (mode === "metadata_fast" && /\.pdf$/iu.test(name))));
   const canRun = canRunMode(selectedMode);
-  const pending = documents.filter(doc => !doc.resultsByMode[doc.mode]);
   // "Bóc tách tất cả" runs EVERY document of the list with its own method, processed or not.
   const canRunBatch = documents.length > 0 && documents.every(doc => canRunMode(doc.mode, doc.name));
   const resumable = resumeIds.map(id => documents.find(doc => doc.id === id)).filter(Boolean);
@@ -90,7 +89,8 @@ export default function useDocumentBatch(health) {
     const apply = () => {
       dispatch({type:"remove",id});
       if (activeId === id) {
-        const next = documents.find(item => item.id !== id);
+        const index = documents.findIndex(item => item.id === id);
+        const next = documents[index + 1] || documents[index - 1];
         setActiveId(next?.id || null); setActiveView(next?.metadataByMode[next.mode] ? "metadata" : "text");
       }
       setError("");
@@ -203,7 +203,7 @@ export default function useDocumentBatch(health) {
     pendingDiscard,setPendingDiscard,working,elapsed,error:uiError || active?.errorsByMode[selectedMode] || "",setError,
     activeView,setActiveView,canRun,canRunBatch,batchProgress,chooseFiles,selectDocument,removeDocument,changeMode,restoreMetadata,
     runOcr,runBatch:runAll,confirmDocument,resumeCount:resumable.length,resume:() => process(resumable,true),
-    pendingCount:pending.length,failedCount:failed.length,canRunFailed,runFailed:() => process(failed,true),
+    failedCount:failed.length,canRunFailed,runFailed:() => process(failed,true),
     changeModeForAll,pause,pausing,notice,dismissNotice:() => setNotice(""),
     setIncluded:(id,checked) => update(id, doc => ({...doc,includeInExport:checked}))};
 }

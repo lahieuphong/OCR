@@ -43,7 +43,7 @@ async function runFastSmoke({wc, js, clickResultTab, setInputFile, waitFor, scre
     }
   }
   async function values() {
-    await wait(() => js(`document.querySelectorAll('.metadata-field input, .metadata-field select, .metadata-field textarea').length === 22`), 'fast metadata form must have22fields');
+    await wait(() => js(`document.querySelectorAll('.metadata-field input, .metadata-field [role=combobox], .metadata-field textarea').length === 22`), 'fast metadata form must have22fields');
     return js(`Object.fromEntries(${JSON.stringify(KEYS)}.map(key => [key, document.querySelector('#metadata-'+key).value]))`);
   }
   async function editSubject(value) {
@@ -153,13 +153,8 @@ async function runFastSmoke({wc, js, clickResultTab, setInputFile, waitFor, scre
     await clearQueue();
     const files = [pdf, path.join(batchDir, 'decision.pdf'), path.join(batchDir, 'resolution.pdf')];
     await setInputFile(wc, files);
-    await wait(() => js(`document.querySelectorAll('.input-queue li select').length === 3`), 'three fast inputs were not selected');
-    for (let index=0; index<3; index++) {
-      await js(`(() => { const field=document.querySelectorAll('.input-queue li select')[${index}];
-        Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(field,'metadata_fast');
-        field.dispatchEvent(new Event('change',{bubbles:true})); })()`);
-    }
-    assert.deepEqual(await js(`Array.from(document.querySelectorAll('.input-queue li select'), x=>x.value)`), ['metadata_fast','metadata_fast','metadata_fast']);
+    await wait(() => js(`document.querySelectorAll('.input-queue li').length === 3`), 'three fast inputs were not selected');
+    assert.deepEqual(await js(`Array.from(document.querySelectorAll('.input-queue li'), row=>row.dataset.mode)`), ['metadata_fast','metadata_fast','metadata_fast']);
     await js(`window.__vietdocFastQA.requests=[]; window.__vietdocFastQA.peak=0; document.querySelector('.batch-run-button').click(); true`);
     await wait(() => js(`document.querySelectorAll('.batch-table tbody tr').length === 3
       && document.querySelectorAll('.batch-status.review, .batch-status.extracted').length === 3`), 'fast batch did not complete', 180_000);
@@ -188,7 +183,7 @@ async function runFastSmoke({wc, js, clickResultTab, setInputFile, waitFor, scre
     assert.equal((await values()).subject, subject, 'fast document edits must survive switches');
     // The result panel's document switcher: "next" opens File 2 on the same tab, with its own values.
     await js(`document.querySelector('.document-nav button[aria-label="Tài liệu sau"]').click(); true`);
-    await wait(() => js(`document.querySelector('.document-nav select')?.selectedOptions[0]?.textContent.startsWith('File 2/3')`), 'document switcher did not open File 2');
+    await wait(() => js(`document.querySelector('.document-nav [role=combobox]')?.textContent.startsWith('File 2/3')`), 'document switcher did not open File 2');
     assert.equal((await values()).arcDocCode, expected[1].arcDocCode, 'File 2 must show its own metadata');
     // Evidence only: a DevTools capture renders a fresh frame (capturePage can return a stale one here).
     try {
@@ -196,7 +191,10 @@ async function runFastSmoke({wc, js, clickResultTab, setInputFile, waitFor, scre
       const shot = await wc.debugger.sendCommand('Page.captureScreenshot', {format: 'png'});
       fs.writeFileSync(path.join(smokeDir, '08a_document_switcher.png'), Buffer.from(shot.data, 'base64'));
     } catch { await screenshot('08a_document_switcher.png'); } finally { try { wc.debugger.detach(); } catch { /* not attached */ } }
-    checks.fast_document_switcher = {options:await js(`document.querySelectorAll('.document-nav option').length`), file2:true};
+    await js(`document.querySelector('.document-nav [role=combobox]').click(); true`);
+    await wait(() => js(`document.querySelectorAll('[role=option]').length === 3`), 'document switcher must list the three documents');
+    checks.fast_document_switcher = {options:await js(`document.querySelectorAll('[role=option]').length`), file2:true};
+    await js(`document.querySelector('.document-nav [role=combobox]').click(); true`);
     fs.writeFileSync(path.join(smokeDir, 'fast_batch_expected.json'), JSON.stringify(expected, null, 2), 'utf8');
     fs.writeFileSync(path.join(smokeDir, 'fast_batch_responses.json'), JSON.stringify(requests, null, 2), 'utf8');
     await clickResultTab('Danh sách văn bản');
