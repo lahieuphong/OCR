@@ -652,7 +652,7 @@ async function runSmoke() {
   c.images = {};
   for (const name of ['synthetic_ui.png', 'synthetic_ui.jpg']) {
     await setInputFile(wc, path.join(inputs, name));
-    c.images[name] = await waitFor(() => js(`(() => { const img = document.querySelector('.image-view img');
+    c.images[name] = await waitFor(() => js(`(() => { const img = document.querySelector('.preview-layer.shown .image-view img');
       const name = document.querySelector('.selected-file strong')?.textContent;
       return img && img.complete && img.naturalWidth > 0 && name === ${JSON.stringify(name)}
         ? { preview_px: [img.naturalWidth, img.naturalHeight], mode: document.querySelector('input[name=mode]:checked')?.value,

@@ -160,7 +160,17 @@
 .selected-file button { flex: none; height: 26px; font-size: 11.5px; color: #475569; }
 .selected-file button:first-of-type { margin-left: auto; }
 .selected-file button[aria-expanded] { width: 26px; }
-.preview-placeholder, .pdf-view, .image-view { flex: 1; width: 100%; min-height: 160px; border: 0; }
+.preview-placeholder { flex: 1; width: 100%; min-height: 160px; border: 0; }
+.preview-stage { flex: 1; min-height: 0; position: relative; overflow: hidden; }
+/* Each layer is opaque: the one on screen fully hides the next document loading underneath. */
+.preview-layer { position: absolute; inset: 0; z-index: 1; background: #f8fafc; transition: opacity .12s ease-out; }
+.preview-layer.shown { z-index: 2; }
+.preview-layer.leaving { z-index: 3; opacity: 0; pointer-events: none; }
+.pdf-view, .image-view { width: 100%; height: 100%; border: 0; }
+/* Only for documents slow enough to notice: a small PDF is on screen before it would appear. */
+.preview-loading { position: absolute; inset: 0 0 auto; z-index: 4; height: 2px; opacity: 0; background: linear-gradient(90deg, transparent, #2563eb, transparent) no-repeat; background-size: 40% 100%; animation: preview-loading-in .15s .5s forwards, preview-loading-slide 1.1s linear infinite; }
+@keyframes preview-loading-in { to { opacity: 1; } }
+@keyframes preview-loading-slide { from { background-position: -70% 0; } to { background-position: 170% 0; } }
 .preview-placeholder { display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 10px; color: #94a3b8; font-size: 12px; }
 .pdf-view { display: block; background: #e2e8f0; }
 .image-view { display: flex; align-items: center; justify-content: center; overflow: auto; padding: 8px; }
@@ -388,7 +398,7 @@
   .input-queue, .input-queue:has(~ .preview-area.collapsed) { flex: none; max-height: 320px; }
   .preview-area { flex: none; min-height: 260px; }
   .preview-area.collapsed { min-height: 0; }
-  .preview-area .pdf-view, .preview-area .image-view, .preview-area .preview-placeholder { height: 260px; }
+  .preview-area .preview-stage, .preview-area .preview-placeholder { flex: none; height: 260px; }
   .pane-footer { position: sticky; bottom: 0; z-index: 3; border-radius: 0 0 14px 14px; box-shadow: 0 -6px 16px #0f172a0d; }
   .right-pane { min-height: 640px; }
   .topbar-right .local-label { display: none; }
@@ -405,6 +415,6 @@
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; }
-  .select-content { animation: none; }
+  .select-content, .preview-loading { animation: none; }
   .spin { animation-duration: 2.5s; }
 }

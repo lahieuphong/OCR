@@ -16,6 +16,7 @@ import DocumentMetadata from "@/components/DocumentMetadata.jsx";
 import ConfirmDialog from "@/components/ConfirmDialog.jsx";
 import DocumentList from "@/components/DocumentList.jsx";
 import DocumentNavigator from "@/components/DocumentNavigator.jsx";
+import DocumentPreview from "@/components/DocumentPreview.jsx";
 import DocumentQueue from "@/components/DocumentQueue.jsx";
 import useDocumentBatch from "@/hooks/useDocumentBatch.js";
 import {EXCEL_FILENAME} from "@/lib/excelExport.js";
@@ -213,9 +214,7 @@ export default function App() {
                       {previewOpen ? <ChevronDown size={15}/> : <ChevronUp size={15}/>}
                     </Button>
                   </div>}
-                  {previewOpen && (preview ? isPDF
-                    ? <iframe className="pdf-view" src={preview + "#toolbar=0"} title="Bản xem trước PDF"/>
-                    : <div className="image-view"><img src={preview} alt="Bản xem trước tài liệu"/></div>
+                  {previewOpen && (preview ? <DocumentPreview url={preview} isPDF={isPDF} size={document?.size}/>
                     : <div className="preview-placeholder"><FileText size={28} strokeWidth={1.3}/><span>Chọn một tài liệu để xem trước</span></div>)}
                 </div>
               </>}
