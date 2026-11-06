@@ -1,6 +1,7 @@
 import {expect, test} from "vitest";
 import {createBatchDocument} from "./documentBatch.js";
-import {queueCounts, queueRows, searchKey, subfolder, visibleRows} from "./documentQueue.js";
+import {queueCounts, queueRows, subfolder, visibleRows} from "./documentQueue.js";
+import {searchKey} from "./utils.js";
 
 const doc = (path, state = {}) => {
   const name = path.split("/").at(-1);

@@ -5,6 +5,7 @@ import {Badge} from "@/components/ui/badge";
 import {Alert, AlertDescription} from "@/components/ui/alert";
 import ConfirmDialog from "./ConfirmDialog.jsx";
 import NumberCodeReview from "./NumberCodeReview.jsx";
+import Select from "@/components/ui/select.jsx";
 import {CATALOGS, FIELD_GROUPS, FIELD_KEYS, FIELD_LABELS, READ_ONLY, STATUS_LABELS,
   serializeDocumentFields, validateDocumentDraft} from "@/lib/documentFields.js";
 
@@ -86,8 +87,9 @@ export default function DocumentMetadata({draft, onEdit, onConfirmField, onReset
           const note = TOOLTIP_ONLY.has(key) || (key === "typeName" && draft.typeLabel) ? "" : visibleNote(entry.note);
           // Read-only fields follow Mã văn bản / the source and cannot be confirmed on their own: no badge.
           const showStatus = !READ_ONLY.has(key) && (entry.status === "review" || entry.status === "confirmed");
+          const edit = value => {onEdit(key, value); setMessage("");};
           const controlProps = {id: `metadata-${key}`, name: key, value: entry.value,
-            onChange: event => {onEdit(key, event.target.value); setMessage("");},
+            onChange: event => edit(event.target.value),
             "aria-invalid": Boolean(invalid), "aria-describedby": `metadata-${key}-help`, title: entry.note || undefined};
           return <div className={`metadata-field status-${entry.status}` + (["subject","organName","description"].includes(key) ? " wide-field" : "")} key={key}>
             <div className="field-heading"><label htmlFor={controlProps.id}>{FIELD_LABELS[key]}</label>
@@ -97,7 +99,8 @@ export default function DocumentMetadata({draft, onEdit, onConfirmField, onReset
                 <div className="field-evidence-popover">{entry.evidence.map((source, i) => <blockquote key={i}>{source.page && <span>Trang {source.page}, dòng {source.line}{source.precision === "block" ? " · vị trí theo khối" : ""}</span>}{source.text}</blockquote>)}</div>
               </details>}
             </div>
-            {CATALOGS[key] ? <select {...controlProps}><option value="">Chưa xác định</option>{Object.entries(CATALOGS[key]).sort(([a],[b]) => a.localeCompare(b)).map(([code,label]) => <option value={code} key={code}>{code} · {label}</option>)}</select>
+            {CATALOGS[key] ? <Select {...controlProps} onChange={edit} popupMinWidth={180} options={[{value:"",label:"Chưa xác định"},
+              ...Object.entries(CATALOGS[key]).sort(([a],[b]) => a.localeCompare(b)).map(([code,label]) => ({value:code,label:`${code} · ${label}`}))]}/>
               : ["subject","description","autograph"].includes(key) ? <textarea {...controlProps} rows={key === "subject" ? 3 : 2} placeholder="Chưa xác định"/>
                 : <input {...controlProps} type="text" readOnly={READ_ONLY.has(key)} placeholder={key === "docId" ? "Luôn để trống" : key === "issuedDate" ? "DD-MM-YYYY" : "Chưa xác định"}/>}
             {(invalid || note || entry.candidate) && <div id={`metadata-${key}-help`} className="field-help">

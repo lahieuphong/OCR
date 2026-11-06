@@ -9,6 +9,7 @@ import {Card} from "@/components/ui/card";
 import {Badge} from "@/components/ui/badge";
 import {Tabs, TabsList, TabsTrigger, TabsContent} from "@/components/ui/tabs";
 import {Alert, AlertTitle, AlertDescription} from "@/components/ui/alert";
+import Select from "@/components/ui/select.jsx";
 import {Tooltip, TooltipContent, TooltipProvider, TooltipTrigger} from "@/components/ui/tooltip";
 import {Progress} from "@/components/ui/progress";
 import DocumentMetadata from "@/components/DocumentMetadata.jsx";
@@ -224,11 +225,8 @@ export default function App() {
               <fieldset className="ocr-mode-selector" disabled={!document || working}>
                 <legend>Phương pháp xử lý</legend>
                 {documents.length > 1 && <label className="queue-bulk-mode"><span>Áp dụng cho cả {documents.length} tài liệu</span>
-                  <select aria-label="Phương pháp cho tất cả tài liệu" value="" disabled={working}
-                    onChange={event => {if (event.target.value) changeModeForAll(event.target.value);}}>
-                    <option value="">Chọn…</option>
-                    {["metadata_fast","native_text","vietocr_ocr","hybrid_h1"].map(mode => <option key={mode} value={mode}>{PROCESSING_LABELS[mode]}</option>)}
-                  </select></label>}
+                  <Select ariaLabel="Phương pháp cho tất cả tài liệu" value="" placeholder="Chọn…" disabled={working} popupMinWidth={250} onChange={changeModeForAll}
+                    options={["metadata_fast","native_text","vietocr_ocr","hybrid_h1"].map(mode => ({value:mode,label:PROCESSING_LABELS[mode]}))}/></label>}
                 <div className="mode-grid">
                   {modeOptions.filter(option => !(option.mode === "hybrid_h1" && !isPDF)).map(({mode, icon: Icon, name, hint, pdfOnly}) => {
                     const unavailable = pdfOnly && !isPDF;

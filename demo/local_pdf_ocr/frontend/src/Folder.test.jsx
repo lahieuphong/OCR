@@ -6,6 +6,7 @@ import userEvent from "@testing-library/user-event";
 import App from "./App.jsx";
 import {syntheticDocument} from "./test/fixtures/administrativeDocuments.js";
 import {fastMetadataDocument} from "./test/fixtures/fastMetadata.js";
+import {pick} from "./test/select.js";
 
 function folderFile(path, size) {
   // Same lastModified for the same path: the file the folder picker returns again.
@@ -62,9 +63,9 @@ test("a chosen folder adds its PDFs and images in folder order, fast mode by def
 
 test("one method can be applied to every document; images keep a mode they support", async () => {
   const user = await chooseFolder([folderFile("d/1.pdf"), folderFile("d/2.png"), folderFile("d/3.pdf")]);
-  await user.selectOptions(screen.getByLabelText("Phương pháp cho tất cả tài liệu"), "native_text");
+  await pick(user, screen.getByLabelText("Phương pháp cho tất cả tài liệu"), "native_text");
   expect(modes()).toEqual(["native_text", "metadata_fast", "native_text"]);
-  await user.selectOptions(screen.getByLabelText("Phương pháp cho tất cả tài liệu"), "vietocr_ocr");
+  await pick(user, screen.getByLabelText("Phương pháp cho tất cả tài liệu"), "vietocr_ocr");
   expect(modes()).toEqual(["vietocr_ocr", "vietocr_ocr", "vietocr_ocr"]);
 });
 

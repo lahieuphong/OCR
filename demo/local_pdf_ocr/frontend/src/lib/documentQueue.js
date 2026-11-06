@@ -1,4 +1,5 @@
 import {batchDocumentStatus} from "./documentBatch.js";
+import {searchKey} from "./utils.js";
 
 // How the left list is viewed when it holds hundreds of documents. Search and filters only change
 // what is shown: "Bóc tách tất cả" always runs the whole list.
@@ -11,10 +12,6 @@ export const QUEUE_FILTERS = [
 ];
 const FILTER_OF_STATUS = {pending:"pending",processing:"pending",extracted:"done",confirmed:"done",review:"review",error:"error"};
 
-// Names are often typed without accents: "quyet dinh" finds "Quyết định".
-export function searchKey(text) {
-  return String(text ?? "").normalize("NFD").replace(/\p{M}/gu, "").replace(/đ/giu, "d").toLowerCase();
-}
 export function queueRows(documents) {
   return documents.map((doc, index) => {
     const status = batchDocumentStatus(doc);

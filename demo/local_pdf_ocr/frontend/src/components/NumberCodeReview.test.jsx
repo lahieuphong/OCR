@@ -106,7 +106,7 @@ describe("number code image review", () => {
         onConfirmField={key => setDraft(old => confirmDocumentField(old, key))} onReset={() => {}} onExport={() => {}}/>;
     }
     render(<Harness/>); const user = userEvent.setup();
-    expect(document.querySelectorAll(".metadata-field input, .metadata-field select, .metadata-field textarea")).toHaveLength(22);
+    expect(document.querySelectorAll(".metadata-field input, .metadata-field [role=combobox], .metadata-field textarea")).toHaveLength(22);
     await user.click(screen.getByRole("button", {name: "Xem ảnh đối chiếu"})); await screen.findByRole("img");
     expect(currentDraft.fields.arcDocCode.status).toBe("review");
     await user.click(screen.getByRole("button", {name: "Xác nhận Mã văn bản"}));

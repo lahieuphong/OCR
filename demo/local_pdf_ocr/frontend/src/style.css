@@ -170,7 +170,7 @@
 .ocr-mode-selector { margin: 0; padding: 0; border: 0; min-width: 0; }
 .ocr-mode-selector legend { float: left; margin: 0; padding: 0; font-size: 11px; font-weight: 600; color: #475569; text-transform: uppercase; letter-spacing: .4px; line-height: 26px; }
 .queue-bulk-mode { float: right; display: flex; align-items: center; gap: 6px; height: 26px; color: #64748b; font-size: 11px; }
-.queue-bulk-mode select { width: 92px; height: 24px; padding: 0 4px; border: 1px solid var(--border); border-radius: 6px; background: #fff; color: #334155; font: inherit; font-size: 11px; }
+.queue-bulk-mode .select-trigger { width: 92px; height: 24px; padding: 0 5px 0 8px; border-radius: 6px; font-size: 11px; }
 /* One row of methods; two rows when the column is too narrow for their names. */
 .mode-grid { clear: both; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 6px; padding-top: 4px; }
 @container (max-width: 530px) { .mode-option { padding: 0 4px; justify-content: center; } .mode-option > svg:not(.mode-done) { display: none; } .mode-option .mode-name { font-size: 11.5px; } }
@@ -221,7 +221,8 @@
 .toolbar-actions button:hover { color: #2563eb; background: #eff6ff; }
 .action-wrap { display: inline-flex; border-radius: 8px; }
 .document-nav { flex: none; display: flex; align-items: center; gap: 6px; margin: 0 16px 8px; }
-.document-nav select { flex: 1; min-width: 0; height: 32px; border: 1px solid var(--border); border-radius: 8px; padding: 0 10px; background: #fff; color: #0f172a; font: inherit; font-size: 12px; font-weight: 600; }
+.document-nav .select-trigger { flex: 1; width: auto; }
+.document-nav .select-label { font-weight: 600; }
 .document-nav button { width: 32px; height: 32px; flex: none; border-radius: 8px; }
 .copy-feedback { display: flex; align-items: center; gap: 5px; color: #15803d; font-size: 11px; margin: -4px 16px 6px; }
 .result-meta { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin: 0 16px 8px; }
@@ -256,6 +257,26 @@
   .pane-footer { gap: 6px; padding-block: 10px; }
   .preview-area { min-height: 110px; }
 }
+/* The app's dropdown (components/ui/select.jsx). */
+.select-trigger { display: inline-flex; align-items: center; gap: 6px; width: 100%; min-width: 0; height: 32px; padding: 0 8px 0 10px; border: 1px solid var(--border); border-radius: 8px; background: #fff; color: #0f172a; font: inherit; font-size: 12px; text-align: left; cursor: pointer; transition: border-color .15s, box-shadow .15s, background-color .15s; }
+.select-trigger:hover:not(:disabled) { border-color: #bfdbfe; }
+.select-trigger:focus-visible, .select-trigger[aria-expanded="true"] { outline: 0; border-color: #60a5fa; box-shadow: 0 0 0 1px #60a5fa; }
+.select-trigger:disabled { background: #f8fafc; color: #94a3b8; cursor: not-allowed; }
+.select-value { flex: 1; min-width: 0; display: flex; align-items: center; gap: 7px; }
+.select-value.placeholder { color: #64748b; }
+.select-chevron { flex: none; color: #94a3b8; transition: transform .15s; }
+.select-trigger[aria-expanded="true"] .select-chevron { transform: rotate(180deg); color: #2563eb; }
+.select-label { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.select-prefix { flex: none; color: #64748b; font-size: 11px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.select-hint { flex: none; margin-left: auto; padding-left: 6px; color: #64748b; font-size: 10.5px; font-weight: 400; }
+.select-content { z-index: 50; margin: 0; padding: 4px; overflow: auto; list-style: none; border: 1px solid var(--border); border-radius: 10px; background: #fff; box-shadow: 0 2px 4px #0f172a0d, 0 12px 28px #0f172a24; animation: select-in .1s ease-out; }
+.select-option { display: flex; align-items: center; gap: 7px; min-height: 30px; padding: 4px 8px; border-radius: 6px; color: #334155; font-size: 12px; cursor: pointer; content-visibility: auto; contain-intrinsic-block-size: 30px; }
+.select-option.active { background: #eff6ff; color: #1d4ed8; }
+.select-option.selected { color: #1d4ed8; font-weight: 600; }
+.select-check { flex: none; margin-left: auto; color: #2563eb; }
+.select-hint + .select-check { margin-left: 0; }
+@keyframes select-in { from { opacity: 0; transform: translateY(-2px); } }
+
 /* Thin scrollbars in the app's slate/blue tones (Chromium/Electron). */
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { background: transparent; }
@@ -321,12 +342,13 @@
 .field-status.review { color: #92400e; background: #fffbeb; border-color: #fde68a; }
 .field-status.confirmed { color: #15803d; background: #f0fdf4; border-color: #bbf7d0; }
 .confirm-field { display: grid; place-items: center; border: 1px solid #e2e8f0; width: 19px; height: 19px; border-radius: 5px; color: #15803d; background: #fff; }
-.metadata-field input, .metadata-field select, .metadata-field textarea { width: 100%; min-width: 0; border: 1px solid #cbd5e1; border-radius: 6px; padding: 7px 9px; color: #334155; background: #fff; font: inherit; font-size: 12px; line-height: 1.6; }
+.metadata-field input, .metadata-field textarea { width: 100%; min-width: 0; border: 1px solid #cbd5e1; border-radius: 6px; padding: 7px 9px; color: #334155; background: #fff; font: inherit; font-size: 12px; line-height: 1.6; }
 .metadata-field textarea { resize: vertical; min-height: 58px; }
 .metadata-field input[readonly] { background: #f8fafc; color: #64748b; }
 .metadata-field [aria-invalid="true"] { border-color: #dc2626; }
-.metadata-field.status-review input:not([readonly]), .metadata-field.status-review select, .metadata-field.status-review textarea { border-color: #fcd34d; background: #fffdf5; }
-.metadata-field.status-confirmed input, .metadata-field.status-confirmed select, .metadata-field.status-confirmed textarea { border-color: #bbf7d0; }
+.metadata-field.status-review input:not([readonly]), .metadata-field.status-review .select-trigger, .metadata-field.status-review textarea { border-color: #fcd34d; background: #fffdf5; }
+.metadata-field.status-confirmed input, .metadata-field.status-confirmed .select-trigger, .metadata-field.status-confirmed textarea { border-color: #bbf7d0; }
+.metadata-field .select-trigger { height: auto; min-height: 35px; padding: 7px 7px 7px 9px; border-color: #cbd5e1; border-radius: 6px; color: #334155; line-height: 1.6; }
 .metadata-field input::placeholder, .metadata-field textarea::placeholder { color: #94a3b8; }
 .field-help { margin-top: 4px; font-size: 10px; color: #64748b; }
 .field-help p { margin: 0; line-height: 1.6; }
@@ -383,5 +405,6 @@
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; }
+  .select-content { animation: none; }
   .spin { animation-duration: 2.5s; }
 }

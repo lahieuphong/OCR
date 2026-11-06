@@ -32,7 +32,7 @@ test("only review and confirmed fields carry a status badge; empty fields rely o
   for (const key of ["codeNumber", "codeNotation", "numberOfPage"]) expect(document.getElementById(`metadata-${key}`).closest(".metadata-field").querySelector(".field-status")).toBeNull();
   expect(document.body.textContent).not.toContain("Chưa xác định Mã tài liệu");
   expect(screen.getByPlaceholderText("Luôn để trống").id).toBe("metadata-docId");
-  expect(document.querySelectorAll(".metadata-field input, .metadata-field select, .metadata-field textarea")).toHaveLength(22);
+  expect(document.querySelectorAll(".metadata-field input, .metadata-field [role=combobox], .metadata-field textarea")).toHaveLength(22);
 });
 
 test("a real warning stays visible next to its field", () => {

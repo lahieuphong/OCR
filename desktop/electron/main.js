@@ -483,7 +483,7 @@ async function runSmoke() {
       return s ? { ok: true, stats: s.textContent.replace(/\\s+/g, ' ').trim() } : e ? { ok: false, error: e.textContent.trim() } : null; })()`), 120_000);
     if (c.ui_native_text) c.ui_native_text.elapsed_ms = Date.now() - t0;
     assert.equal(await js(`document.querySelector('[role=tab][data-state=active]')?.textContent`), 'Thông tin văn bản', 'successful extraction must open metadata');
-    c.metadata = await js(`({ fields: document.querySelectorAll('.metadata-field input, .metadata-field select, .metadata-field textarea').length,
+    c.metadata = await js(`({ fields: document.querySelectorAll('.metadata-field input, .metadata-field [role=combobox], .metadata-field textarea').length,
       doc_id: document.querySelector('#metadata-docId').value,
       page_count: document.querySelector('#metadata-numberOfPage').value,
       stamp: document.querySelector('#metadata-isCan').value,
@@ -689,9 +689,9 @@ async function runSmoke() {
     assert.ok(await waitFor(() => js(`document.querySelectorAll('.input-queue li').length === 3`), 5000));
     assert.deepEqual(await js(`Array.from(document.querySelectorAll('.input-queue li'), row => row.dataset.mode)`), ['metadata_fast','metadata_fast','metadata_fast']);
     // One choice for every pending document (the bulk method control), as a user would do for a full-text batch.
-    await js(`(() => { const s = document.querySelector('.queue-bulk-mode select');
-      Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(s, 'native_text');
-      s.dispatchEvent(new Event('change', {bubbles: true})); return true; })()`);
+    await js(`document.querySelector('.queue-bulk-mode [role=combobox]').click(); true`);
+    assert.ok(await waitFor(() => js(`Boolean(document.querySelector('[role=option][data-value=native_text]'))`), 5000), 'the bulk method dropdown must open');
+    await js(`document.querySelector('[role=option][data-value=native_text]').click(); true`);
     assert.ok(await waitFor(() => js(`Array.from(document.querySelectorAll('.input-queue li'), row => row.dataset.mode).every(v => v === 'native_text')`), 5000),
       'the bulk method must switch the three pending PDFs to native_text');
     await js(`(() => {
@@ -721,7 +721,7 @@ async function runSmoke() {
       const editedSubject = '=VietDoc kiểm thử Excel – chỉnh sửa riêng tài liệu thứ nhất';
       for (let index = 0; index < 3; index++) {
         await js(`document.querySelectorAll('.open-document')[${index}].click(); true`);
-        assert.ok(await waitFor(() => js(`document.querySelectorAll('.metadata-field input, .metadata-field select, .metadata-field textarea').length === 22`), 5000));
+        assert.ok(await waitFor(() => js(`document.querySelectorAll('.metadata-field input, .metadata-field [role=combobox], .metadata-field textarea').length === 22`), 5000));
         if (index === 0) await js(`(() => { const field=document.querySelector('#metadata-subject');
           Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(field,${JSON.stringify(editedSubject)});
           field.dispatchEvent(new Event('input',{bubbles:true})); })()`);
