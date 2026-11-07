@@ -1,14 +1,8 @@
 name: VietDoc macOS DMG (Apple Silicon)
 
+# No run on push to main: a merge is the code its pull request already built, and macOS is the most expensive
+# runner by far. Run workflow builds a DMG to download.
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'desktop/**'
-      - 'demo/local_pdf_ocr/**'
-      - 'packaging/**'
-      - 'PaddleOCR/**'
-      - '.github/workflows/vietdoc-macos.yml'
   pull_request:
     branches: [main]
     paths:

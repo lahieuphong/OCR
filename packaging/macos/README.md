@@ -5,7 +5,7 @@ Bản DMG chứa Electron, giao diện và Python backend native arm64; máy tes
 
 ## Tải và mở
 
-1. Mở GitHub → Actions → **VietDoc macOS DMG (Apple Silicon)** → **Run workflow** để build một bản mới, rồi mở lần chạy đó khi đã xong. Lần chạy tự động sau mỗi push/PR vẫn kiểm tra DMG nhưng không lưu file để tải.
+1. Mở GitHub → Actions → **VietDoc macOS DMG (Apple Silicon)** → **Run workflow** để build một bản mới, rồi mở lần chạy đó khi đã xong. Lần chạy tự động ở mỗi PR vẫn kiểm tra DMG nhưng không lưu file để tải.
 2. Tải artifact **VietDoc-OCR-macOS-arm64**, giải nén. Chạy `shasum -a 256 -c SHA256SUMS.txt` tại thư mục đó để kiểm tra file.
 3. Mở `.dmg`, kéo **VietDoc OCR.app** vào **Applications**, eject ổ đĩa rồi mở app trong Applications.
 
