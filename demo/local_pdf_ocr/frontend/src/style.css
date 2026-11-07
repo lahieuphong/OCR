@@ -287,13 +287,13 @@
 .select-hint + .select-check { margin-left: 0; }
 @keyframes select-in { from { opacity: 0; transform: translateY(-2px); } }
 
-/* Thin scrollbars in the app's slate/blue tones (Chromium/Electron). */
+/* One thin scrollbar everywhere, in the app's slate/blue tones (Chromium/Electron). The same rules are in the status
+   window and the PDF preview: desktop/electron/lib/pdf-viewer-style.js. */
 ::-webkit-scrollbar { width: 10px; height: 10px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; border: 3px solid transparent; background-clip: content-box; }
-::-webkit-scrollbar-thumb:hover { background: #94a3b8; border: 2px solid transparent; background-clip: content-box; }
-::-webkit-scrollbar-thumb:active { background: #2563eb; border: 2px solid transparent; background-clip: content-box; }
-::-webkit-scrollbar-corner { background: transparent; }
+::-webkit-scrollbar-thumb { min-width: 32px; min-height: 32px; background: #cbd5e1 content-box; border: 3px solid transparent; border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background-color: #94a3b8; border-width: 2px; }
+::-webkit-scrollbar-thumb:active { background-color: #2563eb; border-width: 2px; }
+::-webkit-scrollbar-track, ::-webkit-scrollbar-corner { background: transparent; }
 
 .metadata-unverified-candidate { margin-top: 8px; padding: 8px; border: 1px solid #fcd34d; border-radius: 6px; background: #fffbeb; color: #78350f; }
 .metadata-unverified-candidate summary { font-weight: 600; cursor: pointer; }
