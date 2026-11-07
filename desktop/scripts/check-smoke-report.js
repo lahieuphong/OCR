@@ -67,6 +67,8 @@ function checkReport(report, { expect = 'no-models', withPdf = false, withFast =
         `OCR request without models: ${JSON.stringify(c.api_vietocr_ocr)} (503 "chặn OCR" expected)`);
     }
     if (!(c.ui_preview && c.ui_preview.rendered)) warnings.push('PDF preview pixels not confirmed (evidence only)');
+    // 0: the test document fits without scrolling. null: the style did not reach the PDF viewer.
+    if (c.ui_preview && c.ui_preview.scrollbar_px === null) warnings.push('PDF preview has the default scrollbar (evidence only)');
   }
 
   if (withFast) {

@@ -4,7 +4,7 @@
 const fs = require('node:fs');
 const net = require('node:net');
 const path = require('node:path');
-const { app, BrowserWindow, Menu, clipboard, ipcMain, protocol, session, shell } = require('electron');
+const { app, BrowserWindow, Menu, clipboard, ipcMain, protocol, session, shell, webFrameMain } = require('electron');
 const { resolveConfig } = require('./lib/config');
 const { BackendProcess, describeExit } = require('./lib/backend');
 const security = require('./lib/security');
@@ -13,6 +13,7 @@ const { configureAppIdentity } = require('./lib/app-identity');
 const { matchesTextView } = require('./lib/smoke-text');
 const { STATUS_SCHEME, STATUS_ORIGIN, STATUS_URL, STATUS_SCHEME_PRIVILEGES, statusHandler } = require('./lib/status-protocol');
 const { SPLASH_URL, statusWindowNeeded } = require('./lib/splash');
+const { stylePdfViewerFrame, viewerScrollbarWidth } = require('./lib/pdf-viewer-style');
 
 // The status page is served over vietdoc-status://app/ (see lib/status-protocol.js), not file://.
 const STATIC_PREFIX = `${STATUS_ORIGIN}/`;
@@ -147,6 +148,9 @@ function createMainWindow() {
     });
     // First paint is the startup page; a startup error may hide the window before that.
     mainWindow.once('ready-to-show', () => { if (mainWindow && !statusWindowNeeded(lastStatus)) mainWindow.show(); });
+    mainWindow.webContents.on('did-frame-finish-load', (_event, _isMainFrame, processId, routingId) => {
+      stylePdfViewerFrame(webFrameMain.fromId(processId, routingId));
+    });
     mainWindow.webContents.on('console-message', (event) => {
       if (SMOKE_DIR) smoke.console.push({ level: event.level, message: event.message, source: event.sourceId, phase: smoke.step });
     });
@@ -433,7 +437,7 @@ async function runSmoke() {
     await js(`document.querySelector('input[name=mode][value=native_text]').click(); true`);
     await sleep(1000);
     // PDF preview: scroll the iframe into view and measure how much of it is light (a rendered page) versus
-    // the dark empty frame. Chromium's PDF viewer is out of reach of executeJavaScript, so pixels decide.
+    // the dark empty frame. The page's own scripts cannot see into Chromium's PDF viewer, so pixels decide.
     const rect = await js(`(() => { const f = document.querySelector('iframe.pdf-view'); if (!f) return null; f.scrollIntoView({block: 'center'});
       const r = f.getBoundingClientRect(); return { x: Math.round(r.x), y: Math.round(r.y), width: Math.round(r.width), height: Math.round(r.height), scheme: f.src.split(':')[0] }; })()`);
     c.ui_preview = { iframe: rect && rect.scheme };
@@ -449,6 +453,7 @@ async function runSmoke() {
       }, 15_000);
       c.ui_preview.rendered = Boolean(preview);
       Object.assign(c.ui_preview, preview || {});
+      c.ui_preview.scrollbar_px = await viewerScrollbarWidth(mainWindow.webContents).catch(() => null);
     }
     await screenshot('02_ui_pdf_preview.png');
     await js(`window.scrollTo(0, 0); true`);
@@ -652,7 +657,7 @@ async function runSmoke() {
   c.images = {};
   for (const name of ['synthetic_ui.png', 'synthetic_ui.jpg']) {
     await setInputFile(wc, path.join(inputs, name));
-    c.images[name] = await waitFor(() => js(`(() => { const img = document.querySelector('.image-view img');
+    c.images[name] = await waitFor(() => js(`(() => { const img = document.querySelector('.preview-layer.shown .image-view img');
       const name = document.querySelector('.selected-file strong')?.textContent;
       return img && img.complete && img.naturalWidth > 0 && name === ${JSON.stringify(name)}
         ? { preview_px: [img.naturalWidth, img.naturalHeight], mode: document.querySelector('input[name=mode]:checked')?.value,

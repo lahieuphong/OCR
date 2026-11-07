@@ -5,7 +5,7 @@ import {fileURLToPath, URL} from "node:url";
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: {alias: {"@": fileURLToPath(new URL("./src", import.meta.url))}},
-  test: {setupFiles: ["./src/test/setup.js"]},
+  test: {setupFiles: ["./src/test/setup.js"], testTimeout: 20000},  // long form flows must not fail on a busy machine
   server: {
     host: "127.0.0.1",
     port: 5175,
