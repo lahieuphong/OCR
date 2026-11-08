@@ -27,7 +27,7 @@ integration must verify these types before sending any data.
 | numberOfPage | Source reader's PDF count (1–6; up to 1000 in `metadata_fast`, which reads only page 1), or `"1"` for a source image |
 | inforSign | The short mark written in the top-right corner of page 1, above the national motto (e.g. the receiving portal's `TTĐT`, `TTĐT(2)`): as read, inner spaces removed, always for review; otherwise manual |
 | keyword | Manual only; no generated keywords |
-| mode | `01` public; `02` conditional; `03` secret; initially empty |
+| mode | `01` public; `02` conditional; `03` secret. `01` only from the publication source (below), for review; otherwise empty and marked for verification |
 | confidenceLevel | `01` if isCan is `"0"`; **all other values, including empty, yield `02`** |
 | autograph | Manual only |
 | format | `01` good; `02` normal; `03` damaged; manual only |
@@ -48,10 +48,15 @@ text: pages render at 100 dpi from the last page back (20 pages, then the first
 do not qualify. A scan whose page image is greyscale is reported as black and
 white: its seal colour cannot be known and stays empty. The result's `seal` key
 names the page and size, which the metadata panel shows as evidence.
-`mode` is never inferred from document content and never silently assigned `01`.
-The UI warns that a future storage backend may treat an empty mode as public,
-and requires confirmation before exporting or copying an unclassified draft.
-The exported JSON itself retains `mode: ""`.
+`mode` is never inferred from OCR content. The one source used is publication:
+the Government e-portal signs the documents it publishes, and a PDF whose page-1
+signature block names `thongtinchinhphu@chinhphu.vn` gets `01`, always for review,
+with a note that this is a classification from the publication source, not an OCR
+result or an internal access decision (the certificate itself is not checked). A
+secrecy mark (`MẬT`, `TỐI MẬT`, `TUYỆT MẬT`) on page 1 blocks it. Otherwise `mode`
+stays empty and is marked for verification. The UI warns that a future storage
+backend may treat an empty mode as public, and requires confirmation before
+exporting or copying an unclassified draft; the exported JSON retains `mode: ""`.
 
 ## Conservative extraction and provenance
 

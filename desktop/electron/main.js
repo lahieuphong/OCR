@@ -510,14 +510,18 @@ async function runSmoke() {
     await sleep(350);
     const metadataFile = path.join(downloads, path.basename(pdf).replace(/\.[^.]+$/, '').replace(/[\\/:*?"<>|]/g, '_') + '_native_text_metadata.json');
     await js(`document.querySelector('button[title="Xuất JSON 22 trường"]').click(); true`);
-    assert.ok(await waitFor(() => js(`document.querySelector('dialog[open]')?.textContent.includes('Công khai')`), 5000), 'unclassified access mode must warn before export');
+    const exportDialog = await waitFor(() => js(`document.querySelector('dialog[open]')?.textContent || null`), 5000);
+    assert.ok(exportDialog, 'a draft export must ask for confirmation');
     await js(`document.querySelector('dialog .confirm-actions button:last-child').click(); true`);
     assert.ok(await waitFor(async () => fs.existsSync(metadataFile), 5000), 'metadata export was not saved');
     const metadata = JSON.parse(fs.readFileSync(metadataFile, 'utf8'));
     const metadataKeys = ['docId','arcDocCode','maintenance','typeName','codeNumber','codeNotation','issuedDate','organName','subject','language','numberOfPage','inforSign','keyword','mode','confidenceLevel','autograph','format','process','riskRecovery','riskRecoveryStatus','description','isCan'];
     assert.deepEqual(Object.keys(metadata), metadataKeys);
     assert.ok(Object.values(metadata).every(value => typeof value === 'string'));
-    assert.equal(metadata.docId, ''); assert.equal(metadata.mode, '');
+    assert.equal(metadata.docId, '');
+    // Chế độ sử dụng is 01 only from the Government portal's publishing signature; empty otherwise, with a warning.
+    assert.ok(['', '01'].includes(metadata.mode), `unexpected access mode ${metadata.mode}`);
+    assert.equal(exportDialog.includes('Công khai'), metadata.mode === '', 'an unclassified access mode must warn before export');
     assert.equal(metadata.numberOfPage, c.metadata.page_count);
     c.metadata.export_exact_schema = true;
     const manualSubject = 'Metadata tổng hợp – đã chỉnh sửa thủ công.';
@@ -534,7 +538,7 @@ async function runSmoke() {
       assert.ok(await waitFor(() => js(`Boolean(document.querySelector('dialog[open]'))`), 5000));
       await js(`document.querySelector('dialog .confirm-actions button:last-child').click(); true`);
       c.metadata.copy_exact = Boolean(await waitFor(async () => {
-        try { const copied = JSON.parse(await clipboard.readText()); return Object.keys(copied).length === 22 && copied.subject === manualSubject && copied.mode === ''; }
+        try { const copied = JSON.parse(await clipboard.readText()); return Object.keys(copied).length === 22 && copied.subject === manualSubject && copied.mode === metadata.mode; }
         catch { return false; }
       }, 5000));
       assert.equal(c.metadata.copy_exact, true, 'metadata clipboard JSON must preserve edits and schema');
@@ -747,7 +751,9 @@ async function runSmoke() {
       assert.equal(c.batch.compact_no_overflow,true,'batch table must scroll inside its pane');
       await screenshot('06b_batch_compact.png'); mainWindow.setBounds(bounds); await sleep(350);
       await js(`document.querySelector('.excel-export-button').click(); true`);
-      assert.ok(await waitFor(() => js(`document.querySelector('dialog[open]')?.textContent.includes('Công khai')`), 5000),'draft export must warn about missing classification');
+      const excelDialog = await waitFor(() => js(`document.querySelector('dialog[open]')?.textContent || null`), 5000);
+      assert.ok(excelDialog, 'a draft Excel export must ask for confirmation');
+      assert.equal(excelDialog.includes('Công khai'), expected.some(row => row.mode === ''), 'an unclassified access mode must be warned about before export');
       await js(`document.querySelector('dialog .confirm-actions button:last-child').click(); true`);
       const workbook = path.join(downloads,'Danh_sach_van_ban.xlsx');
       assert.ok(await waitFor(async () => fs.existsSync(workbook) && fs.statSync(workbook).size > 0, 20_000),'Excel download was not saved');

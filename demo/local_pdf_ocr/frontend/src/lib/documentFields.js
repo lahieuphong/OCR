@@ -447,6 +447,23 @@ export function createDocumentDraft(result, {sourceKind = "pdf"} = {}) {
     fields.subject.status = "review";
     fields.subject.note = [fields.subject.note, "Kết quả header một phần: đối chiếu trích yếu với ảnh nguồn, nhất là vùng dấu đóng chồng hoặc dòng bị cắt."].filter(Boolean).join(" ");
   }
+  // Chế độ sử dụng: the Government e-portal signs the documents it publishes (its signature block names
+  // thongtinchinhphu@chinhphu.vn). Such a PDF is classified 01 from its publication source, always for
+  // review: not OCR content, not an internal access decision, and the certificate itself is not checked.
+  // A secrecy mark on page 1 blocks it. Without that evidence mode stays empty, marked for review.
+  const signatureLines = allLines.filter(line => line.page === headerPage && excludedMetadataLine(line, allLines));
+  const portal = signatureLines.filter(line => /thongtinchinhphu@chinhphu\.vn/iu.test(line.match));
+  const secrecy = first.filter(line => /^(?:MẬT|TỐI MẬT|TUYỆT MẬT)$/u.test(line.match));
+  if (portal.length && !secrecy.length) {
+    const signer = signatureLines.filter(line => /^Người ký\s*[:：]/iu.test(line.match)
+      && portal.some(mark => line.y == null || mark.y == null || (mark.y >= line.y && mark.y - line.y < .03)));
+    fields.mode = field("01", "review", [...signer, ...portal],
+      "Phân loại theo nguồn công bố: PDF mang chữ ký số của Cổng Thông tin điện tử Chính phủ (thongtinchinhphu@chinhphu.vn) khi đăng tải công khai. Không phải kết quả OCR nội dung, không phải xác nhận phân quyền nội bộ, chưa kiểm tra chứng thư số; xác minh trước khi lưu.");
+  } else {
+    fields.mode = field("", "review", secrecy, secrecy.length
+      ? "Trang 1 có dấu độ mật: không phân loại Công khai; cần xác minh chế độ sử dụng."
+      : "Chưa đủ căn cứ phân loại chế độ sử dụng (không thấy chữ ký công bố của Cổng Thông tin điện tử Chính phủ); cần xác minh.");
+  }
   // Seal colour comes from the page pixels (backend seal_colour.py), not from OCR text.
   const seal = result?.seal;
   if (seal?.reason === "found" && seal.colour === "red" && Number.isInteger(seal.page)) {

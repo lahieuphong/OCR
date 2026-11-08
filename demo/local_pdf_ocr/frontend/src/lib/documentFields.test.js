@@ -314,3 +314,35 @@ describe("owner records, round 1", () => {
     expect(createDocumentDraft(decision({mark: null})).fields.inforSign.value).toBe("");
   });
 });
+
+describe("owner decisions after round 2: access mode from the publication source", () => {
+  // Hand-authored fictional header; the first rows are the PDF's visible electronic-signature block.
+  const published = ({signer = "Người ký: CỔNG THÔNG TIN ĐIỆN TỬ CHÍNH PHỦ", email = "Email: thongtinchinhphu@chinhphu.vn", extra = [], signatureBlock = true} = {}) => {
+    const raw = documentFromRows([[signer, 200, 5, 420, 15], [email, 200, 16, 420, 24],
+      ["BỘ KIỂM THỬ", 80, 70, 230, 86], ["CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM", 260, 70, 560, 86],
+      ["Số: 12/QĐ-KT", 100, 115, 230, 130], ["Hà Nội, ngày 08 tháng 4 năm 2026", 300, 118, 520, 132],
+      ["QUYẾT ĐỊNH", 270, 160, 370, 175], ["Về việc kiểm thử chế độ sử dụng", 150, 178, 450, 195],
+      ["Căn cứ Luật Kiểm thử;", 100, 260, 500, 276], ...extra]);
+    if (signatureBlock) raw.pages[0].lines.slice(0, 2).forEach(line => {line.metadata_excluded_reason = "electronic_signature";});
+    return createDocumentDraft(raw);
+  };
+  test("a PDF signed by the Government portal for publication is 01 from that source, always for review", () => {
+    const field = published().fields.mode;
+    expect(field.value).toBe("01"); expect(field.status).toBe("review");
+    expect(field.note).toContain("nguồn công bố"); expect(field.note).toContain("không phải xác nhận phân quyền nội bộ");
+    expect(field.evidence.map(source => source.text)).toEqual(["Người ký: CỔNG THÔNG TIN ĐIỆN TỬ CHÍNH PHỦ", "Email: thongtinchinhphu@chinhphu.vn"]);
+    expect(JSON.parse(serializeDocumentFields(published())).mode).toBe("01");
+  });
+  test("a secrecy mark on page 1 keeps it empty, for review", () => {
+    const field = published({extra: [["MẬT", 60, 140, 100, 155]]}).fields.mode;
+    expect(field).toMatchObject({value: "", status: "review"}); expect(field.note).toContain("độ mật");
+  });
+  test.each([
+    ["another signer", {signer: "Ký bởi: Sở Kiểm thử", email: "Email: vanthu@kiemthu.vn"}],
+    ["the portal address outside the signature block", {signatureBlock: false, signer: "Ghi chú thử nghiệm", email: "Liên hệ thongtinchinhphu@chinhphu.vn"}],
+  ])("%s leaves it empty, marked for verification", (_name, options) => {
+    const d = published(options);
+    expect(d.fields.mode).toMatchObject({value: "", status: "review"}); expect(d.fields.mode.note).toContain("cần xác minh");
+    expect(validateDocumentDraft(d).unclassifiedMode).toBe(true);
+  });
+});
