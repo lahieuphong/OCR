@@ -58,7 +58,7 @@ describe("header extraction", () => {
   test.each(["native_text", "vietocr_ocr"])("handles two-column headers using %s geometry", method => {
     const d = draft({method});
     expect(value(d, "organName")).toBe("VĂN PHÒNG KIỂM THỬ");
-    expect(value(d, "subject")).toBe("kiểm thử trích xuất thông tin trên tài liệu tổng hợp, giữ nguyên tiếng Việt");
+    expect(value(d, "subject")).toBe("V/v kiểm thử trích xuất thông tin trên tài liệu tổng hợp, giữ nguyên tiếng Việt");
     expect(value(d, "arcDocCode")).toBe("00103/TEST-CN");
     expect(value(d, "issuedDate")).toBe("08-10-2026");
   });

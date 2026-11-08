@@ -200,9 +200,8 @@ function subjectStampRisk(candidate, clusters) {
     })));
 }
 function subjectCandidates(anchor, lines) {
-  // "Về việc …" under a title is kept as printed (the owner's records keep it). The official
-  // letter's "V/v" label is still dropped.
-  const tail = /^Về việc(?:\s|$)/iu.test(anchor.match) ? anchor.match : subjectLabel.exec(anchor.match)?.[1] ?? "";
+  // A "V/v" or "Về việc" line is kept as printed: the owner's records keep both (rounds 1 and 2).
+  const tail = subjectLabel.test(anchor.match) ? anchor.match : "";
   const used = [anchor], parts = tail ? [tail] : [];
   let limited = false;
   // Subject continuation is a paragraph after its own title, not the whole

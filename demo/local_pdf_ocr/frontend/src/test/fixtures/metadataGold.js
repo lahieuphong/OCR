@@ -4,7 +4,7 @@ const blank = {
   docId:"",arcDocCode:"",maintenance:"",typeName:"",codeNumber:"",codeNotation:"",issuedDate:"",organName:"",subject:"",language:"",numberOfPage:"",inforSign:"",keyword:"",mode:"",confidenceLevel:"",autograph:"",format:"",process:"",riskRecovery:"",riskRecoveryStatus:"",description:"",isCan:"",
 };
 const common = {...blank, issuedDate:"08-10-2026",organName:"VĂN PHÒNG KIỂM THỬ",
-  subject:"kiểm thử trích xuất thông tin trên tài liệu tổng hợp, giữ nguyên tiếng Việt",language:"01",numberOfPage:"1",confidenceLevel:"02"};
+  subject:"V/v kiểm thử trích xuất thông tin trên tài liệu tổng hợp, giữ nguyên tiếng Việt",language:"01",numberOfPage:"1",confidenceLevel:"02"};
 export const SYNTHETIC_GOLD = {
   officialLetter: {...common,arcDocCode:"00103/TEST-CN",codeNumber:"00103",codeNotation:"TEST-CN",typeName:"22"},
   decision: {...common,arcDocCode:"00002/QĐ-TEST",codeNumber:"00002",codeNotation:"QĐ-TEST",typeName:"02"},

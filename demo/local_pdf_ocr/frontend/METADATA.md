@@ -22,7 +22,7 @@ integration must verify these types before sending any data.
 | codeNotation | After the last `/` of arcDocCode; derived, read-only |
 | issuedDate | Real calendar date in `DD-MM-YYYY`, or empty |
 | organName | Unicode uppercase issuing agency from an unambiguous header |
-| subject | Literal title/subject words, joining relevant lines with spaces; a leading `Về việc` is kept as printed, an official letter's `V/v` label is dropped |
+| subject | Literal title/subject words, joining relevant lines with spaces; a leading `V/v` or `Về việc` is kept as printed (the owner's records keep both) |
 | language | `01` Vietnamese; `02` English; ambiguous/bilingual text stays empty |
 | numberOfPage | Source reader's PDF count (1–6; up to 1000 in `metadata_fast`, which reads only page 1), or `"1"` for a source image |
 | inforSign | The short mark written in the top-right corner of page 1, above the national motto (e.g. the receiving portal's `TTĐT`, `TTĐT(2)`): as read, inner spaces removed, always for review; otherwise manual |
@@ -127,7 +127,7 @@ to their font's ToUnicode mapping, which extraction preserves.
   "codeNotation": "TEST-CN",
   "issuedDate": "08-10-2026",
   "organName": "VĂN PHÒNG KIỂM THỬ",
-  "subject": "kiểm thử trích xuất thông tin trên tài liệu tổng hợp, giữ nguyên tiếng Việt",
+  "subject": "V/v kiểm thử trích xuất thông tin trên tài liệu tổng hợp, giữ nguyên tiếng Việt",
   "language": "01",
   "numberOfPage": "1",
   "inforSign": "",
