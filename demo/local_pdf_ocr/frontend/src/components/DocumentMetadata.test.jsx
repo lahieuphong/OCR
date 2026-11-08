@@ -36,11 +36,19 @@ test("only review and confirmed fields carry a status badge; empty fields rely o
 });
 
 test("a real warning stays visible next to its field", () => {
-  const raw = stampSubjectDocument({stamp: true, merged: true});
+  const raw = stampSubjectDocument({stamp: true, merged: "mixed"});
   view(raw);
   const subject = document.getElementById("metadata-subject").closest(".metadata-field");
   expect(subject.querySelector(".field-note").textContent).toContain("Trích yếu chưa xác minh");
   expect(subject.querySelector(".metadata-unverified-candidate")).toBeTruthy();
+});
+
+test("a subject filled beside an arrival stamp says so next to the field", () => {
+  view(stampSubjectDocument({stamp: true, merged: true}));
+  const subject = document.getElementById("metadata-subject").closest(".metadata-field");
+  expect(subject.querySelector(".field-note").textContent).toContain("Dấu công văn đến chạm vào dòng trích yếu");
+  expect(subject.querySelector(".metadata-unverified-candidate")).toBeNull();
+  expect(subject.querySelector(".field-status").textContent).toBe("Cần kiểm tra");
 });
 
 test("routine notes are removed, other text kept", () => {

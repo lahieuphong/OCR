@@ -33,7 +33,7 @@ async function reopen(docs = records()) {
 describe("saved/reopened XLSX", () => {
   test("stamp-contaminated candidate is blank in XLSX until a manual subject is entered", async () => {
     const docs=[0,1].map(index=>{
-      const doc=createBatchDocument({name:`fictional-stamp-${index}.pdf`},`stamp-${index}`),raw=stampSubjectDocument({stamp:true,merged:true});
+      const doc=createBatchDocument({name:`fictional-stamp-${index}.pdf`},`stamp-${index}`),raw=stampSubjectDocument({stamp:true,merged:"mixed"});
       doc.mode="metadata_fast";doc.resultsByMode.metadata_fast=raw;doc.metadataByMode.metadata_fast=createDocumentDraft(raw);return doc;
     });
     docs[1].metadataByMode.metadata_fast=editDocumentField(docs[1].metadataByMode.metadata_fast,"subject",STAMP_TEST_SUBJECT);
@@ -41,7 +41,7 @@ describe("saved/reopened XLSX", () => {
     expect(sheet.columnCount).toBe(23);expect(sheet.getCell("J2").value).toBeNull();expect(sheet.getCell("J3").value).toBe(STAMP_TEST_SUBJECT);
     expect(sheet.getCell("F2").value).toBe("00042");expect(sheet.getCell("L2").value).toBe("6");
     for(const row of [2,3]) {expect(sheet.getCell(row,10).font).toMatchObject({name:"Times New Roman",size:13});expect(book.getWorksheet("Nguồn tài liệu").getCell(row,3).value).toBe("metadata_fast");}
-    expect(JSON.stringify(book.worksheets.map(ws=>ws.getSheetValues()))).not.toContain("Ngày: 03/02/2025,");
+    expect(JSON.stringify(book.worksheets.map(ws=>ws.getSheetValues()))).not.toContain("Ngày: 03/02/2025");
     expect(docs.map(doc=>JSON.stringify(doc.resultsByMode.metadata_fast))).toEqual(before);
   });
   test("fast six-page source round trips real XLSX and passes the independent provenance checker", async () => {

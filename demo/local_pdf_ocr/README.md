@@ -85,10 +85,14 @@ document header, not electronic-signature metadata or incoming stamps.
 OCR text, including ambiguous stamp overlaps and diacritics, is not corrected
 by dictionary guesses. Confirm those fields against the source before export.
 
-When multiple nearby incoming-stamp markers and their geometry make the subject
-ambiguous, its automatic value remains empty with review status. The complete
-unverified candidate and original source evidence remain available next to the
-field, separately from the22-key JSON and Excel values. A standalone word
+An incoming ("ĐẾN") stamp often touches the subject. When the stamp is read as
+its own lines, or its date cell was read on the subject's first line and can be
+split off after the cell's value (`Ngày: 03.14./2024, Sửa đổi…`), the subject is
+filled with review status and a note naming the stamp. When the stamp's text
+cannot be separated from the subject (the cell holds words), the automatic value
+remains empty with review status; the complete unverified candidate and original
+source evidence remain available next to the field, separately from the 22-key
+JSON and Excel values. A standalone word
 "đến" is not enough to discard a line. Manual subject edits remain isolated
 per document/mode and never overwrite raw OCR text.
 

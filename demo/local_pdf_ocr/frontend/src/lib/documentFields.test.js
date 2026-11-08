@@ -280,3 +280,37 @@ describe("seal colour", () => {
     }
   });
 });
+
+describe("owner records, round 1", () => {
+  // Hand-authored fictional text; geometry follows a scanned decision with a handwritten mark top right.
+  const decision = ({mark = ["TTĐT(2)", 480, 25, 570, 62], extra = []} = {}) => documentFromRows([
+    ...(mark ? [mark] : []),
+    ["BỘ KIỂM THỬ", 80, 70, 230, 86], ["CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM", 260, 70, 560, 86],
+    ["Độc lập - Tự do - Hạnh phúc", 320, 88, 520, 102], ["Số: 12/QĐ-KT", 100, 115, 230, 130],
+    ["Hà Nội, ngày 08 tháng 4 năm 2026", 300, 118, 520, 132], ["QUYẾT ĐỊNH", 270, 160, 370, 175],
+    ["Về việc kiện toàn tổ kiểm thử", 150, 178, 450, 195], ["giữ nhiệm vụ thử nghiệm", 170, 196, 430, 212],
+    ["BỘ TRƯỞNG BỘ KIỂM THỬ", 220, 230, 380, 246], ["Căn cứ Luật Kiểm thử;", 100, 260, 500, 276], ...extra]);
+  test("a subject starting with “Về việc” under a title keeps it as printed", () => {
+    expect(value(createDocumentDraft(decision()), "subject")).toBe("Về việc kiện toàn tổ kiểm thử giữ nhiệm vụ thử nghiệm");
+  });
+  test("the handwritten mark above the national motto, top right, is the Ký hiệu thông tin, for review", () => {
+    const field = createDocumentDraft(decision()).fields.inforSign;
+    expect(field.value).toBe("TTĐT(2)"); expect(field.status).toBe("review");
+    expect(field.evidence.map(source => source.text)).toEqual(["TTĐT(2)"]); expect(field.note).toMatch(/viết tay/u);
+  });
+  test("a space read inside the mark is removed and reported", () => {
+    const field = createDocumentDraft(decision({mark: ["TTĐ T", 480, 25, 570, 62]})).fields.inforSign;
+    expect(field.value).toBe("TTĐT"); expect(field.note).toContain("“TTĐ T”");
+  });
+  test.each([["HỎA TỐC", 480, 25, 570, 62], ["Dự thảo", 480, 25, 570, 62], ["TTĐT", 480, 92, 570, 110], ["TTĐT", 300, 25, 400, 62]])(
+    "%s (printed mark, or not above the motto in the top-right corner) is not taken", (...mark) => {
+      expect(createDocumentDraft(decision({mark})).fields.inforSign).toMatchObject({value: "", status: "unknown"});
+    });
+  test("two marks in the corner are left to the reader", () => {
+    const field = createDocumentDraft(decision({extra: [["CN", 470, 45, 520, 60]]})).fields.inforSign;
+    expect(field).toMatchObject({value: "", status: "review"});
+  });
+  test("no mark leaves the field empty", () => {
+    expect(createDocumentDraft(decision({mark: null})).fields.inforSign.value).toBe("");
+  });
+});

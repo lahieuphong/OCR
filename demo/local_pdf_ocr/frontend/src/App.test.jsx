@@ -94,7 +94,7 @@ async function start() {
 
 describe("explicit fast metadata mode", () => {
   test("stamp candidate is visibly unverified, excluded from JSON, and manual edits survive modes and raw exports", async () => {
-    const user=await start(),raw=stampSubjectDocument({stamp:true,merged:true}),snapshot=JSON.stringify(raw);
+    const user=await start(),raw=stampSubjectDocument({stamp:true,merged:"mixed"}),snapshot=JSON.stringify(raw);
     apiResults.push(jsonResponse(raw));const fast=document.querySelector('input[name=mode][value=metadata_fast]');
     await user.click(fast);await user.click(screen.getByRole("button",{name:"Bóc tách nhanh văn bản này"}));
     await waitFor(()=>expect(field("arcDocCode")?.value).toBe("00042/2025/NĐ-QA"));
@@ -103,11 +103,11 @@ describe("explicit fast metadata mode", () => {
     expect(subject.querySelector(".confirm-field")).toBeNull();
     const candidate=subject.querySelector(".metadata-unverified-candidate");
     expect(candidate.querySelector("summary").textContent).toBe("Ứng viên chưa xác minh — dấu đóng chồng");
-    expect(candidate.textContent).toContain("Ngày: 03/02/2025,");expect(subject.textContent).toContain("Trích yếu chưa xác minh");
+    expect(candidate.textContent).toContain("Ngày: 03/02/2025 giờ 9,");expect(subject.textContent).toContain("Trích yếu chưa xác minh");
     await user.click(screen.getByRole("button",{name:"Xuất JSON 22 trường"}));
     await user.click(within(screen.getByRole("alertdialog")).getByRole("button",{name:"Xuất bản nháp"}));
     const blank=JSON.parse(await readBlob(blobs.filter(blob=>blob.type.startsWith("application/json")).at(-1)));
-    expect(Object.keys(blank)).toEqual(FIELD_KEYS);expect(blank.subject).toBe("");expect(JSON.stringify(blank)).not.toContain("Ngày: 03/02/2025,");
+    expect(Object.keys(blank)).toEqual(FIELD_KEYS);expect(blank.subject).toBe("");expect(JSON.stringify(blank)).not.toContain("Ngày: 03/02/2025");
     await user.click(field("subject"));await user.paste(STAMP_TEST_SUBJECT);
     await user.click(document.querySelector('input[name=mode][value=native_text]'));await user.click(fast);
     expect(field("subject").value).toBe(STAMP_TEST_SUBJECT);expect(field("subject").closest(".metadata-field").querySelector(".field-status").textContent).toBe("Đã xác nhận");

@@ -22,10 +22,10 @@ integration must verify these types before sending any data.
 | codeNotation | After the last `/` of arcDocCode; derived, read-only |
 | issuedDate | Real calendar date in `DD-MM-YYYY`, or empty |
 | organName | Unicode uppercase issuing agency from an unambiguous header |
-| subject | Literal title/subject words, joining relevant lines with spaces |
+| subject | Literal title/subject words, joining relevant lines with spaces; a leading `Về việc` is kept as printed, an official letter's `V/v` label is dropped |
 | language | `01` Vietnamese; `02` English; ambiguous/bilingual text stays empty |
 | numberOfPage | Source reader's PDF count (1–6; up to 1000 in `metadata_fast`, which reads only page 1), or `"1"` for a source image |
-| inforSign | Manual only |
+| inforSign | The short mark written in the top-right corner of page 1, above the national motto (e.g. the receiving portal's `TTĐT`, `TTĐT(2)`): as read, inner spaces removed, always for review; otherwise manual |
 | keyword | Manual only; no generated keywords |
 | mode | `01` public; `02` conditional; `03` secret; initially empty |
 | confidenceLevel | `01` if isCan is `"0"`; **all other values, including empty, yield `02`** |
@@ -84,8 +84,12 @@ The exported JSON itself retains `mode: ""`.
   legal-name correction is applied.
 - An arrival stamp's field (`Ngày:`, `Giờ:`, `Số đến:`) beside its `ĐẾN` mark is the
   stamp when its value is a date or noise without any word (no two letters in a
-  row, such as handwriting read as `0g/9/2026`). A stamp field holding words is
-  mixed with the subject, which then stays empty for review.
+  row, such as handwriting read as `0g/9/2026`). A wide line that starts with such
+  a field and goes on with words (`Ngày: 03.14./2024, Sửa đổi, bổ sung…`) is split
+  after the field's value; both parts get boxes estimated from character counts.
+  A subject that only touches the stamp is filled for review, with a note. A stamp
+  field holding words cannot be separated: it is mixed with the subject, which
+  then stays empty for review with its candidate shown.
 - Native bbox coordinates describe **blocks in PDF points**. OCR polygons describe
   lines in **raster pixels**. Analysis normalizes them within their own page only.
   Evidence retains page/line/literal source text and coordinate provenance; the UI

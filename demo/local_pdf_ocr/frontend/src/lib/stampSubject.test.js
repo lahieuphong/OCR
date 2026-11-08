@@ -7,10 +7,23 @@ function rewrite(raw) {
   return raw;
 }
 describe("conservative stamp-contaminated subject",()=>{
-  test.each([false,true])("merged stamp/date remains evidence, never an export value (native=%s)",native=>{
+  test.each([false,true])("a stamp date cell read on the subject's first line is split off; the subject is filled for review (native=%s)",native=>{
     const raw=stampSubjectDocument({native,stamp:true,merged:true}),snapshot=JSON.stringify(raw),draft=createDocumentDraft(raw);
+    const subject=draft.fields.subject;
+    expect(subject.value).toBe(STAMP_TEST_SUBJECT);expect(subject.status).toBe("review");expect(subject.candidate).toBeUndefined();
+    expect(subject.note).toMatch(/Dấu công văn đến chạm/u);expect(subject.note).toContain("Ô “Ngày: 03/02/2025,” của dấu");
+    expect(subject.evidence.some(item=>item.text==="ĐẾN")).toBe(true);
+    expect(subject.evidence.some(item=>item.text==="Ngày: 03/02/2025," && item.precision==="block")).toBe(true);
+    expect(subject.evidence.every(item=>!item.text.startsWith("Căn cứ"))).toBe(true);
+    const saved=JSON.parse(serializeDocumentFields(draft));expect(saved.subject).toBe(STAMP_TEST_SUBJECT);
+    expect(JSON.stringify(saved)).not.toContain("Ngày: 03/02/2025");
+    expect(confirmDocumentField(draft,"subject").fields.subject.status).toBe("confirmed");
+    expect(JSON.stringify(raw)).toBe(snapshot);
+  });
+  test.each([false,true])("stamp text that cannot be separated remains evidence, never an export value (native=%s)",native=>{
+    const raw=stampSubjectDocument({native,stamp:true,merged:"mixed"}),snapshot=JSON.stringify(raw),draft=createDocumentDraft(raw);
     expect(draft.fields.subject.value).toBe("");expect(draft.fields.subject.status).toBe("review");
-    expect(draft.fields.subject.candidate).toContain("Ngày: 03/02/2025,");
+    expect(draft.fields.subject.candidate).toContain("Ngày: 03/02/2025 giờ 9,");
     expect(draft.fields.subject.candidate).toContain(STAMP_TEST_SUBJECT);
     expect(draft.fields.subject.note).toMatch(/chưa xác minh.*dấu/iu);
     expect(draft.fields.subject.evidence.some(item=>item.text==="ĐẾN")).toBe(true);
@@ -18,18 +31,19 @@ describe("conservative stamp-contaminated subject",()=>{
     expect(draft.fields.subject.evidence.every(item=>!item.text.startsWith("Căn cứ"))).toBe(true);
     expect(documentValues(draft)).toMatchObject({arcDocCode:"00042/2025/NĐ-QA",issuedDate:"14-02-2025",organName:"ỦY BAN NHÂN DÂN TỈNH KIỂM THỬ",numberOfPage:"6",typeName:"",subject:""});
     const saved=JSON.parse(serializeDocumentFields(draft));expect(Object.keys(saved)).toEqual(FIELD_KEYS);expect(saved.subject).toBe("");
-    expect(JSON.stringify(saved)).not.toContain("Ngày: 03/02/2025,");
+    expect(JSON.stringify(saved)).not.toContain("Ngày: 03/02/2025");
     expect(confirmDocumentField(draft,"subject")).toBe(draft);
     expect(confirmDocumentField(draft,"subject").fields.subject.status).toBe("review");
     const manual=editDocumentField(draft,"subject",STAMP_TEST_SUBJECT);
     expect(manual.fields.subject.status).toBe("confirmed");expect(documentValues(manual).subject).toBe(STAMP_TEST_SUBJECT);
     expect(JSON.stringify(raw)).toBe(snapshot);
   });
-  test("actual overlap without a merged prefix still requires visual review",()=>{
+  test("a subject line overlapping a stamp read on its own lines is filled, for visual review",()=>{
     const raw=stampSubjectDocument({native:true,stamp:true});
     raw.pages[0].lines.find(line=>line.text.startsWith("Quy định việc")).bbox[0]=80;
     const subject=createDocumentDraft(rewrite(raw)).fields.subject;
-    expect(subject.value).toBe("");expect(subject.candidate).toBe(STAMP_TEST_SUBJECT);expect(subject.status).toBe("review");
+    expect(subject.value).toBe(STAMP_TEST_SUBJECT);expect(subject.candidate).toBeUndefined();expect(subject.status).toBe("review");
+    expect(subject.note).toMatch(/Dấu công văn đến chạm/u);expect(subject.evidence.some(item=>item.text==="Giờ: C")).toBe(true);
   });
   test("a short narrow merged date/subject line is evidence, never a disposable stamp field",()=>{
     const raw=stampSubjectDocument({native:true,stamp:true}),line=raw.pages[0].lines.find(item=>item.text.startsWith("Quy định việc"));
@@ -48,7 +62,8 @@ describe("conservative stamp-contaminated subject",()=>{
   test("very close stamp/subject boxes are not treated as certain segmentation",()=>{
     const raw=stampSubjectDocument({native:true,stamp:true});
     raw.pages[0].lines.find(line=>line.text.startsWith("Quy định việc")).bbox[0]=91;
-    expect(createDocumentDraft(rewrite(raw)).fields.subject.value).toBe("");
+    const subject=createDocumentDraft(rewrite(raw)).fields.subject;
+    expect(subject.value).toBe(STAMP_TEST_SUBJECT);expect(subject.status).toBe("review");expect(subject.note).toMatch(/chữ sát dấu/u);
   });
   test("stamp geometrically separate from the paragraph does not blank a clean long subject",()=>{
     const draft=createDocumentDraft(stampSubjectDocument({native:true,stamp:true}));
@@ -74,9 +89,13 @@ describe("conservative stamp-contaminated subject",()=>{
     expect(createDocumentDraft(rewrite(raw)).fields.arcDocCode.value).toBe("00042/2025/NĐ-QA");
   });
   test.each(["native_text","vietocr_ocr","hybrid_h1"])("stamp safety preserves literal raw %s exports",method=>{
-    const raw=stampSubjectDocument({native:method==="native_text",stamp:true,merged:true});raw.method=method;
-    const before=JSON.stringify(raw);const draft=createDocumentDraft(raw);
-    expect(draft.fields.subject.value).toBe("");expect(draft.fields.subject.candidate).toContain("Ngày:");expect(JSON.stringify(raw)).toBe(before);
+    for (const merged of [true,"mixed"]) {
+      const raw=stampSubjectDocument({native:method==="native_text",stamp:true,merged});raw.method=method;
+      const before=JSON.stringify(raw);const draft=createDocumentDraft(raw);
+      if (merged===true) {expect(draft.fields.subject.value).toBe(STAMP_TEST_SUBJECT);expect(draft.fields.subject.status).toBe("review");}
+      else {expect(draft.fields.subject.value).toBe("");expect(draft.fields.subject.candidate).toContain("Ngày:");}
+      expect(JSON.stringify(raw)).toBe(before);
+    }
   });
 });
 

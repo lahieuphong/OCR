@@ -161,6 +161,34 @@ function stampClusters(lines) {
   }
   return {clusters,excluded:new Set(clusters.flatMap(cluster=>cluster.standalone))};
 }
+// An arrival-stamp field can be read on one line with the subject words its box covers
+// ("Ngày: 03.14./2024, Sửa đổi, bổ sung…"). When the field's value is short handwriting without two
+// letters in a row and words follow, the line is split there: the field becomes a stamp line and the
+// words stay document text. The two boxes are estimated from character counts ("block" precision).
+// A narrow line, or a field whose value holds words, is left whole (it stays mixed evidence).
+function splitStampFields(lines) {
+  const anchors = lines.filter(line => stampRole(line) === "arrival" && narrowStampLine(line));
+  if (!anchors.length) return lines;
+  return lines.flatMap(line => {
+    if (!["date", "time", "number"].includes(stampRole(line)) || narrowStampLine(line) || !line.region || !line.box
+      || !anchors.some(anchor => nearStampAnchor(anchor, line))) return [line];
+    const colon = line.match.search(/[:：]/u);
+    const tokens = line.match.slice(colon + 1).trim().split(" ");
+    const first = tokens.findIndex(token => /\p{L}{2}/u.test(token));
+    const value = tokens.slice(0, first).join(" ");
+    if (first < 1 || value.length > 16 || /^(?:giờ|ngày|tháng|năm)$/iu.test(tokens[first])
+      || tokens.slice(first).join(" ").length < 12) return [line];
+    const stampText = `${line.match.slice(0, colon + 1)} ${value}`, words = tokens.slice(first).join(" ");
+    const share = stampText.length / line.match.length;
+    const part = (text, from, to) => {
+      const box = [...line.box], region = [...line.region];
+      [box[0], box[2]] = [line.box[0] + from * (line.box[2] - line.box[0]), line.box[0] + to * (line.box[2] - line.box[0])];
+      [region[0], region[2]] = [line.region[0] + from * (line.region[2] - line.region[0]), line.region[0] + to * (line.region[2] - line.region[0])];
+      return {...line, text, match: text, box, region, x: (region[0] + region[2]) / 2, precision: "block", splitFromStamp: true};
+    };
+    return [part(stampText, 0, share), part(words, share, 1)];
+  });
+}
 function subjectStampRisk(candidate, clusters) {
   return clusters.filter(cluster=>candidate.lines.some(line=>
     cluster.members.includes(line) && !cluster.standalone.includes(line)
@@ -172,7 +200,9 @@ function subjectStampRisk(candidate, clusters) {
     })));
 }
 function subjectCandidates(anchor, lines) {
-  const tail = subjectLabel.exec(anchor.match)?.[1] ?? "";
+  // "Về việc …" under a title is kept as printed (the owner's records keep it). The official
+  // letter's "V/v" label is still dropped.
+  const tail = /^Về việc(?:\s|$)/iu.test(anchor.match) ? anchor.match : subjectLabel.exec(anchor.match)?.[1] ?? "";
   const used = [anchor], parts = tail ? [tail] : [];
   let limited = false;
   // Subject continuation is a paragraph after its own title, not the whole
@@ -222,7 +252,7 @@ export function createDocumentDraft(result, {sourceKind = "pdf"} = {}) {
   const fields = Object.fromEntries(FIELD_KEYS.map(key => [key, field()]));
   fields.docId.note = "Luôn để trống theo schema nghiệp vụ; không tự sinh mã.";
   const allLines = readLines(result);
-  const metadataLines = allLines.filter(line => !excludedMetadataLine(line, allLines));
+  const metadataLines = splitStampFields(allLines.filter(line => !excludedMetadataLine(line, allLines)));
   const stamps = stampClusters(metadataLines);
   const lines = metadataLines.filter(line => !stamps.excluded.has(line));
   const headerPage = result?.method === "metadata_fast" ? result.pages?.[0]?.page ?? 1 : 1;
@@ -354,7 +384,20 @@ export function createDocumentDraft(result, {sourceKind = "pdf"} = {}) {
       return fragment.page===anchor.page && fragment.order>anchor.order && fragment.order<(end?.order ?? Infinity)
         && (fragment.y==null || anchor.y==null || fragment.y>=anchor.y-.005);
     }));
-  if (contaminated.length || orphanMixed.length) {
+  // A subject whose lines only touch an arrival stamp read as its own line(s) holds none of the stamp's
+  // text: it is filled, for review. Stamp text read inside a subject line (mixed) keeps it empty.
+  const mixedSubject=contaminated.some(({candidate,clusters})=>candidate.lines.some(line=>
+    clusters.some(cluster=>cluster.members.includes(line) && !cluster.standalone.includes(line))));
+  if (contaminated.length && !mixedSubject && !orphanMixed.length && fields.subject.value) {
+    const implicated=[...new Set(contaminated.flatMap(item=>item.clusters))];
+    const stampParts=implicated.flatMap(cluster=>cluster.members).filter(line=>line.splitFromStamp);
+    const sources=[...new Set([...subjects.flatMap(candidate=>candidate.lines),...implicated.flatMap(cluster=>cluster.members)])]
+      .sort((a,b)=>a.order-b.order);
+    fields.subject={...fields.subject,status:"review",evidence:evidence(sources),note:[fields.subject.note,
+      "Dấu công văn đến chạm vào dòng trích yếu; chữ của dấu được đọc riêng, không nằm trong trích yếu. Đối chiếu ảnh nguồn, nhất là các chữ sát dấu.",
+      ...stampParts.map(line=>`Ô “${line.match}” của dấu đọc chung dòng với trích yếu và đã được tách ra theo vị trí chữ.`)]
+      .filter(Boolean).join(" ")};
+  } else if (contaminated.length || orphanMixed.length) {
     const implicated=[...new Set([...contaminated.flatMap(item=>item.clusters),
       ...stamps.clusters.filter(cluster=>cluster.members.some(line=>orphanMixed.includes(line)))])];
     const sources=[...new Set([...anchors,...subjects.flatMap(candidate=>candidate.lines),
@@ -364,6 +407,20 @@ export function createDocumentDraft(result, {sourceKind = "pdf"} = {}) {
       candidate:[...new Set([...subjects.map(candidate=>candidate.value),...orphanMixed.map(line=>line.text)])].join("\n\n")};
   }
   if (!subjects.length && titles.length && !orphanMixed.length) fields.subject = field("", "review", titles, "Chưa đọc đủ đoạn trích yếu sau tiêu đề; đối chiếu ảnh nguồn.");
+
+  // Ký hiệu thông tin: the short mark written in the top-right corner of page 1, above the national
+  // motto (owner's round-1 records: "TTĐT", "TTĐT(2)"). Kept exactly as read and always for review:
+  // handwriting is often misread. Printed urgency/secrecy marks there are not this field.
+  const motto = first.find(line => national.test(line.match) && line.region);
+  const marks = first.filter(line => line.region && line.region[0] >= .72 && line.region[1] < .12
+    && line.region[3] <= (motto ? motto.region[1] + .01 : .12) && /^[\p{Lu}\p{N}()\s./-]{2,12}$/u.test(line.match)
+    && (line.match.match(/\p{Lu}/gu) ?? []).length >= 2
+    && !/^(?:MẬT|TỐI MẬT|TUYỆT MẬT|KHẨN|THƯỢNG KHẨN|HỎA TỐC|HOẢ TỐC|DỰ THẢO|BẢN SAO)$/u.test(line.match));
+  // A mark is one handwritten code: a space read inside it ("TTĐ T") is removed, and said so.
+  if (marks.length === 1) fields.inforSign = field(marks[0].match.replace(/\s/gu, ""), "review", marks,
+    ["Ký hiệu viết tay ở góc trên bên phải trang 1, giữ nguyên chữ OCR đọc; chữ viết tay hay bị đọc sai, đối chiếu bản gốc.",
+      /\s/u.test(marks[0].match) ? `OCR đọc “${marks[0].match}”; đã bỏ khoảng trắng bên trong.` : ""].filter(Boolean).join(" "));
+  else if (marks.length > 1) fields.inforSign = field("", "review", marks, "Góc trên bên phải trang 1 có nhiều ký hiệu; chọn tay.");
 
   const vi = lines.filter(line => national.test(line.match) || /\b(?:ngày|tháng|năm|việc|văn bản|quyết định|nghị quyết|nghị định)\b/iu.test(line.match));
   const en = lines.filter(line => /\b(?:REPUBLIC|GOVERNMENT|DECISION|RESOLUTION)\b/u.test(line.match) || /\b(?:the|and|of|for)\b/giu.test(line.match) && /\b(?:document|issued|administrative|decision)\b/iu.test(line.match));
