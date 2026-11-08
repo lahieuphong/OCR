@@ -32,12 +32,19 @@ const clean = text => String(text ?? "").normalize("NFC").trim().replace(/\s+/gu
 const bodyStart = /^(?:Căn cứ(?=\s|$|[:,])|Kính gửi(?=\s|$|[:,])|Điều\s+\d|QUYẾT ĐỊNH\s*:|QUYẾT NGHỊ\s*:|Nơi nhận\s*:|PHỤ LỤC(?=\s|$|[:,])|DANH MỤC(?=\s|$|[:,])|KT\.|TM\.)/iu;
 const national = /CỘNG HÒA|XÃ HỘI CHỦ NGHĨA|Độc lập\s*[-–—]|Tự do\s*[-–—]|Hạnh phúc/iu;
 const issuer = /^(?:VĂN PHÒNG|ỦY BAN|HỘI ĐỒNG|BỘ\s|SỞ\s|PHÒNG\s|CỤC\s|TỔNG CỤC|CHÍNH PHỦ$|THỦ TƯỚNG CHÍNH PHỦ$|QUỐC HỘI$|TÒA ÁN|VIỆN KIỂM SÁT|CƠ QUAN\s)/iu;
-const title = /^(NGHỊ ĐỊNH|NGHỊ QUYẾT|QUYẾT ĐỊNH|CÔNG VĂN|THÔNG BÁO|BÁO CÁO|KẾ HOẠCH|TỜ TRÌNH)$/iu;
+const title = /^(NGHỊ ĐỊNH|NGHỊ QUYẾT|QUYẾT ĐỊNH|CÔNG VĂN|THÔNG BÁO|THÔNG TƯ|BÁO CÁO|KẾ HOẠCH|TỜ TRÌNH)$/iu;
 const typeCodes = {"NGHỊ QUYẾT": "01", "QUYẾT ĐỊNH": "02", "CÔNG VĂN": "22"};
-const typeLabels = {"NGHỊ ĐỊNH":"Nghị định","NGHỊ QUYẾT":"Nghị quyết","QUYẾT ĐỊNH":"Quyết định","CÔNG VĂN":"Công văn","THÔNG BÁO":"Thông báo","BÁO CÁO":"Báo cáo","KẾ HOẠCH":"Kế hoạch","TỜ TRÌNH":"Tờ trình"};
-const signatureMarker = /^(?:Ký bởi\s*:|Người ký\s*:|Thời gian ký\s*:|Ngày ký(?: điện tử)?\s*:|Digitally signed(?:\s|$)|Signing time\s*:)/iu;
+const typeLabels = {"NGHỊ ĐỊNH":"Nghị định","NGHỊ QUYẾT":"Nghị quyết","QUYẾT ĐỊNH":"Quyết định","CÔNG VĂN":"Công văn","THÔNG BÁO":"Thông báo","THÔNG TƯ":"Thông tư","BÁO CÁO":"Báo cáo","KẾ HOẠCH":"Kế hoạch","TỜ TRÌNH":"Tờ trình"};
+// "Cơ quan phát hành:" is the signing portal's mark, not a second issuing agency.
+const signatureMarker = /^(?:Cơ quan phát hành\s*:|Ký bởi\s*:|Người ký\s*:|Thời gian ký\s*:|Ngày ký(?: điện tử)?\s*:|Digitally signed(?:\s|$)|Signing time\s*:)/iu;
 const arrivalMarker = /^(?:CÔNG VĂN\s+)?ĐẾN\s*[:：]?$/iu;
-const numberLabel = /^Số\s*(?:[:：﹕]\s*)?(.*)$/iu;
+// The recognizer can misread the "Số:" label ("3ố:", "Ố:"); with its colon it is still the label.
+// The value after it is kept exactly as read.
+const numberLabel = /^(?:Số|[\p{L}\p{N}]?ố(?=\s*[:：﹕]))\s*(?:[:：﹕]\s*)?(.*)$/iu;
+const exactNumberLabel = /^Số(?:\s|[:：﹕]|$)/iu;
+// A number can be read with spaces between its digits ("2 1/2026/TT-BCT"); only digits before the first "/" are joined.
+const spacedNumber = /^\d(?: \d)+(?=\s*\/)/u;
+const joinNumberDigits = text => text.trim().replace(spacedNumber, digits => digits.replace(/ /gu, ""));
 const subjectLabel = /^(?:V\/v\s*[:：]?|Về việc\s*[:：]?)\s*(.*)$/iu;
 const codePattern = /^[\p{L}\p{N}\p{Pd}._?\uFFFD]+(?:\s*\/\s*[\p{L}\p{N}\p{Pd}._?\uFFFD]+)+/u;
 
@@ -70,7 +77,8 @@ function readLines(result) {
         coordinateSystem: (result.method === "native_text" || result.method === "metadata_fast" && line.geometry_source === "native_text") ? "pdf_points" : "raster_pixels",
         precision: (result.method === "native_text" || result.method === "metadata_fast" && line.geometry_source === "native_text") ? "block" : "polygon",
         metadataExcludedReason: line.metadata_excluded_reason};
-    }).filter(line => line.match);
+    // Ruling lines and underscores carry no text.
+    }).filter(line => line.match && /[\p{L}\p{N}]/u.test(line.match));
   });
 }
 function evidence(lines) {
@@ -90,6 +98,17 @@ function successors(line, lines, count = 5) {
   return lines.filter(next => next.order > line.order && sameColumn(line, next)
     && (line.y == null || next.y == null || (next.y >= line.y - .005 && next.y - line.y < .13)))
     .sort((a, b) => a.order - b.order).slice(0, count);
+}
+// Text boxes on the same row just right of a line, in reading order: the detector can list a
+// "Số:" label after its value when the value's box starts a little higher.
+function sameRowRight(line, lines) {
+  if (!line.region) return [];
+  const [, top, right, bottom] = line.region;
+  return lines.filter(other => other !== line && other.page === line.page && other.region
+    && other.region[0] >= right - .01 && other.region[0] - right < .12
+    && Math.min(bottom, other.region[3]) - Math.max(top, other.region[1])
+      >= .5 * Math.min(bottom - top, other.region[3] - other.region[1]))
+    .sort((a, b) => a.region[0] - b.region[0]);
 }
 function boundary(line) {
   return bodyStart.test(line.match) || national.test(line.match) || numberLabel.test(line.match)
@@ -116,10 +135,11 @@ function stampFieldOnly(line) {
   const role=stampRole(line);
   if (role==="arrival") return true;
   const value=line.match.replace(/^[^:：]+[:：]\s*/u,"");
-  if (role==="date") return /^\d[\d\s.,/\-]*$/u.test(value)
-    || /^\d{1,2}\s+tháng\s+\d{1,2}\s+năm\s+\d{4}[.,;]?$/iu.test(value);
-  if (role==="time") return /^(?:\d[\d\s:.,/\-+]*|[A-Z])$/u.test(value);
-  return role==="number" && /^\d[\d\s.,/\-]*$/u.test(value);
+  // Handwriting in a stamp field often reads as noise ("0g/9/2026", "S", "29./6/2026"): short and
+  // without two letters in a row, so it holds no word. "03/02/2025, Tiếp nhận hồ sơ" holds words: it is mixed.
+  const noise=value.length<=16 && !/\p{L}{2}/u.test(value);
+  if (role==="date") return noise || /^\d{1,2}\s+tháng\s+\d{1,2}\s+năm\s+\d{4}[.,;]?$/iu.test(value);
+  return (role==="time" || role==="number") && noise;
 }
 function nearStampAnchor(anchor, line) {
   if (anchor.page !== line.page || !anchor.region || !line.region) return false;
@@ -158,11 +178,16 @@ function subjectCandidates(anchor, lines) {
   // Subject continuation is a paragraph after its own title, not the whole
   // identity header. In particular, cited dates/numbers are allowed here.
   for (const next of lines.filter(line => line.order > anchor.order && sameColumn(anchor, line))) {
-    if (bodyStart.test(next.match) || national.test(next.match) || title.test(next.match)
-      || subjectLabel.test(next.match) || issuer.test(next.match)) break;
+    // Only an upper-case agency line ends a subject: "bộ và Trường..." or "Ủy ban nhân dân..." are its own words.
+    if (bodyStart.test(next.match) || national.test(next.match) || title.test(next.match) || subjectLabel.test(next.match)
+      || issuer.test(next.match) && next.match === next.match.toLocaleUpperCase("vi")) break;
     const previous = used.at(-1);
     if (next.y != null && previous.y != null && (next.y < previous.y - .005
       || next.y - previous.y > (parts.length ? .045 : .075))) break;
+    // A paragraph gap: a step much larger than the subject's own line spacing (a consolidated
+    // text's "Thông tư số ... được sửa đổi, bổ sung bởi:" paragraph follows its subject this way).
+    const steps = used.slice(2).map((line, i) => line.y - used[i + 1].y).filter(step => step > 0);
+    if (next.y != null && previous.y != null && steps.length && next.y - previous.y > Math.max(.025, 1.7 * Math.max(...steps))) break;
     parts.push(next.match); used.push(next);
     if (parts.length >= 24) {limited = true; break;}
   }
@@ -219,22 +244,30 @@ export function createDocumentDraft(result, {sourceKind = "pdf"} = {}) {
     const label = numberLabel.exec(line.match);
     if (!label) continue;
     let candidate = label[1], used = [line];
-    for (const next of successors(line, identityHeader, 3)) {
-      if (codePattern.test(candidate) && !candidate.trim().endsWith("/")) break;
+    const followers = new Set([...(label[1].trim() ? [] : sameRowRight(line, identityHeader)), ...successors(line, identityHeader, 3)]);
+    for (const next of followers) {
+      if (codePattern.test(joinNumberDigits(candidate)) && !candidate.trim().endsWith("/")) break;
       if (boundary(next)) break;
-      candidate += " " + next.match;
+      // Trim: a bare "Số:" leaves an empty start, and a leading space would hide a complete value.
+      candidate = (candidate + " " + next.match).trim();
       used.push(next);
     }
-    const matched = codePattern.exec(candidate.trim());
+    const misreadLabel = !exactNumberLabel.test(line.match);
+    const spaced = spacedNumber.exec(candidate.trim())?.[0];
+    const joined = joinNumberDigits(candidate);
+    const matched = codePattern.exec(joined);
     if (matched) {
-      if (candidate.trim().slice(matched[0].length).trim()) {
+      if (joined.slice(matched[0].length).trim()) {
         incompleteCode = true;
         fields.arcDocCode = field("", "review", used, "Dòng số/ký hiệu có đoạn chưa phân tách rõ; cần kiểm tra nguyên bản.");
         continue;
       }
       const value = matched[0].replace(/\s*\/\s*/gu, "/").trim();
-      const review = !/^\d+\//u.test(value) || /[?\uFFFD]/u.test(value) || used.some(x => /\|/u.test(x.match));
-      codes.push({value, lines: used, review, note: review ? "Có ký tự OCR chưa chắc chắn; đối chiếu bản gốc. Không tự thay ký tự." : ""});
+      const uncertain = !/^\d+\//u.test(value) || /[?\uFFFD]/u.test(value) || used.some(x => /\|/u.test(x.match));
+      const note = [uncertain ? "Có ký tự OCR chưa chắc chắn; đối chiếu bản gốc. Không tự thay ký tự." : "",
+        misreadLabel ? `Nhãn “Số” đọc thành “${line.match.split(/[:：﹕]/u)[0]}”; kiểm tra số/ký hiệu với bản gốc.` : "",
+        spaced ? `Chữ số của số văn bản đọc bị tách (“${spaced}”); kiểm tra với bản gốc.` : ""].filter(Boolean).join(" ");
+      codes.push({value, lines: used, review: uncertain || misreadLabel || Boolean(spaced), note});
     } else {incompleteCode = true; fields.arcDocCode = field("", "review", used, "Dòng Số chưa có số/ký hiệu đầy đủ; cần đối chiếu bản gốc.");}
   }
   if (codes.length) fields.arcDocCode = incompleteCode
@@ -254,10 +287,14 @@ export function createDocumentDraft(result, {sourceKind = "pdf"} = {}) {
         text += " " + next.match; used.push(next);
       }
     }
-    const regex = /^(?:[\p{L}\s.]{1,70},\s*)?ngày\s+(\d{1,2})\s+tháng\s+(\d{1,2})\s+năm\s+(\d{4})/giu;
+    // A handwritten day or month can be read with a space between its two digits ("ngày 0 7 tháng").
+    const regex = /^(?:[\p{L}\s.]{1,70},\s*)?ngày\s+(\d{1,2}|[0-3]\s\d)\s+tháng\s+(\d{1,2}|[01]\s\d)\s+năm\s+(\d{4})/giu;
     for (const match of text.matchAll(regex)) {
-      const value = `${match[1].padStart(2, "0")}-${match[2].padStart(2, "0")}-${match[3]}`;
-      dates.push({value, lines: used, invalid: !isValidIssuedDate(value) || Boolean(text.slice(match[0].length).replace(/[.\s]/gu, ""))});
+      const [day, month] = [match[1], match[2]].map(part => part.replace(/\s/gu, ""));
+      const value = `${day.padStart(2, "0")}-${month.padStart(2, "0")}-${match[3]}`;
+      const split = /\s/u.test(match[1] + match[2]);
+      dates.push({value, lines: used, review: split, note: split ? `Chữ số ngày/tháng đọc bị tách (“ngày ${match[1]} tháng ${match[2]}”); kiểm tra với bản gốc.` : "",
+        invalid: !isValidIssuedDate(value) || Boolean(text.slice(match[0].length).replace(/[.\s]/gu, ""))});
     }
   }
   if (dates.some(date => date.invalid)) fields.issuedDate = field("", "review", dates.flatMap(c => c.lines), "Ngày trong header không hợp lệ hoặc cạnh tranh; không tự sửa ngày/tháng.");
@@ -266,7 +303,12 @@ export function createDocumentDraft(result, {sourceKind = "pdf"} = {}) {
   const firstCodeY = Math.min(...header.filter(line => numberLabel.test(line.match)).map(line => line.y ?? Infinity));
   const agencies = identityHeader.filter(line => issuer.test(line.match) && !national.test(line.match)
     && (line.y == null || line.y < firstCodeY) && (line.x == null || line.x < .52));
-  const agencyCandidates = agencies.map(line => {
+  // The detector can merge the two header columns into one line: the agency is what precedes the national motto.
+  const mergedColumns = identityHeader.flatMap(line => {
+    const merged = /^(.+?)\s+CỘNG\s+H(?:ÒA|OÀ)(?=\s)/u.exec(line.match);
+    return merged && issuer.test(merged[1]) ? [{value: merged[1].toLocaleUpperCase("vi"), lines: [line]}] : [];
+  });
+  const agencyCandidates = [...mergedColumns, ...agencies.map(line => {
     const used = [line];
     for (const next of successors(line, header, 2)) {
       if (boundary(next) || next.match !== next.match.toLocaleUpperCase("vi") || !/\p{L}/u.test(next.match)
@@ -274,7 +316,7 @@ export function createDocumentDraft(result, {sourceKind = "pdf"} = {}) {
       used.push(next);
     }
     return {value: used.map(x => x.match).join(" ").toLocaleUpperCase("vi"), lines: used};
-  });
+  })];
   fields.organName = choose(agencyCandidates, "Header có nhiều cơ quan/cấp cơ quan; chưa xác định cơ quan ban hành.");
 
   const titles = header.filter(line => title.test(line.match));
@@ -282,10 +324,20 @@ export function createDocumentDraft(result, {sourceKind = "pdf"} = {}) {
   fields.typeName = choose(classified, "Có nhiều loại văn bản cạnh tranh; cần kiểm tra.");
   if (new Set(titles.map(line => line.match.toLocaleUpperCase("vi"))).size > 1) fields.typeName = field("", "review", titles, "Có nhiều tiêu đề loại văn bản cạnh tranh; cần xác nhận.");
   if (!classified.length && titles.length) fields.typeName = field("", "review", titles, "Loại tài liệu chưa có mã nghiệp vụ được xác minh trong danh mục.");
-  const typeLabel = titles.length === 1 ? typeLabels[titles[0].match.toLocaleUpperCase("vi")] || "" : "";
+  let typeLabel = titles.length === 1 ? typeLabels[titles[0].match.toLocaleUpperCase("vi")] || "" : "";
   const subjects = [];
   const explicit = header.filter(line => subjectLabel.test(line.match));
   const anchors = explicit.length ? explicit : titles;
+  // An official letter has no title of its own. Its "V/v" line sits in the left column right under
+  // "Số:" (the letter layout of Decree 30/2020); a "V/v" line elsewhere does not decide the type.
+  const numberLines = header.filter(line => numberLabel.test(line.match));
+  const letterSubject = explicit.find(line => line.region && line.region[2] < .5 && numberLines.some(number =>
+    number.region && sameColumn(number, line) && line.region[1] >= number.region[1] && line.region[1] - number.region[3] < .06));
+  if (!titles.length && letterSubject) {
+    fields.typeName = field("22", "review", [...numberLines.filter(line => sameColumn(line, letterSubject)), letterSubject],
+      "Suy ra từ bố cục công văn: dòng “V/v” ngay dưới số, không có tiêu đề loại văn bản; kiểm tra.");
+    typeLabel = typeLabels["CÔNG VĂN"];
+  }
   for (const line of anchors) {
     const candidate = subjectCandidates(line, first);
     if (candidate) subjects.push(candidate);
@@ -338,6 +390,19 @@ export function createDocumentDraft(result, {sourceKind = "pdf"} = {}) {
   if (fast && result.fast_metadata?.needs_review) {
     fields.subject.status = "review";
     fields.subject.note = [fields.subject.note, "Kết quả header một phần: đối chiếu trích yếu với ảnh nguồn, nhất là vùng dấu đóng chồng hoặc dòng bị cắt."].filter(Boolean).join(" ");
+  }
+  // Seal colour comes from the page pixels (backend seal_colour.py), not from OCR text.
+  const seal = result?.seal;
+  if (seal?.reason === "found" && seal.colour === "red" && Number.isInteger(seal.page)) {
+    const size = Array.isArray(seal.size_mm) ? ` khoảng ${seal.size_mm.map(v => Math.round(v)).join(" × ")} mm` : "";
+    const source = {source: "seal_colour", sealPage: seal.page, text: `Trang ${seal.page}: dấu tròn màu đỏ${size}.`};
+    fields.isCan = {...field("0", "recognized"), evidence: [source], note: "Nhận diện từ màu và hình dạng con dấu trên ảnh trang, không phải OCR."};
+    fields.confidenceLevel = {...field("01", "recognized"), evidence: [source, {source: "business_rule", text: 'isCan = "0" → 01.'}],
+      note: "Tính từ màu con dấu đỏ nhận diện tự động. Mã nghiệp vụ, không phải độ chính xác OCR."};
+  } else if (seal?.reason === "black_and_white") {
+    fields.isCan.note = "Bản quét đen trắng: không xác định được màu con dấu từ ảnh; đối chiếu bản gốc.";
+  } else if (seal?.reason === "not_found") {
+    fields.isCan.note = `Không thấy dấu tròn màu đỏ trên ${seal.pages_checked?.length ?? 0} trang đã xét; đối chiếu bản gốc.`;
   }
   return {fields, dirty: false, method: result?.method ?? "", typeLabel};
 }

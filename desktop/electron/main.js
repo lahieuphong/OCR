@@ -495,8 +495,9 @@ async function runSmoke() {
       confidence: document.querySelector('#metadata-confidenceLevel').value })`);
     assert.equal(c.metadata.fields, 22);
     assert.equal(c.metadata.doc_id, '');
-    assert.equal(c.metadata.stamp, '');
-    assert.equal(c.metadata.confidence, '02');
+    // The seal colour is filled only from a red seal found in the page pixels; the code follows it.
+    assert.ok(['', '0'].includes(c.metadata.stamp), `unexpected seal colour ${c.metadata.stamp}`);
+    assert.equal(c.metadata.confidence, c.metadata.stamp === '0' ? '01' : '02');
     await screenshot('03a_ui_metadata.png');
     const metadataBounds = mainWindow.getBounds();
     mainWindow.setSize(960, 720);

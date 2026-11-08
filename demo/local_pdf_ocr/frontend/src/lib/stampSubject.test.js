@@ -79,3 +79,19 @@ describe("conservative stamp-contaminated subject",()=>{
     expect(draft.fields.subject.value).toBe("");expect(draft.fields.subject.candidate).toContain("Ngày:");expect(JSON.stringify(raw)).toBe(before);
   });
 });
+
+describe("handwriting inside an arrival stamp",()=>{
+  const withTime=text=>{
+    const raw=stampSubjectDocument({native:true,stamp:true});
+    raw.pages[0].lines.find(line=>line.text==="Giờ: C").text=text;
+    return createDocumentDraft(rewrite(raw)).fields.subject;
+  };
+  test.each(["Giờ: 0G/9:2D","Giờ: S","Giờ:"])("a stamp field read as noise (%s) is the stamp, not part of the subject",text=>{
+    const subject=withTime(text);
+    expect(subject.value).toBe(STAMP_TEST_SUBJECT);expect(subject.candidate).toBeUndefined();
+  });
+  test("a stamp field holding words stays mixed evidence",()=>{
+    const subject=withTime("Giờ: 9 giờ Quy định");
+    expect(subject.value).toBe("");expect(subject.status).toBe("review");expect(subject.candidate).toContain("Giờ: 9 giờ Quy định");
+  });
+});

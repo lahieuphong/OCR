@@ -196,6 +196,39 @@ class FastMetadataTests(unittest.TestCase):
         self.assertTrue(result["fast_metadata"]["roi_limit_reached"])
         self.assertTrue(result["fast_metadata"]["needs_review"])
 
+    def test_body_seen_with_handwritten_number_or_date_does_not_grow_the_region(self):
+        rows = header()
+        rows[2] = ("Số:", 40, 90)                       # number left blank or handwritten and unreadable
+        rows[3] = ("Hà Nội, ngày tháng 04 năm 2026", 300, 90)
+        engine = FakeEngine(rows)
+        result = self.run_fast(image_bytes(), "handwritten.png", lambda: engine)
+        meta = result["fast_metadata"]
+        self.assertEqual(len(meta["roi_attempts"]), 1)
+        self.assertEqual(meta["stopped"], "body_boundary_seen")
+        self.assertFalse(meta["roi_limit_reached"])
+        self.assertIn("roi_growth_stopped:body_boundary_seen", meta["reasons"])
+        self.assertIn("missing_header_evidence:document_number,issued_date", meta["reasons"])
+        self.assertEqual(engine.predictions.count("CHÍNH PHỦ"), 1)
+
+    def test_notice_without_body_marker_stops_after_the_subject_allowance(self):
+        rows = [("VĂN PHÒNG CHÍNH PHỦ", 40, 40), ("Số: 180/TB-VPCP", 40, 70), ("Hà Nội, ngày 07 tháng 4 năm 2026", 300, 70),
+                ("THÔNG BÁO", 230, 100), ("Kết luận của Thường trực Chính phủ", 100, 120)]
+        rows += [(f"Nội dung thông báo dòng {i}", 40, 140 + i * 15) for i in range(30)]
+        engine = FakeEngine(rows)
+        result = self.run_fast(image_bytes(), "notice.png", lambda: engine)
+        meta = result["fast_metadata"]
+        self.assertEqual((len(meta["roi_attempts"]), meta["stopped"]), (1, "subject_line_allowance"))
+        title_at = [line["text"] for line in result["pages"][0]["lines"]].index("THÔNG BÁO") + 1
+        self.assertEqual(result["line_count"], title_at + fast.SUBJECT_LINE_ALLOWANCE)
+        self.assertNotIn("Nội dung thông báo dòng 20", engine.predictions)
+
+    def test_line_limit_without_header_does_not_grow_the_region(self):
+        rows = [(f"Dòng không phải header {i}", 40, 20 + i * 5) for i in range(70)]
+        result = self.run_fast(image_bytes(), "dense.png", lambda: FakeEngine(rows))
+        meta = result["fast_metadata"]
+        self.assertEqual((len(meta["roi_attempts"]), meta["stopped"]), (1, "line_limit_reached"))
+        self.assertEqual(result["line_count"], fast.MAX_HEADER_LINES)
+
     def test_raw_stamp_overlap_line_is_never_rewritten(self):
         rows = header()
         rows[5] = ("ĐẾN 09/04/2026 — Sửa đổi, bổ sung nội dung", 100, 165)

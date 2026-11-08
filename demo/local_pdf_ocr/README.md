@@ -57,8 +57,14 @@ in Git; they live in the ignored `models/` folder and are checked by SHA-256.
 returned header page. `inspected_pages` lists pages examined; `processed_pages`
 lists only pages actually OCR-processed (empty for a native-only header).
 `partial_result=true` means the result is **not full text**. First-page ROIs
-expand only when header evidence is incomplete, under a bounded policy;
-missing/obscured headers require review instead of a full-document fallback.
+expand only when header evidence is incomplete and a taller region can still add
+it: growth stops once the body has started (number, date, agency and title sit
+above it), after 10 lines past the title or `V/v` line without a body marker (a
+notice has no `Căn cứ`), or at the 64-line limit. `fast_metadata.stopped` names the
+reason. Missing/obscured headers require review instead of a full-document fallback.
+Every mode's result also carries `seal`, a pixel check for a round red seal on the
+last pages (see `frontend/METADATA.md`); it never changes the text, and its failure
+never fails the request.
 The recognizer, detector, tensor preprocessing and decoder limits stay pinned.
 Fast OCR verifies the local frozen detector and recognizer before SDK loading,
 disables model hosters, and refuses missing/changed files without downloading.

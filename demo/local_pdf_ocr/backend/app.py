@@ -18,6 +18,7 @@ from .engine import LocalOcrEngine
 from .hybrid_h1 import apply_hybrid_h1
 from .metadata_fast import extract_metadata_fast
 from .number_review_preview import parse_preview_polygon, render_number_review_preview
+from .seal_colour import METHOD as SEAL_METHOD, find_seal
 from .text_layer import extract_pdf_text
 
 logger = logging.getLogger("local_pdf_ocr")
@@ -34,6 +35,15 @@ _preview_lock = asyncio.Lock()
 @lru_cache(maxsize=1)
 def get_engine() -> LocalOcrEngine:
     return LocalOcrEngine()
+
+
+def seal_check(payload: bytes, extension: str) -> dict:
+    # A pixel check beside the text result: it never changes the text, and its failure never fails the request.
+    try:
+        return find_seal(payload, extension)
+    except Exception:
+        logger.exception("Seal colour check failed")
+        return {"method": SEAL_METHOD, "reason": "error", "colour": None}
 
 
 @app.get("/api/health")
@@ -108,6 +118,7 @@ async def ocr(file: UploadFile = File(...), mode: str = Form("vietocr_ocr")):
                     "PaddleOCR/PaddlePaddle, mô hình detection và ONNX Runtime."
                 ),
             ) from exc
+        result["seal"] = await run_in_threadpool(seal_check, payload, extension)
         result["request_elapsed_ms"] = round((time.perf_counter() - start) * 1000)
         return JSONResponse(content=result)
 

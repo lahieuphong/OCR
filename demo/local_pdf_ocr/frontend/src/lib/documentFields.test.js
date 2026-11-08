@@ -173,3 +173,110 @@ describe("dates, page counts and manual drafts", () => {
     expect(JSON.parse(serializeDocumentFields(d)).mode).toBe("");
   });
 });
+
+// Synthetic rows in PDF points (595 x 842), modelled on layouts seen in real headers; no real document text.
+const IDENTITY = [["VĂN PHÒNG KIỂM THỬ",45,35,270,50],["CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM",320,35,570,50],["Độc lập - Tự do - Hạnh phúc",350,60,560,75]];
+const rowsDraft = (rows, method = "native_text") => createDocumentDraft(documentFromRows(rows, {method}));
+const decision = (subject, extra = []) => [...IDENTITY, ["Số: 12/QĐ-KT",90,95,230,110], ["Hà Nội, ngày 08 tháng 10 năm 2026",320,95,570,110],
+  ["QUYẾT ĐỊNH",240,140,355,158], ...subject, ...extra, ["Căn cứ Luật Kiểm thử;",45,300,555,315]];
+
+describe("header rules for real layouts", () => {
+  test("an official letter is recognised from its layout: V/v under the number, no title", () => {
+    const d = rowsDraft([...IDENTITY, ["Số: 10300/VPCP-CN",110,95,235,110], ["Hà Nội, ngày 08 tháng 10 năm 2026",320,95,570,110],
+      ["V/v triển khai kết luận của Bộ",100,115,250,128], ["Kính gửi: Bộ Kiểm thử",200,160,400,175]]);
+    expect(value(d, "typeName")).toBe("22"); expect(d.fields.typeName.status).toBe("review"); expect(d.typeLabel).toBe("Công văn");
+    expect(d.fields.typeName.evidence.map(source => source.text)).toEqual(["Số: 10300/VPCP-CN", "V/v triển khai kết luận của Bộ"]);
+  });
+  test("a circular is named but gets no unverified code", () => {
+    const d = draft({kind: "THÔNG TƯ"});
+    expect(d.typeLabel).toBe("Thông tư"); expect(value(d, "typeName")).toBe(""); expect(d.fields.typeName.status).toBe("review");
+  });
+  test("the signing portal's agency mark does not compete with the issuing agency", () => {
+    const d = rowsDraft(decision([["Phê duyệt nội dung kiểm thử",150,175,450,190]], [["Cơ quan phát hành: Văn phòng Kiểm thử",45,55,270,67]]));
+    expect(value(d, "organName")).toBe("VĂN PHÒNG KIỂM THỬ");
+  });
+  test("the agency is taken from a line where the detector merged both header columns", () => {
+    const rows = decision([["Phê duyệt nội dung kiểm thử",150,175,450,190]]);
+    rows.splice(0, 2, ["THỦ TƯỚNG CHÍNH PHỦ CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM",45,35,570,50]);
+    expect(value(rowsDraft(rows, "vietocr_ocr"), "organName")).toBe("THỦ TƯỚNG CHÍNH PHỦ");
+  });
+  test("lower-case agency words inside a subject do not end it", () => {
+    const d = rowsDraft(decision([["Phê duyệt kế hoạch phối hợp của Liên",150,175,450,190], ["bộ và Trường Đại học Kiểm thử",150,193,450,208]]));
+    expect(value(d, "subject")).toBe("Phê duyệt kế hoạch phối hợp của Liên bộ và Trường Đại học Kiểm thử");
+  });
+  test("a paragraph after the subject (consolidated text preamble) is not part of it", () => {
+    const subject = [["Quy định về biểu mẫu kiểm thử và",150,175,450,190], ["sổ kiểm thử cấp cho đơn vị",150,191,450,206], ["kiểm thử nội địa",200,207,400,222],
+      ["Thông tư số 20/2022/TT-KT ngày 29 tháng 7 năm 2022 của Bộ trưởng",100,239,500,254], ["được sửa đổi, bổ sung bởi:",80,255,300,270]];
+    const d = rowsDraft(decision(subject));
+    expect(value(d, "subject")).toBe("Quy định về biểu mẫu kiểm thử và sổ kiểm thử cấp cho đơn vị kiểm thử nội địa");
+    const even = rowsDraft(decision(subject.slice(0, 3).concat([["và thêm một dòng cách đều",150,223,450,238]])));
+    expect(value(even, "subject")).toBe("Quy định về biểu mẫu kiểm thử và sổ kiểm thử cấp cho đơn vị kiểm thử nội địa và thêm một dòng cách đều");
+  });
+  test("ruling lines and underscores are not text", () => {
+    const d = rowsDraft(decision([["Phê duyệt nội dung kiểm thử",150,175,450,190], ["______________",240,193,355,200]]));
+    expect(value(d, "subject")).toBe("Phê duyệt nội dung kiểm thử");
+  });
+  test("a bare Số: label takes its value from the next line or from the same row", () => {
+    const below = decision([["Phê duyệt nội dung kiểm thử",150,175,450,190]]);
+    below.splice(3, 1, ["Số:",90,95,112,110], ["00042/2025/NĐ-KT",90,112,230,126]);
+    expect(value(rowsDraft(below), "arcDocCode")).toBe("00042/2025/NĐ-KT");
+    const sameRow = decision([["Phê duyệt nội dung kiểm thử",150,175,450,190]]);
+    // The value's box starts higher, so the detector lists it before its label.
+    sameRow.splice(3, 1, ["637/QĐ-TTg",118,93,200,110], ["Số:",90,95,112,110]);
+    expect(value(rowsDraft(sameRow, "vietocr_ocr"), "arcDocCode")).toBe("637/QĐ-TTg");
+  });
+  test.each([["3ố: 1157/QĐ-TTg", "1157/QĐ-TTg", "3ố"], ["Ố: 180/TB-VPCP", "180/TB-VPCP", "Ố"]])("a misread Số label %s keeps the value as read, for review", (line, code, label) => {
+    const rows = decision([["Phê duyệt nội dung kiểm thử",150,175,450,190]]);
+    rows.splice(3, 1, [line,90,95,230,110]);
+    const d = rowsDraft(rows, "vietocr_ocr");
+    expect(value(d, "arcDocCode")).toBe(code); expect(d.fields.arcDocCode.status).toBe("review");
+    expect(d.fields.arcDocCode.note).toContain(`“${label}”`);
+  });
+  test("a number read with a space between its digits is joined, for review", () => {
+    const rows = decision([["Phê duyệt nội dung kiểm thử",150,175,450,190]]);
+    rows.splice(3, 1, ["Số: 2 1/2026/TT-BCT",90,95,230,110]);
+    const d = rowsDraft(rows, "vietocr_ocr");
+    expect(value(d, "arcDocCode")).toBe("21/2026/TT-BCT"); expect(value(d, "codeNumber")).toBe("21");
+    expect(d.fields.arcDocCode.status).toBe("review"); expect(d.fields.arcDocCode.note).toContain("“2 1”");
+    rows.splice(3, 1, ["Số: 21/2026/TT-BCT",90,95,230,110]);
+    const plain = rowsDraft(rows);
+    expect(value(plain, "arcDocCode")).toBe("21/2026/TT-BCT"); expect(plain.fields.arcDocCode.status).toBe("recognized");
+  });
+  test("a word ending in ố before other text is not a number label", () => {
+    const rows = decision([["Phê duyệt nội dung kiểm thử",150,175,450,190]]);
+    rows.splice(3, 1, ["Bố cục: 1/2",90,95,230,110]);
+    expect(value(rowsDraft(rows), "arcDocCode")).toBe("");
+  });
+  test("a handwritten day read with a space between its digits is joined, for review", () => {
+    const rows = decision([["Phê duyệt nội dung kiểm thử",150,175,450,190]]);
+    rows.splice(4, 1, ["Hà Nội, ngày 0 7 tháng 4 năm 2026",320,95,570,110]);
+    const d = rowsDraft(rows, "vietocr_ocr");
+    expect(value(d, "issuedDate")).toBe("07-04-2026"); expect(d.fields.issuedDate.status).toBe("review");
+    expect(d.fields.issuedDate.note).toContain("ngày 0 7 tháng 4");
+    rows.splice(4, 1, ["Hà Nội, ngày 0 F tháng 4 năm 2026",320,95,570,110]);
+    expect(value(rowsDraft(rows, "vietocr_ocr"), "issuedDate")).toBe("");
+  });
+});
+
+describe("seal colour", () => {
+  const withSeal = seal => createDocumentDraft({...syntheticDocument(), seal});
+  test("a red round seal found on a page fills the seal colour and the confidence code", () => {
+    const d = withSeal({method: "red_round_mark_v1", reason: "found", colour: "red", page: 2, size_mm: [40.4, 40.1], pages_checked: [3, 2]});
+    expect(value(d, "isCan")).toBe("0"); expect(d.fields.isCan.status).toBe("recognized");
+    expect(d.fields.isCan.evidence[0]).toMatchObject({source: "seal_colour", sealPage: 2, text: "Trang 2: dấu tròn màu đỏ khoảng 40 × 40 mm."});
+    expect(value(d, "confidenceLevel")).toBe("01"); expect(documentValues(d).confidenceLevel).toBe("01");
+  });
+  test("a black-and-white scan or a missing seal leaves the colour unknown with a reason", () => {
+    for (const [reason, text] of [["black_and_white", "đen trắng"], ["not_found", "2 trang"]]) {
+      const d = withSeal({method: "red_round_mark_v1", reason, colour: null, pages_checked: [2, 1]});
+      expect(value(d, "isCan")).toBe(""); expect(d.fields.isCan.status).toBe("unknown"); expect(d.fields.isCan.note).toContain(text);
+      expect(documentValues(d).confidenceLevel).toBe("02");
+    }
+  });
+  test("results without a seal check (older results, errors) keep the previous behaviour", () => {
+    for (const seal of [undefined, {reason: "error", colour: null}, {reason: "found", colour: "red"}]) {
+      const d = withSeal(seal);
+      expect(value(d, "isCan")).toBe(""); expect(d.fields.isCan.note).toBe(""); expect(value(d, "confidenceLevel")).toBe("02");
+    }
+  });
+});

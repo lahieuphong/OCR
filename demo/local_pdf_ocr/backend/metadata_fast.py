@@ -3,6 +3,14 @@
 The recognizer, tensor preprocessing and detector parameters remain the full
 pipeline's frozen ones. Embedded text must contain a genuine administrative
 header before it can avoid OCR; an electronic signature alone is insufficient.
+
+The OCR region grows downwards only while growing can still add header evidence. It stops when:
+* the header is complete;
+* the body has started ("Căn cứ", "Kính gửi", ...): number, date, agency and title all sit above
+  it, so a taller region would only read the same lines again;
+* SUBJECT_LINE_ALLOWANCE lines were read after the title or "V/v" line without a body marker
+  (a notice has no "Căn cứ"): the subject has ended within them;
+* MAX_HEADER_LINES lines were read: a taller region would read the same first lines.
 """
 from __future__ import annotations
 
@@ -20,6 +28,8 @@ from .engine import iter_images
 
 ROI_FRACTIONS = (.45, .65, .80)
 MAX_HEADER_LINES = 64
+SUBJECT_LINE_ALLOWANCE = 10
+SUBJECT_MARK = re.compile(r"^(?:v/v|về việc)(?:\s|:)")
 TITLE = re.compile(r"^(?:nghị định|nghị quyết|quyết định|công văn|thông tư|thông báo|báo cáo|kế hoạch|tờ trình|luật|bộ luật|pháp lệnh)$")
 BODY = re.compile(r"^(?:căn cứ(?:\s|$|[:,])|kính gửi(?:\s|$|[:,])|điều\s+\d|quyết định\s*:|quyết nghị\s*:|nơi nhận\s*:)")
 ISSUER = re.compile(r"^(?:chính phủ$|quốc hội$|thủ tướng chính phủ$|văn phòng|ủy ban|hội đồng|bộ\s|sở\s|cục\s|tổng cục|tòa án|viện kiểm sát)")
@@ -110,7 +120,7 @@ def assess_header(lines, roi_bottom, height):
     body_index = next((i for i, text in enumerate(texts) if BODY.match(text)), None)
     header = texts[:body_index] if body_index is not None else texts
     title_index = next((i for i, text in enumerate(header) if TITLE.fullmatch(text)), None)
-    subject_index = next((i for i, text in enumerate(header) if re.match(r"^(?:v/v|về việc)(?:\s|:)", text)), None)
+    subject_index = next((i for i, text in enumerate(header) if SUBJECT_MARK.match(text)), None)
     anchor = subject_index if subject_index is not None else title_index
     subject = anchor is not None and (len(header) > anchor + 1 or subject_index is not None and len(header[subject_index]) > 5)
     evidence = {"document_number": any(NUMBER.match(t) for t in header),
@@ -178,7 +188,7 @@ def extract_metadata_fast(raw: bytes, filename: str, engine_provider) -> dict:
             if chosen:
                 roi = native_attempts[-1]["roi"]
                 return result_record(filename, source_count, chosen, width, height, roi, "pdf_points", False,
-                                     native_status, native_attempts, native_attempts, timings, started)
+                                     native_status, native_attempts, native_attempts, timings, started, "header_complete")
             zoom = min(2.0, math.sqrt(MAX_IMAGE_PIXELS / (width * height)))
             full_width, full_height = math.ceil(width * zoom), math.ceil(height * zoom)
             def render(fraction):
@@ -204,6 +214,7 @@ def extract_metadata_fast(raw: bytes, filename: str, engine_provider) -> dict:
         cache = []
         attempts = []
         final_lines = []
+        stop_reason = None
         for fraction in ROI_FRACTIONS:
             t = time.perf_counter(); image = render(fraction); timings["render"] += (time.perf_counter()-t)*1000
             roi = [0, 0, image.width, image.height]
@@ -211,6 +222,8 @@ def extract_metadata_fast(raw: bytes, filename: str, engine_provider) -> dict:
             lines = []
             reused = 0
             capped = False
+            anchor_at = None
+            subject_window_full = False
             for polygon in polygons:
                 if len(lines) >= MAX_HEADER_LINES:
                     capped = True
@@ -231,23 +244,33 @@ def extract_metadata_fast(raw: bytes, filename: str, engine_provider) -> dict:
                 if SIGNATURE.match(match_text(text)) or any(covered_by(bounds, box) >= .85 for box in signature_boxes):
                     line["metadata_excluded_reason"] = "electronic_signature"
                 lines.append(line)
-                if not line.get("metadata_excluded_reason") and BODY.match(match_text(text)):
+                if line.get("metadata_excluded_reason"):
+                    continue
+                compared = match_text(text)
+                if BODY.match(compared):
+                    break
+                if anchor_at is None and (TITLE.fullmatch(compared) or SUBJECT_MARK.match(compared)):
+                    anchor_at = len(lines)
+                elif anchor_at is not None and len(lines) - anchor_at >= SUBJECT_LINE_ALLOWANCE:
+                    subject_window_full = True
                     break
             t = time.perf_counter(); status = assess_header(lines, image.height, full_height); timings["selection"] += (time.perf_counter()-t)*1000
+            stop_reason = ("header_complete" if status["header_complete"] else "body_boundary_seen" if status["body_boundary_seen"]
+                           else "subject_line_allowance" if subject_window_full else "line_limit_reached" if capped else None)
             attempts.append({"source": "vietocr_ocr", "roi": roi, "detected_lines": len(polygons), "recognized_lines": len(lines),
-                             "reused_lines": reused, "line_limit_reached": capped, **status})
+                             "reused_lines": reused, "line_limit_reached": capped, "stopped": stop_reason, **status})
             final_lines = lines
-            if status["header_complete"]:
+            if stop_reason:
                 break
         return result_record(filename, source_count, final_lines, full_width, full_height, attempts[-1]["roi"],
-                             "raster_pixels", True, status, attempts, native_attempts, timings, started)
+                             "raster_pixels", True, status, attempts, native_attempts, timings, started, stop_reason)
     finally:
         if document is not None:
             document.close()
 
 
 def result_record(filename, source_count, lines, width, height, roi, coordinates, used_ocr,
-                  status, attempts, native_attempts, timings, started):
+                  status, attempts, native_attempts, timings, started, stop_reason=None):
     lines = [{**line, "line_index": index} for index, line in enumerate(lines, 1)]
     reasons = ["metadata_from_partial_header_requires_review"]
     if status["missing"]:
@@ -256,9 +279,12 @@ def result_record(filename, source_count, lines, width, height, roi, coordinates
         reasons.append("subject_end_not_confirmed")
     if any(line.get("metadata_excluded_reason") for line in lines):
         reasons.append("electronic_signature_excluded_from_metadata")
-    limit = not status["header_complete"]
+    # Only a region that grew to its last size without finding the header counts as the limit.
+    limit = not status["header_complete"] and stop_reason is None
     if limit:
         reasons.append("bounded_first_page_roi_limit_reached")
+    elif not status["header_complete"]:
+        reasons.append("roi_growth_stopped:" + stop_reason)
     timings = {key: round(value, 3) for key, value in timings.items()}
     timings["total"] = round((time.perf_counter()-started)*1000, 3)
     text = "\n".join(line["text"] for line in lines)
@@ -274,7 +300,7 @@ def result_record(filename, source_count, lines, width, height, roi, coordinates
             "pages": [{"page": 1, "width": width, "height": height, "coordinate_system": coordinates,
                        "roi": roi, "lines": lines, "text": text}], "text": text,
             "fast_metadata": {"strategy": "bounded_first_page_header_v1", "header_complete": status["header_complete"],
-                              "needs_review": True, "reasons": reasons, "roi_limit_reached": limit,
+                              "needs_review": True, "reasons": reasons, "roi_limit_reached": limit, "stopped": stop_reason,
                               "native_header_usable": not used_ocr, "roi_attempts": attempts,
                               "native_header_attempts": native_attempts},
             "timings_ms": timings, "elapsed_ms": round(timings["total"]), "deployment_approved": False,

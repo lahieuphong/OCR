@@ -17,7 +17,7 @@ integration must verify these types before sending any data.
 | docId | Always `""`, reserved; never generated or editable |
 | arcDocCode | Full header number/notation; manually editable |
 | maintenance | `01` permanent; `02` 75 years; `03` 50; `04` 30; `05` 20; `06` 10; `07` 5 |
-| typeName | Only verified mappings: `01` Nghị quyết; `02` Quyết định; `22` Công văn |
+| typeName | Only verified mappings: `01` Nghị quyết; `02` Quyết định; `22` Công văn (also from the letter layout, for review) |
 | codeNumber | Before the first `/` of arcDocCode; derived, read-only |
 | codeNotation | After the last `/` of arcDocCode; derived, read-only |
 | issuedDate | Real calendar date in `DD-MM-YYYY`, or empty |
@@ -35,10 +35,19 @@ integration must verify these types before sending any data.
 | riskRecovery | `0` no; `1` yes; manual only |
 | riskRecoveryStatus | `01` backed up; `02` not backed up; manual only |
 | description | Manual notes; never generated from OCR |
-| isCan | `0` red seal; `1` other color; empty if unknown; manual visual confirmation |
+| isCan | `0` when the backend's seal check finds a round red seal; `1` other color (manual only); empty if unknown |
 
-`confidenceLevel` is a **business classification, not OCR probability**. The
-initial `02` is explicitly marked for review because the seal is unknown.
+`confidenceLevel` is a **business classification, not OCR probability**. It is
+`01` when a red seal was found; otherwise the initial `02` is marked for review
+because the seal is unknown.
+
+The seal check (`backend/seal_colour.py`, every mode) looks at page pixels, not
+text: pages render at 100 dpi from the last page back (20 pages, then the first
+20 of a longer PDF), and the first red, round (convex hull ≈ π/4 of its box),
+22–60 mm mark is the seal. Rectangular stamps and the small e-signature emblem
+do not qualify. A scan whose page image is greyscale is reported as black and
+white: its seal colour cannot be known and stays empty. The result's `seal` key
+names the page and size, which the metadata panel shows as evidence.
 `mode` is never inferred from document content and never silently assigned `01`.
 The UI warns that a future storage backend may treat an empty mode as public,
 and requires confirmation before exporting or copying an unclassified draft.
@@ -53,15 +62,30 @@ The exported JSON itself retains `mode: ""`.
   dashes are preserved as extracted, including PDF font mappings to U+2010.
   Ambiguous OCR characters such as `O` in the number or `?` are never repaired;
   these candidates require review. Competing identifiers/dates stay unresolved.
+  A bare `Số:` takes its value from the next line or from the same row on its
+  right. A misread label with its colon (`3ố:`, `Ố:`) still marks the number, and
+  digits read with spaces before the first `/` (`2 1/2026/…`) are joined; both
+  keep every character as read and require review.
 - Issuance dates need an explicit administrative `ngày … tháng … năm …` header
-  pattern and pass a UTC calendar check. No missing day/month is invented.
+  pattern and pass a UTC calendar check. No missing day/month is invented. A day
+  or month read as two digits with a space (`ngày 0 7 tháng`) is joined, for review.
 - National titles and mottos are excluded from issuing agencies. Multiple agency
-  candidates/cascaded authorities are left for manual resolution.
+  candidates/cascaded authorities are left for manual resolution. When the detector
+  merges both header columns into one line, the agency is the text before
+  `CỘNG HÒA`. The signing portal's `Cơ quan phát hành:` mark is signature text.
 - An explicit document-type heading is required. `V/v` alone does not imply
-  Công văn. The other 29 codes are neither invented nor offered in the dropdown.
+  Công văn, except in the official-letter layout: a `V/v` line in the left column
+  right under `Số:` and no title gives `22`, for review. `THÔNG TƯ` is a title
+  without a code. The other codes are neither invented nor offered in the dropdown.
 - `V/v`, `Về việc` and main title continuations are bounded by column, paragraph
-  gap, header/body markers and length. Complex layouts may remain empty or need
-  review. No spelling, diacritic or legal-name correction is applied.
+  gap (absolute, and a step 1.7 times the subject's own line spacing), header/body
+  markers, upper-case agency lines and length. Ruling lines and underscores are not
+  text. Complex layouts may remain empty or need review. No spelling, diacritic or
+  legal-name correction is applied.
+- An arrival stamp's field (`Ngày:`, `Giờ:`, `Số đến:`) beside its `ĐẾN` mark is the
+  stamp when its value is a date or noise without any word (no two letters in a
+  row, such as handwriting read as `0g/9/2026`). A stamp field holding words is
+  mixed with the subject, which then stays empty for review.
 - Native bbox coordinates describe **blocks in PDF points**. OCR polygons describe
   lines in **raster pixels**. Analysis normalizes them within their own page only.
   Evidence retains page/line/literal source text and coordinate provenance; the UI

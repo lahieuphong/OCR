@@ -26,6 +26,7 @@ export function visibleNote(note = "") {
 const TOOLTIP_ONLY = new Set(["confidenceLevel", "isCan"]);
 
 function evidenceLabel(source) {
+  if (source.source === "seal_colour") return `con dấu, trang ${source.sealPage}`;
   return source.page ? `trang ${source.page}, dòng ${source.line}` : "quy tắc nghiệp vụ";
 }
 
@@ -35,7 +36,8 @@ export default function DocumentMetadata({draft, onEdit, onConfirmField, onReset
   const [message, setMessage] = useState("");
   const [exportError, setExportError] = useState("");
   const validation = validateDocumentDraft(draft);
-  const recognized = FIELD_KEYS.filter(key => draft.fields[key].value && draft.fields[key].evidence.some(source => source.page || source.source === "source_page_count")).length;
+  const recognized = FIELD_KEYS.filter(key => draft.fields[key].value && draft.fields[key].evidence.some(source => source.page
+    || ["source_page_count", "seal_colour"].includes(source.source))).length;
   const confirmed = FIELD_KEYS.filter(key => draft.fields[key].status === "confirmed").length;
   const fromOcr = Boolean(result?.used_ocr);
 
