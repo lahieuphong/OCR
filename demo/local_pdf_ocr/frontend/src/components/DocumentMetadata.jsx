@@ -85,8 +85,8 @@ export default function DocumentMetadata({draft, onEdit, onConfirmField, onReset
         {group.keys.map(key => {
           const entry = draft.fields[key];
           const invalid = checked && validation.errors[key];
-          // The detected type line above already explains a missing type code.
-          const note = TOOLTIP_ONLY.has(key) || (key === "typeName" && draft.typeLabel) ? "" : visibleNote(entry.note);
+          // The detected type line above already explains a missing type code; a provisional code keeps its note.
+          const note = TOOLTIP_ONLY.has(key) || (key === "typeName" && draft.typeLabel && !entry.value) ? "" : visibleNote(entry.note);
           // Read-only fields follow Mã văn bản / the source and cannot be confirmed on their own: no badge.
           const showStatus = !READ_ONLY.has(key) && (entry.status === "review" || entry.status === "confirmed");
           const edit = value => {onEdit(key, value); setMessage("");};

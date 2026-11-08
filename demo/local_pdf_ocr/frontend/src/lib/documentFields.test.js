@@ -1,5 +1,5 @@
 import {describe, expect, test} from "vitest";
-import {CATALOGS, FIELD_KEYS, createDocumentDraft, documentValues, editDocumentField, confirmDocumentField,
+import {CATALOGS, FIELD_KEYS, PROVISIONAL_TYPE_CODES, TYPE_CODES, createDocumentDraft, documentValues, editDocumentField, confirmDocumentField,
   isValidIssuedDate, serializeDocumentFields, validateDocumentDraft} from "./documentFields.js";
 import {documentFromRows, syntheticDocument, SYNTHETIC_CASES} from "../test/fixtures/administrativeDocuments.js";
 import {SYNTHETIC_GOLD} from "../test/fixtures/metadataGold.js";
@@ -47,9 +47,15 @@ describe("business schema and provenance", () => {
     for (const key of ["maintenance","inforSign","keyword","mode","autograph","format","process","riskRecovery","riskRecoveryStatus","description","isCan"]) expect(value(d, key)).toBe("");
     expect(value(d, "issuedDate")).toBe("08-10-2026");
   });
-  test("does not invent 29 missing document type codes", () => {
-    expect(Object.keys(CATALOGS.typeName)).toEqual(["22", "01", "02"]);
-    expect(value(draft({kind: "THÔNG BÁO"}), "typeName")).toBe("");
+  test("keeps the official type codes and adds only the owner's marked provisional codes", () => {
+    expect(CATALOGS.typeName).toEqual({"01": "Nghị quyết", "02": "Quyết định", "22": "Công văn",
+      "NĐ": "Nghị định (mã tạm)", "TB": "Thông báo (mã tạm)", "TT": "Thông tư (mã tạm)"});
+    expect([...PROVISIONAL_TYPE_CODES]).toEqual(["NĐ", "TB", "TT"]);
+    expect(TYPE_CODES.filter(entry => entry.provisional).every(entry => entry.official === null && Object.isFrozen(entry))).toBe(true);
+    const notice = draft({kind: "THÔNG BÁO"});
+    expect(value(notice, "typeName")).toBe("TB"); expect(notice.fields.typeName.status).toBe("review");
+    expect(value(draft({kind: "BÁO CÁO"}), "typeName")).toBe("");
+    expect(validateDocumentDraft(editDocumentField(draft(), "typeName", "NĐ")).errors.typeName).toBeUndefined();
     expect(validateDocumentDraft(editDocumentField(draft(), "typeName", "32")).errors.typeName).toBeTruthy();
   });
 });
@@ -187,9 +193,17 @@ describe("header rules for real layouts", () => {
     expect(value(d, "typeName")).toBe("22"); expect(d.fields.typeName.status).toBe("review"); expect(d.typeLabel).toBe("Công văn");
     expect(d.fields.typeName.evidence.map(source => source.text)).toEqual(["Số: 10300/VPCP-CN", "V/v triển khai kết luận của Bộ"]);
   });
-  test("a circular is named but gets no unverified code", () => {
+  test("a consolidated text does not take the type of the act it consolidates", () => {
+    const d = createDocumentDraft(documentFromRows([["VĂN BẢN HỢP NHẤT", 90, 68, 230, 84], ["CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM", 260, 52, 560, 68],
+      ["Số: 15/2026/VBHN-TT-KT", 70, 96, 250, 111], ["Hà Nội, ngày 08 tháng 10 năm 2026", 310, 96, 520, 111],
+      ["THÔNG TƯ", 270, 136, 350, 151], ["Quy định về kiểm thử hợp nhất", 150, 153, 450, 168], ["Căn cứ Luật Kiểm thử;", 100, 200, 500, 215]]));
+    expect(value(d, "typeName")).toBe(""); expect(d.fields.typeName.status).toBe("review");
+    expect(d.fields.typeName.note).toContain("Văn bản hợp nhất"); expect(value(d, "arcDocCode")).toBe("15/2026/VBHN-TT-KT");
+  });
+  test("a circular gets the provisional code TT, for review", () => {
     const d = draft({kind: "THÔNG TƯ"});
-    expect(d.typeLabel).toBe("Thông tư"); expect(value(d, "typeName")).toBe(""); expect(d.fields.typeName.status).toBe("review");
+    expect(d.typeLabel).toBe("Thông tư"); expect(value(d, "typeName")).toBe("TT"); expect(d.fields.typeName.status).toBe("review");
+    expect(d.fields.typeName.note).toContain("Mã tạm “TT”");
   });
   test("the signing portal's agency mark does not compete with the issuing agency", () => {
     const d = rowsDraft(decision([["Phê duyệt nội dung kiểm thử",150,175,450,190]], [["Cơ quan phát hành: Văn phòng Kiểm thử",45,55,270,67]]));

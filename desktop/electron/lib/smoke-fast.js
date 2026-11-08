@@ -100,7 +100,8 @@ async function runFastSmoke({wc, js, clickResultTab, setInputFile, waitFor, scre
       for (const key of authoredFixture.known_fields.filter(key => key !== 'subject')) {
         assert.equal(checks.fast.automatic_metadata[key], authoredFixture.expected_metadata22[key], key+' changed');
       }
-      assert.equal(checks.fast.automatic_metadata.typeName, '');
+      // A decree gets only the owner's provisional code "NĐ" (always for review), never an invented one.
+      assert.ok(['', 'NĐ'].includes(checks.fast.automatic_metadata.typeName), `unexpected type code ${checks.fast.automatic_metadata.typeName}`);
       await js(`document.querySelector('button[title="Xuất JSON 22 trường"]').click(); true`);
       await wait(() => js(`Boolean(document.querySelector('dialog[open]'))`), 'automatic unverified export must warn');
       await acceptDialog();

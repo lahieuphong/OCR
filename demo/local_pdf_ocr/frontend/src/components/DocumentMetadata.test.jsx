@@ -56,3 +56,12 @@ test("routine notes are removed, other text kept", () => {
     .toBe("Có ký tự OCR chưa chắc chắn; đối chiếu bản gốc. Không tự thay ký tự.");
   expect(visibleNote("Đã được người dùng kiểm tra và xác nhận.")).toBe("");
 });
+
+test("a provisional type code is marked as such next to the field", () => {
+  view(fastMetadataDocument());
+  const type = document.getElementById("metadata-typeName").closest(".metadata-field");
+  expect(type.textContent).toContain("NĐ · Nghị định (mã tạm)");
+  expect(type.querySelector(".field-note").textContent).toContain("Mã tạm “NĐ”");
+  expect(type.querySelector(".field-status").textContent).toBe("Cần kiểm tra");
+  expect(document.querySelector(".detected-document-type")).toBeNull();
+});

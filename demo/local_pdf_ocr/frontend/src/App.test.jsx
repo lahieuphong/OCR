@@ -129,8 +129,9 @@ describe("explicit fast metadata mode", () => {
     await user.click(screen.getByRole("button",{name:"Bóc tách nhanh văn bản này"}));
     await waitFor(()=>expect(field("arcDocCode")?.value).toBe("00042/2025/NĐ-QA"));
     expect(fetch.mock.calls.at(-1)[1].body.get("mode")).toBe("metadata_fast");
-    expect(field("numberOfPage").value).toBe("6"); expect(field("typeName").value).toBe("");
-    expect(document.querySelector(".detected-document-type").textContent).toContain("Nghị định");
+    expect(field("numberOfPage").value).toBe("6"); expect(field("typeName").value).toBe("NĐ");
+    // The provisional code is filled, so the "no business code yet" line is not shown.
+    expect(document.querySelector(".detected-document-type")).toBeNull();
     expect(field("subject").value).toBe(DECREE_SUBJECT);
     expect(document.querySelector(".partial-result-notice").textContent).toContain("Nguồn 6 trang");
     expect(document.querySelector(".partial-result-notice").textContent).toContain("OCR trang 1");

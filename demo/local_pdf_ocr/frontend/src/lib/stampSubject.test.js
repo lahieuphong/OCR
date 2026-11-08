@@ -29,7 +29,7 @@ describe("conservative stamp-contaminated subject",()=>{
     expect(draft.fields.subject.evidence.some(item=>item.text==="ĐẾN")).toBe(true);
     expect(draft.fields.subject.evidence.some(item=>item.text.startsWith("Ngày:"))).toBe(true);
     expect(draft.fields.subject.evidence.every(item=>!item.text.startsWith("Căn cứ"))).toBe(true);
-    expect(documentValues(draft)).toMatchObject({arcDocCode:"00042/2025/NĐ-QA",issuedDate:"14-02-2025",organName:"ỦY BAN NHÂN DÂN TỈNH KIỂM THỬ",numberOfPage:"6",typeName:"",subject:""});
+    expect(documentValues(draft)).toMatchObject({arcDocCode:"00042/2025/NĐ-QA",issuedDate:"14-02-2025",organName:"ỦY BAN NHÂN DÂN TỈNH KIỂM THỬ",numberOfPage:"6",typeName:"NĐ",subject:""});
     const saved=JSON.parse(serializeDocumentFields(draft));expect(Object.keys(saved)).toEqual(FIELD_KEYS);expect(saved.subject).toBe("");
     expect(JSON.stringify(saved)).not.toContain("Ngày: 03/02/2025");
     expect(confirmDocumentField(draft,"subject")).toBe(draft);

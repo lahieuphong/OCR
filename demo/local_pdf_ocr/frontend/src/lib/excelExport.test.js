@@ -49,7 +49,7 @@ describe("saved/reopened XLSX", () => {
     doc.mode="metadata_fast"; doc.resultsByMode.metadata_fast=raw;
     doc.metadataByMode.metadata_fast=editDocumentField(createDocumentDraft(raw),"description","=literal QA text");
     const values=documentValues(doc.metadataByMode.metadata_fast), before=JSON.stringify(raw);
-    expect(values.numberOfPage).toBe("6"); expect(values.codeNumber).toBe("00042"); expect(values.typeName).toBe("");
+    expect(values.numberOfPage).toBe("6"); expect(values.codeNumber).toBe("00042"); expect(values.typeName).toBe("NĐ");
     expect(values.subject).toBe(DECREE_SUBJECT); expect(values.mode).toBe("");
     const folder=await fs.mkdtemp(path.join(os.tmpdir(),"vietdoc-fast-xlsx-checker-")); folders.push(folder);
     const workbook=path.join(folder,"Danh_sach_van_ban.xlsx"),expected=path.join(folder,"expected.json");

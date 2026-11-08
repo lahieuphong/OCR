@@ -1,9 +1,26 @@
 import {MAX_FAST_SOURCE_PAGES} from "./processingModes.js";
 
-// Business codes supplied by the project brief. No unverified document-type codes.
+// Document-type codes, kept in this one table. "01", "02", "22" come from the project brief.
+// Provisional codes ("mã tạm") are the owner's interim codes (decision 2026-11-09) for types whose
+// official code is not known yet: marked in every label, always for review. When the official
+// catalogue is verified, set `official` here: extraction, the dropdown and validation then use the
+// official code, and nothing else changes. Never invent a numeric code.
+export const TYPE_CODES = Object.freeze([
+  {code: "01", label: "Nghị quyết", title: "NGHỊ QUYẾT"},
+  {code: "02", label: "Quyết định", title: "QUYẾT ĐỊNH"},
+  {code: "22", label: "Công văn", title: "CÔNG VĂN"},
+  {code: "NĐ", label: "Nghị định", title: "NGHỊ ĐỊNH", provisional: true, official: null},
+  {code: "TB", label: "Thông báo", title: "THÔNG BÁO", provisional: true, official: null},
+  {code: "TT", label: "Thông tư", title: "THÔNG TƯ", provisional: true, official: null},
+].map(Object.freeze));
+const typeCode = entry => entry.official || entry.code;
+export const PROVISIONAL_TYPE_CODES = new Set(TYPE_CODES.filter(entry => entry.provisional && !entry.official).map(entry => entry.code));
+
+// Business codes supplied by the project brief, plus the marked provisional type codes above.
 export const CATALOGS = {
   maintenance: {"01": "Vĩnh viễn", "02": "75 năm", "03": "50 năm", "04": "30 năm", "05": "20 năm", "06": "10 năm", "07": "5 năm"},
-  typeName: {"01": "Nghị quyết", "02": "Quyết định", "22": "Công văn"},
+  typeName: Object.fromEntries(TYPE_CODES.map(entry => [typeCode(entry),
+    PROVISIONAL_TYPE_CODES.has(typeCode(entry)) ? `${entry.label} (mã tạm)` : entry.label])),
   language: {"01": "Tiếng Việt", "02": "Tiếng Anh"},
   mode: {"01": "Công khai", "02": "Có điều kiện", "03": "Mật"},
   format: {"01": "Tốt", "02": "Bình thường", "03": "Hỏng"},
@@ -33,7 +50,7 @@ const bodyStart = /^(?:Căn cứ(?=\s|$|[:,])|Kính gửi(?=\s|$|[:,])|Điều\s
 const national = /CỘNG HÒA|XÃ HỘI CHỦ NGHĨA|Độc lập\s*[-–—]|Tự do\s*[-–—]|Hạnh phúc/iu;
 const issuer = /^(?:VĂN PHÒNG|ỦY BAN|HỘI ĐỒNG|BỘ\s|SỞ\s|PHÒNG\s|CỤC\s|TỔNG CỤC|CHÍNH PHỦ$|THỦ TƯỚNG CHÍNH PHỦ$|QUỐC HỘI$|TÒA ÁN|VIỆN KIỂM SÁT|CƠ QUAN\s)/iu;
 const title = /^(NGHỊ ĐỊNH|NGHỊ QUYẾT|QUYẾT ĐỊNH|CÔNG VĂN|THÔNG BÁO|THÔNG TƯ|BÁO CÁO|KẾ HOẠCH|TỜ TRÌNH)$/iu;
-const typeCodes = {"NGHỊ QUYẾT": "01", "QUYẾT ĐỊNH": "02", "CÔNG VĂN": "22"};
+const typeCodes = Object.fromEntries(TYPE_CODES.map(entry => [entry.title, typeCode(entry)]));
 const typeLabels = {"NGHỊ ĐỊNH":"Nghị định","NGHỊ QUYẾT":"Nghị quyết","QUYẾT ĐỊNH":"Quyết định","CÔNG VĂN":"Công văn","THÔNG BÁO":"Thông báo","THÔNG TƯ":"Thông tư","BÁO CÁO":"Báo cáo","KẾ HOẠCH":"Kế hoạch","TỜ TRÌNH":"Tờ trình"};
 // "Cơ quan phát hành:" is the signing portal's mark, not a second issuing agency.
 const signatureMarker = /^(?:Cơ quan phát hành\s*:|Ký bởi\s*:|Người ký\s*:|Thời gian ký\s*:|Ngày ký(?: điện tử)?\s*:|Digitally signed(?:\s|$)|Signing time\s*:)/iu;
@@ -351,8 +368,15 @@ export function createDocumentDraft(result, {sourceKind = "pdf"} = {}) {
   const titles = header.filter(line => title.test(line.match));
   const classified = titles.map(line => ({value: typeCodes[line.match.toLocaleUpperCase("vi")], lines: [line]})).filter(c => c.value);
   fields.typeName = choose(classified, "Có nhiều loại văn bản cạnh tranh; cần kiểm tra.");
+  if (PROVISIONAL_TYPE_CODES.has(fields.typeName.value)) fields.typeName = {...fields.typeName, status: "review",
+    note: [fields.typeName.note, `Mã tạm “${fields.typeName.value}” (chưa có mã chính thức trong danh mục); kiểm tra lại khi danh mục được xác minh.`].filter(Boolean).join(" ")};
   if (new Set(titles.map(line => line.match.toLocaleUpperCase("vi"))).size > 1) fields.typeName = field("", "review", titles, "Có nhiều tiêu đề loại văn bản cạnh tranh; cần xác nhận.");
   if (!classified.length && titles.length) fields.typeName = field("", "review", titles, "Loại tài liệu chưa có mã nghiệp vụ được xác minh trong danh mục.");
+  // A consolidated text (văn bản hợp nhất) repeats the title of the act it consolidates: that title is
+  // not its own type, so no code is assigned automatically.
+  const consolidated = header.filter(line => /^VĂN BẢN HỢP NHẤT$/iu.test(line.match) || /\/VBHN-/iu.test(line.match));
+  if (consolidated.length && titles.length) fields.typeName = field("", "review", [...consolidated, ...titles],
+    `Văn bản hợp nhất: tiêu đề “${titles[0].match}” là của văn bản được hợp nhất, không phải loại của văn bản này; chọn loại tay.`);
   let typeLabel = titles.length === 1 ? typeLabels[titles[0].match.toLocaleUpperCase("vi")] || "" : "";
   const subjects = [];
   const explicit = header.filter(line => subjectLabel.test(line.match));

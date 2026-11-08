@@ -78,9 +78,10 @@ Fast TXT/JSON and the UI visibly identify partial header content; full-mode
 downloads retain their existing behavior. Per-document/per-mode edits and
 sequential batch retries are preserved.
 
-The verified business-type catalog currently has no code for Nghị định.
-The heading can be shown, but `typeName` remains empty and requires review;
-never invent a business code. Issuing dates/agencies must be supported by the
+The business-type catalog has official codes for Nghị quyết (`01`), Quyết định
+(`02`) and Công văn (`22`). Nghị định, Thông báo and Thông tư get the owner's
+provisional codes `NĐ`, `TB`, `TT`, marked “mã tạm” and always for review, until
+the official catalog is verified; never invent a business code. Issuing dates/agencies must be supported by the
 document header, not electronic-signature metadata or incoming stamps.
 OCR text, including ambiguous stamp overlaps and diacritics, is not corrected
 by dictionary guesses. Confirm those fields against the source before export.

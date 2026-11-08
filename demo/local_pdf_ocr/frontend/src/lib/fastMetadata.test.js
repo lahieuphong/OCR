@@ -8,7 +8,7 @@ describe("fast header metadata source evidence", () => {
     const draft=createDocumentDraft(raw), values=documentValues(draft);
     expect(Object.keys(values)).toEqual(FIELD_KEYS);
     expect(values).toMatchObject({docId:"",arcDocCode:"00042/2025/NĐ-QA",codeNumber:"00042",codeNotation:"NĐ-QA",
-      issuedDate:"14-02-2025",organName:"ỦY BAN NHÂN DÂN TỈNH KIỂM THỬ",subject:DECREE_SUBJECT,language:"01",numberOfPage:"6",typeName:""});
+      issuedDate:"14-02-2025",organName:"ỦY BAN NHÂN DÂN TỈNH KIỂM THỬ",subject:DECREE_SUBJECT,language:"01",numberOfPage:"6",typeName:"NĐ"});
     expect(draft.fields.typeName.status).toBe("review");
     expect(draft.typeLabel).toBe("Nghị định");
     expect(draft.fields.subject.evidence.map(item=>item.text).join(" ")).not.toContain("Căn cứ");

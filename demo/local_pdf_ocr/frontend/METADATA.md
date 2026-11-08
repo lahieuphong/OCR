@@ -17,7 +17,7 @@ integration must verify these types before sending any data.
 | docId | Always `""`, reserved; never generated or editable |
 | arcDocCode | Full header number/notation; manually editable |
 | maintenance | `01` permanent; `02` 75 years; `03` 50; `04` 30; `05` 20; `06` 10; `07` 5 |
-| typeName | Only verified mappings: `01` Nghị quyết; `02` Quyết định; `22` Công văn (also from the letter layout, for review) |
+| typeName | Official: `01` Nghị quyết; `02` Quyết định; `22` Công văn (also from the letter layout, for review). Provisional (the owner's interim codes, marked “mã tạm”, always for review): `NĐ` Nghị định; `TB` Thông báo; `TT` Thông tư |
 | codeNumber | Before the first `/` of arcDocCode; derived, read-only |
 | codeNotation | After the last `/` of arcDocCode; derived, read-only |
 | issuedDate | Real calendar date in `DD-MM-YYYY`, or empty |
@@ -80,8 +80,14 @@ exporting or copying an unclassified draft; the exported JSON retains `mode: ""`
   `CỘNG HÒA`. The signing portal's `Cơ quan phát hành:` mark is signature text.
 - An explicit document-type heading is required. `V/v` alone does not imply
   Công văn, except in the official-letter layout: a `V/v` line in the left column
-  right under `Số:` and no title gives `22`, for review. `THÔNG TƯ` is a title
-  without a code. The other codes are neither invented nor offered in the dropdown.
+  right under `Số:` and no title gives `22`, for review. `NGHỊ ĐỊNH`, `THÔNG BÁO`
+  and `THÔNG TƯ` get the provisional codes `NĐ`, `TB`, `TT`, always for review.
+  All type codes live in one table (`TYPE_CODES` in `documentFields.js`): when the
+  official catalogue is verified, a provisional entry's `official` code is set
+  there and extraction, the dropdown and validation follow. No numeric code is
+  invented; other titles (`BÁO CÁO`, `KẾ HOẠCH`, `TỜ TRÌNH`) get none. A consolidated
+  text (`VĂN BẢN HỢP NHẤT`, or `/VBHN-` in its number) repeats the title of the act
+  it consolidates, so it gets no automatic type code (review).
 - `V/v`, `Về việc` and main title continuations are bounded by column, paragraph
   gap (absolute, and a step 1.7 times the subject's own line spacing), header/body
   markers, upper-case agency lines and length. Ruling lines and underscores are not
