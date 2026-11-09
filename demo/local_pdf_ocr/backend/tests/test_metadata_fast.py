@@ -305,3 +305,64 @@ class FastOfflineGuardTests(unittest.TestCase):
             with patch.object(fast, "DETECTOR_FILES", {"fixture": hashlib.sha256(b"local").hexdigest()}):
                 self.assertEqual(fast.offline_engine(lambda: "cached instance"), "cached instance")
         sdk.assert_called_once()
+
+
+class NativeTextOverOcrTests(unittest.TestCase):
+    """A born-digital header OCRed because a value added at signing is missing from its text layer."""
+    NATIVE = [("VĂN PHÒNG KIỂM THỬ", 40, 40), ("CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM", 300, 40),
+              ("Số:        /VPCP-QA", 40, 90), ("Hà Nội, ngày      tháng      năm 2026", 300, 90),
+              ("V/v kết thúc thực hiện Đề án kiểm thử", 40, 110), ("Kính gửi: Cơ quan QA", 200, 160)]
+    OCR = {"Số:        /VPCP-QA": "Số: 10314/VPCP-QA", "Hà Nội, ngày      tháng      năm 2026": "Hà Nội, ngày 08 tháng 10 năm 2026",
+           "V/v kết thúc thực hiện Đề án kiểm thử": "V/v kết thúc thưc hiên Đề án kiểm thử",
+           "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM": "CÔNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM"}
+
+    def run_on(self, payload):
+        # The fake OCR reads each native line at its own place (2 px per point), with the readings above.
+        with fitz.open(stream=payload, filetype="pdf") as pdf:
+            native, _ = fast.native_lines(pdf[0])
+        rows = [(self.OCR.get(line["text"], line["text"]), line["bbox"][0] * 2, line["bbox"][1] * 2) for line in native]
+        engine = FakeEngine(rows)
+        with patch.object(fast, "offline_engine", side_effect=lambda callback: callback()):
+            return fast.extract_metadata_fast(payload, "digital.pdf", lambda: engine)
+
+    def lines(self, result):
+        return {line.get("ocr_text", line["text"]): line for line in result["pages"][0]["lines"]}
+
+    def test_same_letters_take_the_pdf_text_and_inserted_values_keep_the_ocr(self):
+        result = self.run_on(pdf_bytes(self.NATIVE, pages=2))
+        self.assertTrue(result["used_ocr"])
+        lines = self.lines(result)
+        subject = lines["V/v kết thúc thưc hiên Đề án kiểm thử"]
+        self.assertEqual((subject["text"], subject["text_source"]), ("V/v kết thúc thực hiện Đề án kiểm thử", "pdf_text"))
+        self.assertEqual(lines["CÔNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM"]["text"], "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM")
+        for reading in ("Số: 10314/VPCP-QA", "Hà Nội, ngày 08 tháng 10 năm 2026"):
+            self.assertEqual(lines[reading]["text"], reading)
+            self.assertNotIn("text_source", lines[reading])
+        self.assertEqual(lines["VĂN PHÒNG KIỂM THỬ"]["text"], "VĂN PHÒNG KIỂM THỬ")
+        self.assertNotIn("ocr_text", lines["VĂN PHÒNG KIỂM THỬ"])  # identical reading: nothing to record
+        self.assertIn("ocr_lines_matched_to_pdf_text_layer", result["fast_metadata"]["reasons"])
+        self.assertIn("V/v kết thúc thực hiện Đề án kiểm thử", result["text"])
+
+    def test_a_scan_or_an_invisible_text_layer_is_never_trusted(self):
+        def with_full_page_image(payload):
+            pdf = fitz.open(stream=payload, filetype="pdf")
+            image = io.BytesIO(); Image.new("L", (300, 400), 255).save(image, "PNG")
+            pdf[0].insert_image(pdf[0].rect, stream=image.getvalue(), overlay=False)
+            data = pdf.tobytes(); pdf.close()
+            return data
+        def invisible(payload_rows):
+            pdf = fitz.open(); page = pdf.new_page(width=600, height=800)
+            writer = fitz.TextWriter(page.rect)
+            for text, x, y in payload_rows:
+                writer.append((x, y), text, fontsize=9)
+            writer.write_text(page, render_mode=3)
+            pdf.new_page(width=600, height=800)
+            data = pdf.tobytes(); pdf.close()
+            return data
+        for name, payload in (("scan", with_full_page_image(pdf_bytes(self.NATIVE, pages=2))), ("invisible", invisible(self.NATIVE))):
+            with self.subTest(name):
+                result = self.run_on(payload)
+                subject = self.lines(result)["V/v kết thúc thưc hiên Đề án kiểm thử"]
+                self.assertEqual(subject["text"], "V/v kết thúc thưc hiên Đề án kiểm thử")
+                self.assertNotIn("text_source", subject)
+                self.assertNotIn("ocr_lines_matched_to_pdf_text_layer", result["fast_metadata"]["reasons"])

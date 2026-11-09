@@ -62,6 +62,13 @@ it: growth stops once the body has started (number, date, agency and title sit
 above it), after 10 lines past the title or `V/v` line without a body marker (a
 notice has no `Căn cứ`), or at the 64-line limit. `fast_metadata.stopped` names the
 reason. Missing/obscured headers require review instead of a full-document fallback.
+A born-digital PDF whose text layer lacks a value added at signing (a blank number
+or date) is OCRed; then each OCR line with the same letters and digits as the text
+layer at its place, apart from diacritics and spacing, takes the PDF's own text
+(`text_source: "pdf_text"`, the reading kept in `ocr_text`). Lines that differ in
+any letter or digit (the inserted number or date) keep the OCR text. A page with an
+image covering half of it (a scan) or with invisible text (another tool's OCR
+layer) is never used this way.
 Every mode's result also carries `seal`, a pixel check for a round red seal on the
 last pages (see `frontend/METADATA.md`); it never changes the text, and its failure
 never fails the request.

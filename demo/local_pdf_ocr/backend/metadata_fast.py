@@ -91,6 +91,48 @@ def covered_by(a, b):
     return area / own if own > 0 else 0
 
 
+def fold_letters(text):
+    """Comparison only: the letters and digits of a line without diacritics, case or spacing."""
+    decomposed = unicodedata.normalize("NFD", str(text)).replace("đ", "d").replace("Đ", "D")
+    return "".join(c for c in decomposed if unicodedata.category(c) != "Mn" and not c.isspace()).casefold()
+
+
+def visible_text_layer(page):
+    """A born-digital page: no image covering half of it (a scan) and no invisible text (another tool's OCR layer)."""
+    area = page.rect.width * page.rect.height
+    for image in page.get_image_info():
+        x0, y0, x1, y1 = image["bbox"]
+        if max(0, x1 - x0) * max(0, y1 - y0) >= .5 * area:
+            return False
+    return not any(span.get("type") == 3 for span in page.get_texttrace())
+
+
+def native_text_over_ocr(lines, native, zoom):
+    """A born-digital header is OCRed when a value added at signing (number, date) is missing from its text
+    layer. An OCR line that has the same letters and digits as the native line at its place, apart from
+    diacritics and spacing, takes the PDF's own text; the OCR reading is kept in "ocr_text". Lines that differ
+    in any letter or digit (the inserted number or date) keep the OCR text."""
+    def axis(a0, a1, b0, b1):
+        return max(0, min(a1, b1) - max(a0, b0)) / max(1e-9, min(a1 - a0, b1 - b0))
+    usable = [line for line in native if not line.get("metadata_excluded_reason") and fold_letters(line["text"])]
+    result = []
+    for line in lines:
+        if line.get("metadata_excluded_reason"):
+            result.append(line)
+            continue
+        box = box_of(line)
+        same = [item for item in usable
+                if axis(box[1], box[3], item["bbox"][1] * zoom, item["bbox"][3] * zoom) >= .5
+                and axis(box[0], box[2], item["bbox"][0] * zoom, item["bbox"][2] * zoom) >= .5
+                and fold_letters(item["text"]) == fold_letters(line["text"])]
+        # A reading with the same words (spacing aside) stays as it is: nothing to record.
+        words = lambda text: unicodedata.normalize("NFC", text).split()
+        if len(same) == 1 and words(same[0]["text"]) != words(line["text"]):
+            line = {**line, "text": same[0]["text"], "ocr_text": line["text"], "text_source": "pdf_text"}
+        result.append(line)
+    return result
+
+
 def native_lines(page):
     import pymupdf as fitz
 
@@ -198,7 +240,9 @@ def extract_metadata_fast(raw: bytes, filename: str, engine_provider) -> dict:
                     raise ValueError("Vùng PDF vượt giới hạn pixel.")
                 return Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
             signature_boxes = [[v * zoom for v in box] for box in signatures]
+            text_layer = (all_native, zoom) if all_native and visible_text_layer(page) else None
         else:
+            text_layer = None
             _, original = next(iter_images(raw, extension))
             source_count = 1
             full_width, full_height = original.size
@@ -262,6 +306,8 @@ def extract_metadata_fast(raw: bytes, filename: str, engine_provider) -> dict:
             final_lines = lines
             if stop_reason:
                 break
+        if text_layer:
+            final_lines = native_text_over_ocr(final_lines, *text_layer)
         return result_record(filename, source_count, final_lines, full_width, full_height, attempts[-1]["roi"],
                              "raster_pixels", True, status, attempts, native_attempts, timings, started, stop_reason)
     finally:
@@ -279,6 +325,8 @@ def result_record(filename, source_count, lines, width, height, roi, coordinates
         reasons.append("subject_end_not_confirmed")
     if any(line.get("metadata_excluded_reason") for line in lines):
         reasons.append("electronic_signature_excluded_from_metadata")
+    if any(line.get("text_source") == "pdf_text" for line in lines):
+        reasons.append("ocr_lines_matched_to_pdf_text_layer")
     # Only a region that grew to its last size without finding the header counts as the limit.
     limit = not status["header_complete"] and stop_reason is None
     if limit:
