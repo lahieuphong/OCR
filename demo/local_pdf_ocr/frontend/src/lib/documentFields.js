@@ -2,9 +2,9 @@ import {MAX_FAST_SOURCE_PAGES} from "./processingModes.js";
 
 // Document-type codes, kept in this one table. "01", "02", "22" come from the project brief.
 // Provisional codes ("mã tạm") are the owner's interim codes (decisions 2026-11-09; VBHN confirmed by the
-// owner the same day) for types whose official code is not known yet: marked in every label, always
-// for review. When the official catalogue is verified, set `official` here: extraction, the dropdown
-// and validation then use the official code, and nothing else changes. Never invent a numeric code.
+// owner the same day; CĐ added by the owner on 2026-11-10) for types whose official code is not known yet:
+// marked in every label, always for review. When the official catalogue is verified, set `official` here:
+// extraction, the dropdown and validation then use the official code, and nothing else changes. Never invent a numeric code.
 // `notation` is the abbreviation a consolidated text carries in its own number ("137/2026/VBHN-TT-BXD"):
 // it recognises the type and is kept as written; it is not the catalogue code.
 export const TYPE_CODES = Object.freeze([
@@ -14,12 +14,21 @@ export const TYPE_CODES = Object.freeze([
   {code: "NĐ", label: "Nghị định", title: "NGHỊ ĐỊNH", provisional: true, official: null},
   {code: "TB", label: "Thông báo", title: "THÔNG BÁO", provisional: true, official: null},
   {code: "TT", label: "Thông tư", title: "THÔNG TƯ", provisional: true, official: null},
+  {code: "CĐ", label: "Công điện", title: "CÔNG ĐIỆN", provisional: true, official: null},
   {code: "VBHN", label: "Văn bản hợp nhất", title: "VĂN BẢN HỢP NHẤT", notation: "VBHN", provisional: true, official: null},
 ].map(Object.freeze));
 const typeCode = entry => entry.official || entry.code;
 const CONSOLIDATED_TYPE = TYPE_CODES.find(entry => entry.notation);
 const consolidatedNotation = new RegExp(`/${CONSOLIDATED_TYPE.notation}-`, "iu");
 export const PROVISIONAL_TYPE_CODES = new Set(TYPE_CODES.filter(entry => entry.provisional && !entry.official).map(entry => entry.code));
+// Every title line the extractor recognises ("QUYẾT ĐỊNH", "CÔNG ĐIỆN", ...), in this one table: the catalogued types
+// above, except the consolidated text (its "VĂN BẢN HỢP NHẤT" sits in the agency cell, it is not a title line), and
+// the titles recognised without a catalogue code (the type is shown, typeName stays empty). The title pattern and the
+// type labels below are built from it. The backend anchors its header region on the same titles (TITLE in
+// backend/metadata_fast.py); a test checks that it lists every one of them.
+const UNCODED_TITLES = [{label: "Báo cáo", title: "BÁO CÁO"}, {label: "Kế hoạch", title: "KẾ HOẠCH"}, {label: "Tờ trình", title: "TỜ TRÌNH"}];
+export const DOCUMENT_TITLES = Object.freeze([...TYPE_CODES.filter(entry => entry !== CONSOLIDATED_TYPE), ...UNCODED_TITLES]
+  .map(({title, label}) => Object.freeze({title, label})));
 
 // Business codes supplied by the project brief, plus the marked provisional type codes above.
 export const CATALOGS = {
@@ -54,11 +63,16 @@ export const STATUS_LABELS = {recognized: "Đã nhận diện", review: "Cần k
 
 const clean = text => String(text ?? "").normalize("NFC").trim().replace(/\s+/gu, " ");
 const bodyStart = /^(?:Căn cứ(?=\s|$|[:,])|Kính gửi(?=\s|$|[:,])|Điều\s+\d|QUYẾT ĐỊNH\s*:|QUYẾT NGHỊ\s*:|Nơi nhận\s*:|PHỤ LỤC(?=\s|$|[:,])|DANH MỤC(?=\s|$|[:,])|KT\.|TM\.)/iu;
+// A telegram (công điện) has no "Căn cứ" or "Kính gửi": its body starts at the sender line, the sending agency or
+// office in capitals followed by "điện:" ("THỦ TƯỚNG CHÍNH PHỦ điện:", "BỘ TRƯỞNG BỘ ... ĐIỆN:"). Case-sensitive, so
+// a sentence that ends in "điện:" is not one; the title "CÔNG ĐIỆN" is never one.
+const telegramSender = /^(?!CÔNG ĐIỆN)\p{Lu}[\p{Lu}\s]*\s(?:ĐIỆN|điện)\s*[:：]/u;
+const startsBody = text => bodyStart.test(text) || telegramSender.test(text);
 const national = /CỘNG HÒA|XÃ HỘI CHỦ NGHĨA|Độc lập\s*[-–—]|Tự do\s*[-–—]|Hạnh phúc/iu;
 const issuer = /^(?:VĂN PHÒNG|ỦY BAN|HỘI ĐỒNG|BỘ\s|SỞ\s|PHÒNG\s|CỤC\s|TỔNG CỤC|CHÍNH PHỦ$|THỦ TƯỚNG CHÍNH PHỦ$|QUỐC HỘI$|TÒA ÁN|VIỆN KIỂM SÁT|CƠ QUAN\s)/iu;
-const title = /^(NGHỊ ĐỊNH|NGHỊ QUYẾT|QUYẾT ĐỊNH|CÔNG VĂN|THÔNG BÁO|THÔNG TƯ|BÁO CÁO|KẾ HOẠCH|TỜ TRÌNH)$/iu;
+const title = new RegExp(`^(?:${DOCUMENT_TITLES.map(entry => entry.title).join("|")})$`, "iu");
 const typeCodes = Object.fromEntries(TYPE_CODES.map(entry => [entry.title, typeCode(entry)]));
-const typeLabels = {"NGHỊ ĐỊNH":"Nghị định","NGHỊ QUYẾT":"Nghị quyết","QUYẾT ĐỊNH":"Quyết định","CÔNG VĂN":"Công văn","THÔNG BÁO":"Thông báo","THÔNG TƯ":"Thông tư","BÁO CÁO":"Báo cáo","KẾ HOẠCH":"Kế hoạch","TỜ TRÌNH":"Tờ trình"};
+const typeLabels = Object.fromEntries(DOCUMENT_TITLES.map(entry => [entry.title, entry.label]));
 // "Cơ quan phát hành:" is the signing portal's mark, not a second issuing agency.
 const signatureMarker = /^(?:Cơ quan phát hành\s*:|Ký bởi\s*:|Người ký\s*:|Thời gian ký\s*:|Ngày ký(?: điện tử)?\s*:|Digitally signed(?:\s|$)|Signing time\s*:)/iu;
 const arrivalMarker = /^(?:CÔNG VĂN\s+)?ĐẾN\s*[:：]?$/iu;
@@ -135,8 +149,8 @@ function sameRowRight(line, lines) {
     .sort((a, b) => a.region[0] - b.region[0]);
 }
 function boundary(line) {
-  return bodyStart.test(line.match) || national.test(line.match) || numberLabel.test(line.match)
-    || /ngày\s+\d/iu.test(line.match) || title.test(line.match) || issuer.test(line.match);
+  return startsBody(line.match) || national.test(line.match) || numberLabel.test(line.match)
+    || /ngày\s*\d/iu.test(line.match) || title.test(line.match) || issuer.test(line.match);
 }
 function excludedMetadataLine(line, all) {
   if (line.metadataExcludedReason || signatureMarker.test(line.match)) return true;
@@ -232,7 +246,7 @@ function subjectCandidates(anchor, lines) {
   // identity header. In particular, cited dates/numbers are allowed here.
   for (const next of lines.filter(line => line.order > anchor.order && sameColumn(anchor, line))) {
     // Only an upper-case agency line ends a subject: "bộ và Trường..." or "Ủy ban nhân dân..." are its own words.
-    if (bodyStart.test(next.match) || national.test(next.match) || title.test(next.match) || subjectLabel.test(next.match)
+    if (startsBody(next.match) || national.test(next.match) || title.test(next.match) || subjectLabel.test(next.match)
       || issuer.test(next.match) && next.match === next.match.toLocaleUpperCase("vi")) break;
     const previous = used.at(-1);
     if (next.y != null && previous.y != null && (next.y < previous.y - .005
@@ -271,6 +285,34 @@ export function isValidIssuedDate(value) {
   return date.getUTCFullYear() === y && date.getUTCMonth() === m - 1 && date.getUTCDate() === d;
 }
 
+// The issued-date line: "[Place,] ngày 05 tháng 11 năm 2026". OCR and some PDF text layers drop the space where a
+// keyword meets its digits ("tháng 11năm", "ngày05"): a letter next to a digit is an unambiguous boundary, so the
+// spaces there are optional (owner decision 2026-11-10). Digits are never added, removed, moved across a keyword or
+// changed. A handwritten two-digit day or month read with a space inside it ("ngày 0 7") stays for review, as before.
+const ISSUED_DATE = /^(?:[\p{L}\s.]{1,70},\s*)?ngày\s*(\d{1,2}|[0-3]\s\d)\s*tháng\s*(\d{1,2}|[01]\s\d)\s*năm\s*(\d{4})/giu;
+const GLUED_DATE_KEYWORD = /(?:ngày|tháng|năm)\d|\d(?:tháng|năm)/iu;
+// Laid out as an issued-date line, but its digits do not read as one ("ngày 05 tháng/1 năm 2026", "ngày 0B tháng 4
+// năm", blanks never filled): it is shown for review and never repaired. At most two short pieces between keywords,
+// so a sentence that cites dates ("Ngày 27 tháng 10 và ngày 02 tháng 11 năm 2026, ...") is not one.
+const DATE_LINE_SHAPE = /^(?:[\p{L}\s.]{1,70},\s*)?ngày(?!\p{L})(?:\s*\S{1,4}){0,2}\s*tháng(?:\s*\S{1,4}){0,2}\s*năm/iu;
+export const unreadIssuedDateLine = line => !issuedDatesIn(line).length && DATE_LINE_SHAPE.test(String(line ?? ""));
+
+// Issued dates read from one header text: [{value "DD-MM-YYYY", review, note, invalid}]. `invalid`: not a calendar
+// date, or more text follows the year.
+export function issuedDatesIn(line) {
+  const text = String(line ?? "");
+  return [...text.matchAll(ISSUED_DATE)].map(match => {
+    const [day, month] = [match[1], match[2]].map(part => part.replace(/\s/gu, ""));
+    const value = `${day.padStart(2, "0")}-${month.padStart(2, "0")}-${match[3]}`;
+    const split = /\s/u.test(match[1] + match[2]);
+    const glued = GLUED_DATE_KEYWORD.test(match[0]);
+    const note = [split ? `Chữ số ngày/tháng đọc bị tách (“ngày ${match[1]} tháng ${match[2]}”); kiểm tra với bản gốc.` : "",
+      glued ? `Dòng ngày thiếu dấu cách giữa chữ và số (“${match[0].trim()}”); đọc theo ranh giới chữ–số, không đổi chữ số.` : ""]
+      .filter(Boolean).join(" ");
+    return {value, review: split, note, invalid: !isValidIssuedDate(value) || Boolean(text.slice(match[0].length).replace(/[.\s]/gu, ""))};
+  });
+}
+
 export function createDocumentDraft(result, {sourceKind = "pdf"} = {}) {
   const fields = Object.fromEntries(FIELD_KEYS.map(key => [key, field()]));
   fields.docId.note = "Luôn để trống theo schema nghiệp vụ; không tự sinh mã.";
@@ -280,8 +322,8 @@ export function createDocumentDraft(result, {sourceKind = "pdf"} = {}) {
   const lines = metadataLines.filter(line => !stamps.excluded.has(line));
   const headerPage = result?.method === "metadata_fast" ? result.pages?.[0]?.page ?? 1 : 1;
   const first = lines.filter(line => line.page === headerPage);
-  const textualEnd = first.findIndex(line => bodyStart.test(line.match));
-  const bodyY = first.filter(line => bodyStart.test(line.match) && line.y != null).map(line => line.y);
+  const textualEnd = first.findIndex(line => startsBody(line.match));
+  const bodyY = first.filter(line => startsBody(line.match) && line.y != null).map(line => line.y);
   const header = first.filter((line, i) => line.y != null
     // Fast results already contain a bounded, possibly expanded header ROI.
     // A long header below 45% remains usable until its first body anchor.
@@ -330,27 +372,23 @@ export function createDocumentDraft(result, {sourceKind = "pdf"} = {}) {
     for (const [key, value] of Object.entries(splitDocumentCode(fields.arcDocCode.value))) fields[key] = {...fields.arcDocCode, value};
   }
 
-  const dates = [];
+  const dates = [], unreadDateLines = [];
   for (const line of identityHeader) {
     const used = [line];
     let text = line.match;
-    if (/ngày\s+\d/iu.test(text) && !/năm\s+\d{4}/iu.test(text)) {
+    if (/ngày\s*\d/iu.test(text) && !/năm\s*\d{4}/iu.test(text)) {
       for (const next of successors(line, identityHeader, 2)) {
         if (!/^(?:tháng|năm|\d)/iu.test(next.match)) break;
         text += " " + next.match; used.push(next);
       }
     }
-    // A handwritten day or month can be read with a space between its two digits ("ngày 0 7 tháng").
-    const regex = /^(?:[\p{L}\s.]{1,70},\s*)?ngày\s+(\d{1,2}|[0-3]\s\d)\s+tháng\s+(\d{1,2}|[01]\s\d)\s+năm\s+(\d{4})/giu;
-    for (const match of text.matchAll(regex)) {
-      const [day, month] = [match[1], match[2]].map(part => part.replace(/\s/gu, ""));
-      const value = `${day.padStart(2, "0")}-${month.padStart(2, "0")}-${match[3]}`;
-      const split = /\s/u.test(match[1] + match[2]);
-      dates.push({value, lines: used, review: split, note: split ? `Chữ số ngày/tháng đọc bị tách (“ngày ${match[1]} tháng ${match[2]}”); kiểm tra với bản gốc.` : "",
-        invalid: !isValidIssuedDate(value) || Boolean(text.slice(match[0].length).replace(/[.\s]/gu, ""))});
-    }
+    const found = issuedDatesIn(text);
+    dates.push(...found.map(date => ({...date, lines: used})));
+    if (unreadIssuedDateLine(text)) unreadDateLines.push(...used);
   }
   if (dates.some(date => date.invalid)) fields.issuedDate = field("", "review", dates.flatMap(c => c.lines), "Ngày trong header không hợp lệ hoặc cạnh tranh; không tự sửa ngày/tháng.");
+  else if (!dates.length && unreadDateLines.length) fields.issuedDate = field("", "review", unreadDateLines,
+    `Có dòng ngày ban hành nhưng chữ số chưa đọc được thành một ngày (“${unreadDateLines.map(line => line.match).join(" ")}”); không tự sửa hay đoán chữ số, đối chiếu bản gốc và nhập tay.`);
   else fields.issuedDate = choose(dates, "Có nhiều ngày ban hành cạnh tranh trong header; cần xác nhận.");
 
   const firstCodeY = Math.min(...header.filter(line => numberLabel.test(line.match)).map(line => line.y ?? Infinity));
@@ -419,7 +457,7 @@ export function createDocumentDraft(result, {sourceKind = "pdf"} = {}) {
   const orphanMixed=[...new Set(stamps.clusters.flatMap(cluster=>cluster.members))].filter(fragment=>
     !stampFieldOnly(fragment) && !subjects.some(candidate=>candidate.lines.includes(fragment))
     && anchors.some(anchor=> {
-      const end=first.find(line=>line.order>anchor.order && bodyStart.test(line.match));
+      const end=first.find(line=>line.order>anchor.order && startsBody(line.match));
       return fragment.page===anchor.page && fragment.order>anchor.order && fragment.order<(end?.order ?? Infinity)
         && (fragment.y==null || anchor.y==null || fragment.y>=anchor.y-.005);
     }));

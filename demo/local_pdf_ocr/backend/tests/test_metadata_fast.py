@@ -223,6 +223,29 @@ class FastMetadataTests(unittest.TestCase):
         self.assertEqual(result["line_count"], title_at + fast.SUBJECT_LINE_ALLOWANCE)
         self.assertNotIn("Nội dung thông báo dòng 20", engine.predictions)
 
+    def test_telegram_title_anchors_the_subject_allowance_like_any_title(self):
+        # Owner, 2026-11-10: "CÔNG ĐIỆN" is a document title. A telegram has no "Căn cứ"/"Kính gửi" either.
+        rows = [("THỦ TƯỚNG CHÍNH PHỦ", 40, 40), ("Số: 15/CĐ-KT", 40, 70), ("Hà Nội, ngày 07 tháng 4 năm 2026", 300, 70),
+                ("CÔNG ĐIỆN", 230, 100), ("Về việc kiểm thử công điện tổng hợp", 100, 120), ("THỦ TƯỚNG CHÍNH PHỦ điện:", 120, 140)]
+        rows += [(f"Nội dung công điện dòng {i}", 40, 160 + i * 15) for i in range(30)]
+        engine = FakeEngine(rows)
+        result = self.run_fast(image_bytes(), "telegram.png", lambda: engine)
+        meta = result["fast_metadata"]
+        self.assertEqual((len(meta["roi_attempts"]), meta["stopped"]), (1, "subject_line_allowance"))
+        self.assertTrue(meta["roi_attempts"][0]["evidence"]["document_heading"])
+        title_at = [line["text"] for line in result["pages"][0]["lines"]].index("CÔNG ĐIỆN") + 1
+        self.assertEqual(result["line_count"], title_at + fast.SUBJECT_LINE_ALLOWANCE)
+
+    def test_date_line_missing_a_space_at_a_letter_digit_boundary_is_date_evidence(self):
+        rows = header()
+        rows[3] = ("Hà Nội, ngày 07 tháng 04năm 2026", 300, 90)
+        result = self.run_fast(image_bytes(), "glued-date.png", lambda: FakeEngine(rows))
+        meta = result["fast_metadata"]
+        self.assertEqual((len(meta["roi_attempts"]), meta["stopped"]), (1, "header_complete"))
+        self.assertTrue(meta["roi_attempts"][0]["evidence"]["issued_date"])
+        # Evidence only: the line is returned exactly as read.
+        self.assertIn("Hà Nội, ngày 07 tháng 04năm 2026", [line["text"] for line in result["pages"][0]["lines"]])
+
     def test_line_limit_without_header_does_not_grow_the_region(self):
         rows = [(f"Dòng không phải header {i}", 40, 20 + i * 5) for i in range(70)]
         result = self.run_fast(image_bytes(), "dense.png", lambda: FakeEngine(rows))
@@ -430,3 +453,23 @@ class PrintedBlankTests(unittest.TestCase):
         merged = fast.native_text_over_ocr(ocr, native, 2)
         self.assertEqual((merged[0]["text"], merged[0]["text_source"]), ("“Phát triển kiểm thử”", "pdf_text"))
         self.assertEqual(merged[1]["text"], "Số: 12/QĐ-KT")  # a digit differs: the OCR reading stays
+
+
+class HeaderPatternTests(unittest.TestCase):
+    """Owner decisions 2026-11-10: the telegram title, and a date whose keyword touches its digits."""
+
+    def test_issued_date_evidence_accepts_a_missing_space_between_a_keyword_and_its_digits(self):
+        for text in ("Hà Nội, ngày 05 tháng 11 năm 2026", "Hà Nội, ngày 05 tháng 11năm 2026", "Hà Nội, ngày05 tháng11 năm2026",
+                     "HÀ NỘI, NGÀY 5THÁNG 3NĂM 2026"):
+            self.assertIsNotNone(fast.DATE.search(fast.match_text(text)), text)
+
+    def test_issued_date_evidence_never_guesses_joins_or_splits_digits(self):
+        for text in ("Hà Nội, ngày 05 tháng/1 năm 2026", "Hà Nội, ngày 0B tháng 11 năm 2026", "ngày 105 tháng 11 năm 2026",
+                     "ngày 05 tháng 111 năm 2026", "ngày 0511 tháng năm 2026", "ngày 05 tháng 11 năm 20 26",
+                     "Hà Nội, ngày      tháng      năm 2026"):
+            self.assertIsNone(fast.DATE.search(fast.match_text(text)), text)
+
+    def test_telegram_is_a_title_only_as_a_whole_line(self):
+        self.assertTrue(fast.TITLE.fullmatch(fast.match_text("CÔNG ĐIỆN")))
+        for text in ("CÔNG ĐIỆN KHẨN", "Về việc công điện", "THỦ TƯỚNG CHÍNH PHỦ điện:"):
+            self.assertIsNone(fast.TITLE.fullmatch(fast.match_text(text)), text)

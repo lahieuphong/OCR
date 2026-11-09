@@ -1,6 +1,7 @@
 import {describe, expect, test} from "vitest";
-import {CATALOGS, FIELD_KEYS, PROVISIONAL_TYPE_CODES, TYPE_CODES, catalogOptionLabel, createDocumentDraft, documentValues, editDocumentField, confirmDocumentField,
-  isValidIssuedDate, serializeDocumentFields, validateDocumentDraft} from "./documentFields.js";
+import fs from "node:fs";
+import {CATALOGS, DOCUMENT_TITLES, FIELD_KEYS, PROVISIONAL_TYPE_CODES, TYPE_CODES, catalogOptionLabel, createDocumentDraft, documentValues, editDocumentField, confirmDocumentField,
+  isValidIssuedDate, issuedDatesIn, serializeDocumentFields, unreadIssuedDateLine, validateDocumentDraft} from "./documentFields.js";
 import {documentFromRows, syntheticDocument, SYNTHETIC_CASES} from "../test/fixtures/administrativeDocuments.js";
 import {SYNTHETIC_GOLD} from "../test/fixtures/metadataGold.js";
 
@@ -49,8 +50,11 @@ describe("business schema and provenance", () => {
   });
   test("keeps the official type codes and adds only the owner's marked provisional codes", () => {
     expect(CATALOGS.typeName).toEqual({"01": "Nghị quyết", "02": "Quyết định", "22": "Công văn",
-      "NĐ": "Nghị định (mã tạm)", "TB": "Thông báo (mã tạm)", "TT": "Thông tư (mã tạm)", "VBHN": "Văn bản hợp nhất (mã tạm)"});
-    expect([...PROVISIONAL_TYPE_CODES]).toEqual(["NĐ", "TB", "TT", "VBHN"]);
+      "NĐ": "Nghị định (mã tạm)", "TB": "Thông báo (mã tạm)", "TT": "Thông tư (mã tạm)", "CĐ": "Công điện (mã tạm)",
+      "VBHN": "Văn bản hợp nhất (mã tạm)"});
+    expect([...PROVISIONAL_TYPE_CODES]).toEqual(["NĐ", "TB", "TT", "CĐ", "VBHN"]);
+    // Owner, 2026-11-10: CĐ is a provisional code, shown like the others.
+    expect(catalogOptionLabel("typeName", "CĐ")).toBe("CĐ – Công điện (mã tạm)");
     expect(TYPE_CODES.filter(entry => entry.provisional).every(entry => entry.official === null && Object.isFrozen(entry))).toBe(true);
     // Owner, 2026-11-09: shown as "VBHN – Văn bản hợp nhất (mã tạm)"; every code is shown the same way.
     expect(catalogOptionLabel("typeName", "VBHN")).toBe("VBHN – Văn bản hợp nhất (mã tạm)");
@@ -379,5 +383,106 @@ describe("access mode is never filled: publication is not an access decision (ow
     const d = published(options);
     expect(d.fields.mode).toMatchObject({value: "", status: "review", evidence: []}); expect(d.fields.mode.note).toContain("Chưa có căn cứ");
     expect(validateDocumentDraft(d).unclassifiedMode).toBe(true);
+  });
+});
+
+// Owner decisions 2026-11-10: CĐ – Công điện (provisional), one shared title table, and an issued-date reader that
+// accepts a missing space at a letter–digit boundary without ever changing a digit. All rows are synthetic.
+describe("document titles: one shared table", () => {
+  test("lists every title once, the catalogued types first, never the consolidated-text heading", () => {
+    expect(DOCUMENT_TITLES.map(entry => entry.title)).toEqual(["NGHỊ QUYẾT", "QUYẾT ĐỊNH", "CÔNG VĂN", "NGHỊ ĐỊNH", "THÔNG BÁO",
+      "THÔNG TƯ", "CÔNG ĐIỆN", "BÁO CÁO", "KẾ HOẠCH", "TỜ TRÌNH"]);
+    expect(Object.isFrozen(DOCUMENT_TITLES) && DOCUMENT_TITLES.every(entry => Object.isFrozen(entry))).toBe(true);
+  });
+  test("the backend anchors its header region on every one of these titles", () => {
+    const source = fs.readFileSync(new URL("../../../backend/metadata_fast.py", import.meta.url), "utf8");
+    const backend = /^TITLE = re\.compile\(r"\^\(\?:(.+)\)\$"\)$/mu.exec(source)[1].split("|");
+    for (const {title} of DOCUMENT_TITLES) expect(backend).toContain(title.toLocaleLowerCase("vi"));
+  });
+  test.each([
+    ["NGHỊ QUYẾT", "01", "Nghị quyết"], ["QUYẾT ĐỊNH", "02", "Quyết định"], ["CÔNG VĂN", "22", "Công văn"],
+    ["NGHỊ ĐỊNH", "NĐ", "Nghị định"], ["THÔNG BÁO", "TB", "Thông báo"], ["THÔNG TƯ", "TT", "Thông tư"], ["CÔNG ĐIỆN", "CĐ", "Công điện"],
+    ["BÁO CÁO", "", "Báo cáo"], ["KẾ HOẠCH", "", "Kế hoạch"], ["TỜ TRÌNH", "", "Tờ trình"],
+  ])("the title %s gives type %j, shown as %s; the other fields do not depend on the title", (kind, code, label) => {
+    const d = draft({kind});
+    expect(value(d, "typeName")).toBe(code); expect(d.typeLabel).toBe(label);
+    if (PROVISIONAL_TYPE_CODES.has(code) || !code) expect(d.fields.typeName.status).toBe("review");
+    const others = {...documentValues(d), typeName: ""}, baseline = {...documentValues(draft()), typeName: ""};
+    expect(others).toEqual(baseline);
+  });
+});
+
+describe("telegram (công điện)", () => {
+  const telegram = (subject, sender, gap) => {
+    const last = subject.at(-1)[2];
+    return [["BỘ KIỂM THỬ",60,40,230,55], ["CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM",280,40,560,55], ["Độc lập - Tự do - Hạnh phúc",330,58,520,72],
+      ["Số: 15/CĐ-KT",80,90,220,104], ["Hà Nội, ngày 08 tháng 10 năm 2026",300,90,540,104], ["CÔNG ĐIỆN",250,130,345,146], ...subject,
+      [sender,180,last+gap,415,last+gap+14], ["- Các đơn vị kiểm thử;",90,last+gap+20,300,last+gap+34],
+      ["Nội dung giả lập của công điện để kiểm thử.",60,last+gap+50,540,last+gap+64]];
+  };
+  const ONE = [["Về việc kiểm thử công điện tổng hợp",160,150,435,164]];
+  const TWO = [...ONE, ["trên tài liệu giả lập",200,167,400,181]];
+  test.each([
+    ["native_text", ONE, "BỘ TRƯỞNG BỘ KIỂM THỬ điện:", 22], ["native_text", ONE, "BỘ TRƯỞNG BỘ KIỂM THỬ ĐIỆN:", 30],
+    ["native_text", TWO, "BỘ TRƯỞNG BỘ KIỂM THỬ điện:", 22], ["vietocr_ocr", ONE, "THỦ TƯỚNG CHÍNH PHỦ ĐIỆN:", 22],
+    ["vietocr_ocr", TWO, "BỘ TRƯỞNG BỘ KIỂM THỬ ĐIỆN :", 30],
+  ])("%s: CĐ for review, and the subject ends before the sender line", (method, subject, sender, gap) => {
+    const d = rowsDraft(telegram(subject, sender, gap), method);
+    expect(d.fields.typeName).toMatchObject({value: "CĐ", status: "review"}); expect(d.fields.typeName.note).toContain("Mã tạm “CĐ”");
+    expect(d.typeLabel).toBe("Công điện");
+    expect(value(d, "subject")).toBe(subject.map(row => row[0]).join(" "));
+    expect(value(d, "arcDocCode")).toBe("15/CĐ-KT"); expect(value(d, "codeNotation")).toBe("CĐ-KT");
+    expect(value(d, "issuedDate")).toBe("08-10-2026"); expect(value(d, "organName")).toBe("BỘ KIỂM THỬ");
+  });
+  test("a subject line ending in “điện:” in ordinary case is not a sender line", () => {
+    const d = rowsDraft(decision([["Về việc phương án bảo đảm cung cấp điện:",150,175,450,190], ["cho các đơn vị kiểm thử",150,193,450,208]]));
+    expect(value(d, "subject")).toBe("Về việc phương án bảo đảm cung cấp điện: cho các đơn vị kiểm thử");
+  });
+});
+
+describe("issued date: a missing space at a letter–digit boundary", () => {
+  test.each([
+    ["Hà Nội, ngày 05 tháng 11 năm 2026", "05-11-2026", false],
+    ["Hà Nội, ngày 05 tháng 11năm 2026", "05-11-2026", true],
+    ["Hà Nội, ngày05 tháng11 năm2026", "05-11-2026", true],
+    ["ngày5tháng3năm2026", "05-03-2026", true],
+    ["Hà Nội,ngày 07 tháng 4 năm 2026.", "07-04-2026", false],
+    ["HÀ NỘI, NGÀY 05 THÁNG 11NĂM 2026", "05-11-2026", true],
+  ])("reads %j as %s", (text, date, glued) => {
+    const found = issuedDatesIn(text);
+    expect(found).toHaveLength(1); expect(found[0]).toMatchObject({value: date, review: false, invalid: false});
+    if (glued) expect(found[0].note).toContain("thiếu dấu cách"); else expect(found[0].note).toBe("");
+  });
+  test("a handwritten two-digit day read with a space inside it stays for review", () => {
+    expect(issuedDatesIn("Hà Nội, ngày 0 7 tháng 10năm 2026")[0]).toMatchObject({value: "07-10-2026", review: true, invalid: false});
+  });
+  test.each(["ngày 31 tháng 02 năm 2026", "ngày 29 tháng 02 năm 2025", "ngày 05 tháng 13năm 2026", "ngày00 tháng 10 năm 2026",
+    "ngày 05 tháng 11 năm 2026 2027"])("%j is not a calendar date, or text follows the year: never filled", text => {
+    expect(issuedDatesIn(text)[0].invalid).toBe(true);
+  });
+  test.each([
+    "Hà Nội, ngày 05 tháng/1 năm 2026", "Hà Nội, ngày 0B tháng 11 năm 2026", "ngày 105 tháng 11 năm 2026", "ngày 05 tháng 111 năm 2026",
+    "ngày 0511 tháng năm 2026", "ngày 05 tháng 11 năm 20 26", "ngày 05 tháng 11 năm 226",
+    "Căn cứ Luật Kiểm thử ngày 18 tháng 02 năm 2025;", "Trong các ngày 01 và 02 tháng 11 năm 2026, đoàn kiểm thử làm việc",
+  ])("%j gives no date: digits are never guessed, joined or split, and a cited date is not the issued date", text => {
+    expect(issuedDatesIn(text)).toEqual([]);
+  });
+  test.each([
+    ["Hà Nội, ngày 05 tháng/1 năm 2026", true], ["Hà Nội, ngày 0B tháng 4 năm 2026", true], ["Hà Nội, ngày      tháng      năm 2026", true],
+    ["Hà Nội, ngày 05 tháng 11 năm 2O26", true], ["Hà Nội, ngày 05 tháng 11năm 2026", false],
+    ["Ngày 27 tháng 10 và ngày 02 tháng 11 năm 2026, đoàn kiểm thử làm việc", false], ["Căn cứ Luật ngày 18 tháng 02 năm 2025;", false],
+  ])("%j is an issued-date line that does not read: %s", (text, unread) => expect(unreadIssuedDateLine(text)).toBe(unread));
+  test("in a header: a missing space is read, an unreadable date line is empty and for review with its line", () => {
+    const glued = draft({date: "05 tháng 11năm 2026"}).fields.issuedDate;
+    expect(glued.value).toBe("05-11-2026"); expect(glued.note).toContain("thiếu dấu cách");
+    expect(draft({date: "05 tháng 11 năm 2026"}).fields.issuedDate).toMatchObject({value: "05-11-2026", note: ""});
+    const unread = draft({date: "05 tháng/1 năm 2026"}).fields.issuedDate;
+    expect(unread).toMatchObject({value: "", status: "review"}); expect(unread.note).toContain("không tự sửa hay đoán chữ số");
+    expect(unread.evidence.map(source => source.text)).toEqual(["Hà Nội, ngày 05 tháng/1 năm 2026"]);
+  });
+  test("a date line split over two lines is joined when the keyword touches its digits", () => {
+    const d = rowsDraft(decision([["Phê duyệt nội dung kiểm thử",150,175,450,190]]).map(row => row[0].startsWith("Hà Nội")
+      ? ["Hà Nội, ngày08 tháng 10", 320, 95, 570, 110] : row).toSpliced(5, 0, ["năm 2026", 320, 112, 400, 124]));
+    expect(value(d, "issuedDate")).toBe("08-10-2026");
   });
 });

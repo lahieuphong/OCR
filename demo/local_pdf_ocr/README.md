@@ -91,8 +91,8 @@ downloads retain their existing behavior. Per-document/per-mode edits and
 sequential batch retries are preserved.
 
 The business-type catalog has official codes for Nghị quyết (`01`), Quyết định
-(`02`) and Công văn (`22`). Nghị định, Thông báo and Thông tư get the owner's
-provisional codes `NĐ`, `TB`, `TT`, and a consolidated text (văn bản hợp nhất)
+(`02`) and Công văn (`22`). Nghị định, Thông báo, Thông tư and Công điện get the owner's
+provisional codes `NĐ`, `TB`, `TT`, `CĐ`, and a consolidated text (văn bản hợp nhất)
 gets `VBHN`, marked “mã tạm” and always for review, until
 the official catalog is verified; never invent a business code. Issuing dates/agencies must be supported by the
 document header, not electronic-signature metadata or incoming stamps.

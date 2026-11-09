@@ -17,10 +17,10 @@ integration must verify these types before sending any data.
 | docId | Always `""`, reserved; never generated or editable |
 | arcDocCode | Full header number/notation; manually editable |
 | maintenance | `01` permanent; `02` 75 years; `03` 50; `04` 30; `05` 20; `06` 10; `07` 5 |
-| typeName | Official: `01` Nghị quyết; `02` Quyết định; `22` Công văn (also from the letter layout, for review). Provisional (the owner's interim codes, marked “mã tạm”, always for review): `NĐ` Nghị định; `TB` Thông báo; `TT` Thông tư; `VBHN` Văn bản hợp nhất (confirmed by the owner, 2026-11-09). Codes are shown as `code – name`, e.g. `VBHN – Văn bản hợp nhất (mã tạm)`; JSON and Excel hold the code only |
+| typeName | Official: `01` Nghị quyết; `02` Quyết định; `22` Công văn (also from the letter layout, for review). Provisional (the owner's interim codes, marked “mã tạm”, always for review): `NĐ` Nghị định; `TB` Thông báo; `TT` Thông tư; `CĐ` Công điện (added by the owner, 2026-11-10); `VBHN` Văn bản hợp nhất (confirmed by the owner, 2026-11-09). Codes are shown as `code – name`, e.g. `VBHN – Văn bản hợp nhất (mã tạm)`; JSON and Excel hold the code only |
 | codeNumber | Before the first `/` of arcDocCode; derived, read-only |
 | codeNotation | After the last `/` of arcDocCode; derived, read-only |
-| issuedDate | Real calendar date in `DD-MM-YYYY`, or empty |
+| issuedDate | Real calendar date in `DD-MM-YYYY`, or empty (for review when a date line is there but its digits do not read) |
 | organName | Unicode uppercase issuing agency from an unambiguous header |
 | subject | Literal title/subject words, joining relevant lines with spaces; a leading `V/v` or `Về việc` is kept as printed (the owner's records keep both) |
 | language | `01` Vietnamese; `02` English; ambiguous/bilingual text stays empty |
@@ -75,18 +75,31 @@ exporting or copying an unclassified draft; the exported JSON retains `mode: ""`
 - Issuance dates need an explicit administrative `ngày … tháng … năm …` header
   pattern and pass a UTC calendar check. No missing day/month is invented. A day
   or month read as two digits with a space (`ngày 0 7 tháng`) is joined, for review.
+  The space where a keyword meets its digits may be missing (`tháng 11năm 2026`,
+  `ngày05`): a letter next to a digit is an unambiguous boundary, so the date is
+  read, with a note; no digit is added, removed or changed (owner, 2026-11-10). A
+  line laid out as the date line whose digits do not read (`ngày 05 tháng/1 năm
+  2026`, `ngày 0B tháng`, blanks never filled) leaves the date empty, for review,
+  with that line as evidence; it is never repaired from the signing date, the file
+  name or a guess.
 - National titles and mottos are excluded from issuing agencies. Multiple agency
   candidates/cascaded authorities are left for manual resolution. When the detector
   merges both header columns into one line, the agency is the text before
   `CỘNG HÒA`. The signing portal's `Cơ quan phát hành:` mark is signature text.
 - An explicit document-type heading is required. `V/v` alone does not imply
   Công văn, except in the official-letter layout: a `V/v` line in the left column
-  right under `Số:` and no title gives `22`, for review. `NGHỊ ĐỊNH`, `THÔNG BÁO`
-  and `THÔNG TƯ` get the provisional codes `NĐ`, `TB`, `TT`, always for review.
-  All type codes live in one table (`TYPE_CODES` in `documentFields.js`): when the
+  right under `Số:` and no title gives `22`, for review. `NGHỊ ĐỊNH`, `THÔNG BÁO`,
+  `THÔNG TƯ` and `CÔNG ĐIỆN` get the provisional codes `NĐ`, `TB`, `TT`, `CĐ`, always
+  for review. All type codes live in one table (`TYPE_CODES` in `documentFields.js`): when the
   official catalogue is verified, a provisional entry's `official` code is set
   there and extraction, the dropdown and validation follow. No numeric code is
-  invented; other titles (`BÁO CÁO`, `KẾ HOẠCH`, `TỜ TRÌNH`) get none. A consolidated
+  invented; other titles (`BÁO CÁO`, `KẾ HOẠCH`, `TỜ TRÌNH`) get none. Every
+  recognised title line comes from one list (`DOCUMENT_TITLES`, built from that
+  table plus the uncoded titles); the backend's header-region anchor (`TITLE` in
+  `metadata_fast.py`) must name each of them, which a test checks. A telegram
+  (công điện) has no `Căn cứ`/`Kính gửi`: its body starts at the sender line, the
+  sender in capitals followed by `điện:` (`THỦ TƯỚNG CHÍNH PHỦ điện:`), which ends
+  its subject. A consolidated
   text (`VĂN BẢN HỢP NHẤT` in the agency cell, or `/VBHN-` in its number) is `VBHN`
   (provisional, review), never the title of the act it consolidates (`THÔNG TƯ`
   under it). Its agency cell holds those words, not an agency: `organName` stays

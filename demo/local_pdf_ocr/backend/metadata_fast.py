@@ -30,12 +30,15 @@ ROI_FRACTIONS = (.45, .65, .80)
 MAX_HEADER_LINES = 64
 SUBJECT_LINE_ALLOWANCE = 10
 SUBJECT_MARK = re.compile(r"^(?:v/v|về việc)(?:\s|:)")
-TITLE = re.compile(r"^(?:nghị định|nghị quyết|quyết định|công văn|thông tư|thông báo|báo cáo|kế hoạch|tờ trình|luật|bộ luật|pháp lệnh)$")
+# Must list every title the frontend recognises (DOCUMENT_TITLES in frontend/src/lib/documentFields.js; a frontend test checks it).
+TITLE = re.compile(r"^(?:nghị định|nghị quyết|quyết định|công văn|thông tư|thông báo|công điện|báo cáo|kế hoạch|tờ trình|luật|bộ luật|pháp lệnh)$")
 BODY = re.compile(r"^(?:căn cứ(?:\s|$|[:,])|kính gửi(?:\s|$|[:,])|điều\s+\d|quyết định\s*:|quyết nghị\s*:|nơi nhận\s*:)")
 ISSUER = re.compile(r"^(?:chính phủ$|quốc hội$|thủ tướng chính phủ$|văn phòng|ủy ban|hội đồng|bộ\s|sở\s|cục\s|tổng cục|tòa án|viện kiểm sát)")
 SIGNATURE = re.compile(r"^(?:(?:ký bởi|người ký|ngày ký|ký ngày|thời gian ký|cơ quan ký)\s*[:：]|digitally signed(?:\s|$)|signed by(?:\s|$)|signing time\s*[:：])")
 NUMBER = re.compile(r"^số\s*[:：﹕]?\s*\S+\s*/\s*\S+")
-DATE = re.compile(r"ngày\s+\d{1,2}\s+tháng\s+\d{1,2}\s+năm\s+\d{4}")
+# The space where a keyword meets its digits can be missing ("tháng 11năm 2026"): a letter next to a digit is an
+# unambiguous boundary (same rule as the frontend's issued-date reader). Evidence only; the text is never changed.
+DATE = re.compile(r"ngày\s*\d{1,2}\s*tháng\s*\d{1,2}\s*năm\s*\d{4}")
 DETECTOR_FILES = {
     "inference.json": "0f1a7ec35da36173529c7a60238b7f7919e3831929c3f700ad90ad4896adecd5",
     "inference.pdiparams": "85218d2e3d98f5a21c58b4220627be923a97aee5db3cc71f39536ab31ac53960",
