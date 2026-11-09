@@ -204,7 +204,7 @@ describe("metadata UI integration", () => {
     const clipboard = vi.spyOn(navigator.clipboard, "writeText");
     await user.click(screen.getByRole("button", {name:"Sao chép JSON"}));
     const dialog = screen.getByRole("alertdialog");
-    expect(dialog.textContent).toContain("01 · Công khai"); expect(clipboard).not.toHaveBeenCalled();
+    expect(dialog.textContent).toContain("01 – Công khai"); expect(clipboard).not.toHaveBeenCalled();
     await user.click(within(dialog).getByRole("button", {name:"Sao chép bản nháp"}));
     await waitFor(() => expect(clipboard).toHaveBeenCalledOnce());
     const parsed = JSON.parse(clipboard.mock.calls[0][0]);

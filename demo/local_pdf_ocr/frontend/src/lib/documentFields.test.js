@@ -1,5 +1,5 @@
 import {describe, expect, test} from "vitest";
-import {CATALOGS, FIELD_KEYS, PROVISIONAL_TYPE_CODES, TYPE_CODES, createDocumentDraft, documentValues, editDocumentField, confirmDocumentField,
+import {CATALOGS, FIELD_KEYS, PROVISIONAL_TYPE_CODES, TYPE_CODES, catalogOptionLabel, createDocumentDraft, documentValues, editDocumentField, confirmDocumentField,
   isValidIssuedDate, serializeDocumentFields, validateDocumentDraft} from "./documentFields.js";
 import {documentFromRows, syntheticDocument, SYNTHETIC_CASES} from "../test/fixtures/administrativeDocuments.js";
 import {SYNTHETIC_GOLD} from "../test/fixtures/metadataGold.js";
@@ -49,9 +49,13 @@ describe("business schema and provenance", () => {
   });
   test("keeps the official type codes and adds only the owner's marked provisional codes", () => {
     expect(CATALOGS.typeName).toEqual({"01": "Nghị quyết", "02": "Quyết định", "22": "Công văn",
-      "NĐ": "Nghị định (mã tạm)", "TB": "Thông báo (mã tạm)", "TT": "Thông tư (mã tạm)"});
-    expect([...PROVISIONAL_TYPE_CODES]).toEqual(["NĐ", "TB", "TT"]);
+      "NĐ": "Nghị định (mã tạm)", "TB": "Thông báo (mã tạm)", "TT": "Thông tư (mã tạm)", "VBHN": "Văn bản hợp nhất (mã tạm)"});
+    expect([...PROVISIONAL_TYPE_CODES]).toEqual(["NĐ", "TB", "TT", "VBHN"]);
     expect(TYPE_CODES.filter(entry => entry.provisional).every(entry => entry.official === null && Object.isFrozen(entry))).toBe(true);
+    // Owner, 2026-11-09: shown as "VBHN – Văn bản hợp nhất (mã tạm)"; every code is shown the same way.
+    expect(catalogOptionLabel("typeName", "VBHN")).toBe("VBHN – Văn bản hợp nhất (mã tạm)");
+    expect(catalogOptionLabel("typeName", "02")).toBe("02 – Quyết định");
+    expect(catalogOptionLabel("mode", "01")).toBe("01 – Công khai");
     const notice = draft({kind: "THÔNG BÁO"});
     expect(value(notice, "typeName")).toBe("TB"); expect(notice.fields.typeName.status).toBe("review");
     expect(value(draft({kind: "BÁO CÁO"}), "typeName")).toBe("");
@@ -193,12 +197,21 @@ describe("header rules for real layouts", () => {
     expect(value(d, "typeName")).toBe("22"); expect(d.fields.typeName.status).toBe("review"); expect(d.typeLabel).toBe("Công văn");
     expect(d.fields.typeName.evidence.map(source => source.text)).toEqual(["Số: 10300/VPCP-CN", "V/v triển khai kết luận của Bộ"]);
   });
-  test("a consolidated text does not take the type of the act it consolidates", () => {
+  test("a consolidated text is VBHN (provisional), never the type of the act it consolidates", () => {
     const d = createDocumentDraft(documentFromRows([["VĂN BẢN HỢP NHẤT", 90, 68, 230, 84], ["CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM", 260, 52, 560, 68],
       ["Số: 15/2026/VBHN-TT-KT", 70, 96, 250, 111], ["Hà Nội, ngày 08 tháng 10 năm 2026", 310, 96, 520, 111],
       ["THÔNG TƯ", 270, 136, 350, 151], ["Quy định về kiểm thử hợp nhất", 150, 153, 450, 168], ["Căn cứ Luật Kiểm thử;", 100, 200, 500, 215]]));
-    expect(value(d, "typeName")).toBe(""); expect(d.fields.typeName.status).toBe("review");
-    expect(d.fields.typeName.note).toContain("Văn bản hợp nhất"); expect(value(d, "arcDocCode")).toBe("15/2026/VBHN-TT-KT");
+    expect(value(d, "typeName")).toBe("VBHN"); expect(d.fields.typeName.status).toBe("review"); expect(d.typeLabel).toBe("Văn bản hợp nhất");
+    expect(d.fields.typeName.note).toContain("“THÔNG TƯ” là của văn bản được hợp nhất"); expect(d.fields.typeName.note).toContain("Mã tạm “VBHN”");
+    expect(value(d, "arcDocCode")).toBe("15/2026/VBHN-TT-KT"); expect(value(d, "subject")).toBe("Quy định về kiểm thử hợp nhất");
+    // "VĂN BẢN HỢP NHẤT" sits in the agency cell: it is not the agency, which is named at the end of the text.
+    expect(d.fields.organName).toMatchObject({value: "", status: "review"}); expect(d.fields.organName.note).toContain("XÁC THỰC VĂN BẢN HỢP NHẤT");
+    // The notation in its number is enough; the number is kept exactly as written.
+    const byNumber = createDocumentDraft(documentFromRows([["BỘ KIỂM THỬ", 90, 52, 230, 68], ["CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM", 260, 52, 560, 68],
+      ["Số: 15/2026/VBHN-TT-KT", 70, 96, 250, 111], ["Hà Nội, ngày 08 tháng 10 năm 2026", 310, 96, 520, 111],
+      ["THÔNG TƯ", 270, 136, 350, 151], ["Quy định về kiểm thử hợp nhất", 150, 153, 450, 168], ["Căn cứ Luật Kiểm thử;", 100, 200, 500, 215]]));
+    expect(value(byNumber, "typeName")).toBe("VBHN"); expect(value(byNumber, "arcDocCode")).toBe("15/2026/VBHN-TT-KT");
+    expect(value(byNumber, "organName")).toBe("BỘ KIỂM THỬ");
   });
   test("a circular gets the provisional code TT, for review", () => {
     const d = draft({kind: "THÔNG TƯ"});
@@ -287,6 +300,13 @@ describe("seal colour", () => {
       expect(documentValues(d).confidenceLevel).toBe("02");
     }
   });
+  test("a grey seal on a black-and-white scan is never another colour, and 02 is not evidence against red (owner, 2026-11-09)", () => {
+    const d = withSeal({method: "red_round_mark_v1", reason: "black_and_white", colour: null, pages_checked: [1]});
+    expect(value(d, "isCan")).toBe(""); expect(documentValues(d).isCan).toBe("");
+    expect(d.fields.isCan.note).toContain("không có nghĩa là dấu màu khác");
+    expect(documentValues(d).confidenceLevel).toBe("02");
+    expect(d.fields.confidenceLevel.note).toContain("không có nghĩa con dấu gốc không phải màu đỏ");
+  });
   test("results without a seal check (older results, errors) keep the previous behaviour", () => {
     for (const seal of [undefined, {reason: "error", colour: null}, {reason: "found", colour: "red"}]) {
       const d = withSeal(seal);
@@ -329,7 +349,7 @@ describe("owner records, round 1", () => {
   });
 });
 
-describe("owner decisions after round 2: access mode from the publication source", () => {
+describe("access mode is never filled: publication is not an access decision (owner, round-4 gold)", () => {
   // Hand-authored fictional header; the first rows are the PDF's visible electronic-signature block.
   const published = ({signer = "Người ký: CỔNG THÔNG TIN ĐIỆN TỬ CHÍNH PHỦ", email = "Email: thongtinchinhphu@chinhphu.vn", extra = [], signatureBlock = true} = {}) => {
     const raw = documentFromRows([[signer, 200, 5, 420, 15], [email, 200, 16, 420, 24],
@@ -340,12 +360,13 @@ describe("owner decisions after round 2: access mode from the publication source
     if (signatureBlock) raw.pages[0].lines.slice(0, 2).forEach(line => {line.metadata_excluded_reason = "electronic_signature";});
     return createDocumentDraft(raw);
   };
-  test("a PDF signed by the Government portal for publication is 01 from that source, always for review", () => {
+  test("a PDF signed by the Government portal stays empty, for review, with that signature as evidence", () => {
     const field = published().fields.mode;
-    expect(field.value).toBe("01"); expect(field.status).toBe("review");
-    expect(field.note).toContain("nguồn công bố"); expect(field.note).toContain("không phải xác nhận phân quyền nội bộ");
+    expect(field).toMatchObject({value: "", status: "review"});
+    expect(field.note).toContain("nguồn công bố, không tự xác định chế độ sử dụng"); expect(field.note).toContain("Chọn tay sau khi xác minh");
     expect(field.evidence.map(source => source.text)).toEqual(["Người ký: CỔNG THÔNG TIN ĐIỆN TỬ CHÍNH PHỦ", "Email: thongtinchinhphu@chinhphu.vn"]);
-    expect(JSON.parse(serializeDocumentFields(published())).mode).toBe("01");
+    expect(JSON.parse(serializeDocumentFields(published())).mode).toBe("");
+    expect(validateDocumentDraft(published()).unclassifiedMode).toBe(true);
   });
   test("a secrecy mark on page 1 keeps it empty, for review", () => {
     const field = published({extra: [["MẬT", 60, 140, 100, 155]]}).fields.mode;
@@ -356,7 +377,7 @@ describe("owner decisions after round 2: access mode from the publication source
     ["the portal address outside the signature block", {signatureBlock: false, signer: "Ghi chú thử nghiệm", email: "Liên hệ thongtinchinhphu@chinhphu.vn"}],
   ])("%s leaves it empty, marked for verification", (_name, options) => {
     const d = published(options);
-    expect(d.fields.mode).toMatchObject({value: "", status: "review"}); expect(d.fields.mode.note).toContain("cần xác minh");
+    expect(d.fields.mode).toMatchObject({value: "", status: "review", evidence: []}); expect(d.fields.mode.note).toContain("Chưa có căn cứ");
     expect(validateDocumentDraft(d).unclassifiedMode).toBe(true);
   });
 });

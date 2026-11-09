@@ -92,9 +92,10 @@ def covered_by(a, b):
 
 
 def fold_letters(text):
-    """Comparison only: the letters and digits of a line without diacritics, case or spacing."""
+    """Comparison only: the letters and digits of a line, without diacritics, case, spacing or punctuation
+    (OCR reads curly quotes as straight ones)."""
     decomposed = unicodedata.normalize("NFD", str(text)).replace("đ", "d").replace("Đ", "D")
-    return "".join(c for c in decomposed if unicodedata.category(c) != "Mn" and not c.isspace()).casefold()
+    return "".join(c for c in decomposed if unicodedata.category(c) != "Mn" and c.isalnum()).casefold()
 
 
 def visible_text_layer(page):
@@ -133,26 +134,69 @@ def native_text_over_ocr(lines, native, zoom):
     return result
 
 
+def fill_printed_blanks(lines, blanks):
+    """A number or day/month typed into a printed blank after signing ("Số:      /2026/…", "ngày    tháng")
+    can be its own text object, drawn over the blank's spaces. It is put back into that blank, so the line
+    reads as printed; the inserted values are listed in "filled_blanks". Only digits are moved, and only into
+    a run of two or more spaces whose horizontal span holds the value's centre, on the same row."""
+    taken = set()
+    for host_index, host in enumerate(lines):
+        runs = blanks.get(host_index)
+        if not runs or host.get("metadata_excluded_reason"):
+            continue
+        hy0, hy1 = host["bbox"][1], host["bbox"][3]
+        inserts = {}
+        for index, value in enumerate(lines):
+            text = value["text"].strip()
+            if index == host_index or index in taken or value.get("metadata_excluded_reason") or not re.fullmatch(r"\d{1,6}", text):
+                continue
+            x0, y0, x1, y1 = value["bbox"]
+            if max(0, min(hy1, y1) - max(hy0, y0)) < .5 * min(hy1 - hy0, y1 - y0):
+                continue
+            centre = (x0 + x1) / 2
+            run = next((run for run in runs if run[2] <= centre <= run[3]), None)
+            if run:
+                inserts.setdefault(run, []).append((x0, index, text))
+        if not inserts:
+            continue
+        text, filled = host["text"], []
+        for run in sorted(inserts, reverse=True):  # right to left: earlier string offsets stay valid
+            values = sorted(inserts[run])
+            filled += [{"text": value, "bbox": lines[index]["bbox"]} for _, index, value in values]
+            taken.update(index for _, index, _ in values)
+            text = text[:run[0]].rstrip() + " " + " ".join(value for _, _, value in values) + " " + text[run[1]:].lstrip()
+        host["text"] = text.strip()
+        host["filled_blanks"] = sorted(filled, key=lambda item: item["bbox"][0])
+    return [line for index, line in enumerate(lines) if index not in taken]
+
+
 def native_lines(page):
     import pymupdf as fitz
 
-    lines, signatures = [], []
-    data = page.get_text("dict", flags=fitz.TEXTFLAGS_DICT & ~fitz.TEXT_PRESERVE_IMAGES)
+    lines, signatures, blanks = [], [], {}
+    data = page.get_text("rawdict", flags=fitz.TEXTFLAGS_DICT & ~fitz.TEXT_PRESERVE_IMAGES)
     for block in data.get("blocks", []):
         if block.get("type") != 0:
             continue
-        block_text = "\n".join("".join(s.get("text", "") for s in line.get("spans", [])) for line in block.get("lines", []))
+        chars = [[char for span in line.get("spans", []) for char in span.get("chars", [])] for line in block.get("lines", [])]
+        block_text = "\n".join("".join(char["c"] for char in line) for line in chars)
         signed = any(SIGNATURE.match(match_text(line)) for line in block_text.splitlines())
         if signed:
             signatures.append(list(block["bbox"]))
-        for line in block.get("lines", []):
-            text = "".join(span.get("text", "") for span in line.get("spans", []))
+        for line, line_chars in zip(block.get("lines", []), chars):
+            text = "".join(char["c"] for char in line_chars)
             if not text.strip():
                 continue
             item = {"text": text, "bbox": list(line["bbox"]), "geometry_source": "native_text"}
             if signed:
                 item["metadata_excluded_reason"] = "electronic_signature"
+            # Runs of 2+ spaces inside the line: (start, end, x0, x1), the printed blanks a value can fill.
+            runs = [(m.start(), m.end(), line_chars[m.start()]["bbox"][0], line_chars[m.end() - 1]["bbox"][2])
+                    for m in re.finditer(r" {2,}", text) if text[:m.start()].strip() and text[m.end():].strip()]
+            if runs:
+                blanks[len(lines)] = runs
             lines.append(item)
+    lines = fill_printed_blanks(lines, blanks)
     return sorted(lines, key=lambda line: (box_of(line)[1], box_of(line)[0])), signatures
 
 
@@ -327,6 +371,8 @@ def result_record(filename, source_count, lines, width, height, roi, coordinates
         reasons.append("electronic_signature_excluded_from_metadata")
     if any(line.get("text_source") == "pdf_text" for line in lines):
         reasons.append("ocr_lines_matched_to_pdf_text_layer")
+    if any(line.get("filled_blanks") for line in lines):
+        reasons.append("pdf_values_filled_into_printed_blanks")
     # Only a region that grew to its last size without finding the header counts as the limit.
     limit = not status["header_complete"] and stop_reason is None
     if limit:

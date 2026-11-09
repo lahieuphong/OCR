@@ -3,7 +3,7 @@ import React from "react";
 import {expect, test} from "vitest";
 import {render, screen} from "@testing-library/react";
 import DocumentMetadata, {visibleNote} from "./DocumentMetadata.jsx";
-import {createDocumentDraft, confirmDocumentField} from "@/lib/documentFields.js";
+import {createDocumentDraft, confirmDocumentField, editDocumentField} from "@/lib/documentFields.js";
 import {fastMetadataDocument} from "@/test/fixtures/fastMetadata.js";
 import {stampSubjectDocument} from "@/test/fixtures/stampSubject.js";
 
@@ -60,8 +60,13 @@ test("routine notes are removed, other text kept", () => {
 test("a provisional type code is marked as such next to the field", () => {
   view(fastMetadataDocument());
   const type = document.getElementById("metadata-typeName").closest(".metadata-field");
-  expect(type.textContent).toContain("NĐ · Nghị định (mã tạm)");
+  expect(type.textContent).toContain("NĐ – Nghị định (mã tạm)");
   expect(type.querySelector(".field-note").textContent).toContain("Mã tạm “NĐ”");
   expect(type.querySelector(".field-status").textContent).toBe("Cần kiểm tra");
   expect(document.querySelector(".detected-document-type")).toBeNull();
+});
+
+test("the consolidated-text code is shown as the owner set it: VBHN – Văn bản hợp nhất (mã tạm)", () => {
+  view(fastMetadataDocument(), editDocumentField(createDocumentDraft(fastMetadataDocument()), "typeName", "VBHN"));
+  expect(document.getElementById("metadata-typeName").textContent).toBe("VBHN – Văn bản hợp nhất (mã tạm)");
 });

@@ -17,7 +17,7 @@ integration must verify these types before sending any data.
 | docId | Always `""`, reserved; never generated or editable |
 | arcDocCode | Full header number/notation; manually editable |
 | maintenance | `01` permanent; `02` 75 years; `03` 50; `04` 30; `05` 20; `06` 10; `07` 5 |
-| typeName | Official: `01` Nghị quyết; `02` Quyết định; `22` Công văn (also from the letter layout, for review). Provisional (the owner's interim codes, marked “mã tạm”, always for review): `NĐ` Nghị định; `TB` Thông báo; `TT` Thông tư |
+| typeName | Official: `01` Nghị quyết; `02` Quyết định; `22` Công văn (also from the letter layout, for review). Provisional (the owner's interim codes, marked “mã tạm”, always for review): `NĐ` Nghị định; `TB` Thông báo; `TT` Thông tư; `VBHN` Văn bản hợp nhất (confirmed by the owner, 2026-11-09). Codes are shown as `code – name`, e.g. `VBHN – Văn bản hợp nhất (mã tạm)`; JSON and Excel hold the code only |
 | codeNumber | Before the first `/` of arcDocCode; derived, read-only |
 | codeNotation | After the last `/` of arcDocCode; derived, read-only |
 | issuedDate | Real calendar date in `DD-MM-YYYY`, or empty |
@@ -27,7 +27,7 @@ integration must verify these types before sending any data.
 | numberOfPage | Source reader's PDF count (1–6; up to 1000 in `metadata_fast`, which reads only page 1), or `"1"` for a source image |
 | inforSign | The short mark written in the top-right corner of page 1, above the national motto (e.g. the receiving portal's `TTĐT`, `TTĐT(2)`): as read, inner spaces removed, always for review; otherwise manual |
 | keyword | Manual only; no generated keywords |
-| mode | `01` public; `02` conditional; `03` secret. `01` only from the publication source (below), for review; otherwise empty and marked for verification |
+| mode | `01` public; `02` conditional; `03` secret. Never filled automatically (see below): always empty and marked for verification, chosen by hand |
 | confidenceLevel | `01` if isCan is `"0"`; **all other values, including empty, yield `02`** |
 | autograph | Manual only |
 | format | `01` good; `02` normal; `03` damaged; manual only |
@@ -35,11 +35,14 @@ integration must verify these types before sending any data.
 | riskRecovery | `0` no; `1` yes; manual only |
 | riskRecoveryStatus | `01` backed up; `02` not backed up; manual only |
 | description | Manual notes; never generated from OCR |
-| isCan | `0` when the backend's seal check finds a round red seal; `1` other color (manual only); empty if unknown |
+| isCan | `0` when the backend's seal check finds a round red seal; `1` a seal of another colour, verified from a reliable source (manual only); empty if unknown, always for a black-and-white or greyscale scan |
 
 `confidenceLevel` is a **business classification, not OCR probability**. It is
 `01` when a red seal was found; otherwise the initial `02` is marked for review
-because the seal is unknown.
+because the seal is unknown. On a black-and-white scan (owner, 2026-11-09) a grey
+or black seal says nothing about its real colour: isCan stays empty, never `1`,
+and the `02` is the table's rule, not evidence that the original seal is not red;
+the notes of both fields say so.
 
 The seal check (`backend/seal_colour.py`, every mode) looks at page pixels, not
 text: pages render at 100 dpi from the last page back (20 pages, then the first
@@ -48,13 +51,11 @@ text: pages render at 100 dpi from the last page back (20 pages, then the first
 do not qualify. A scan whose page image is greyscale is reported as black and
 white: its seal colour cannot be known and stays empty. The result's `seal` key
 names the page and size, which the metadata panel shows as evidence.
-`mode` is never inferred from OCR content. The one source used is publication:
-the Government e-portal signs the documents it publishes, and a PDF whose page-1
-signature block names `thongtinchinhphu@chinhphu.vn` gets `01`, always for review,
-with a note that this is a classification from the publication source, not an OCR
-result or an internal access decision (the certificate itself is not checked). A
-secrecy mark (`MẬT`, `TỐI MẬT`, `TUYỆT MẬT`) on page 1 blocks it. Otherwise `mode`
-stays empty and is marked for verification. The UI warns that a future storage
+`mode` is an access decision that the PDF does not hold: the app never fills it.
+It stays empty and marked for verification. Publication by the Government
+e-portal (a page-1 signature block naming `thongtinchinhphu@chinhphu.vn`) does not
+establish it (owner's rule, round-4 gold); that signature, or a secrecy mark
+(`MẬT`, `TỐI MẬT`, `TUYỆT MẬT`) on page 1, is shown as evidence for the reviewer. The UI warns that a future storage
 backend may treat an empty mode as public, and requires confirmation before
 exporting or copying an unclassified draft; the exported JSON retains `mode: ""`.
 
@@ -86,8 +87,11 @@ exporting or copying an unclassified draft; the exported JSON retains `mode: ""`
   official catalogue is verified, a provisional entry's `official` code is set
   there and extraction, the dropdown and validation follow. No numeric code is
   invented; other titles (`BÁO CÁO`, `KẾ HOẠCH`, `TỜ TRÌNH`) get none. A consolidated
-  text (`VĂN BẢN HỢP NHẤT`, or `/VBHN-` in its number) repeats the title of the act
-  it consolidates, so it gets no automatic type code (review).
+  text (`VĂN BẢN HỢP NHẤT` in the agency cell, or `/VBHN-` in its number) is `VBHN`
+  (provisional, review), never the title of the act it consolidates (`THÔNG TƯ`
+  under it). Its agency cell holds those words, not an agency: `organName` stays
+  empty for review, since the authenticating body is named in the `XÁC THỰC VĂN BẢN
+  HỢP NHẤT` block at the end, outside the page-1 header.
 - `V/v`, `Về việc` and main title continuations are bounded by column, paragraph
   gap (absolute, and a step 1.7 times the subject's own line spacing), header/body
   markers, upper-case agency lines and length. Ruling lines and underscores are not

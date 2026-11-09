@@ -3,6 +3,7 @@ import hashlib
 import io
 import json
 import os
+import re
 import tempfile
 import time
 import unittest
@@ -366,3 +367,66 @@ class NativeTextOverOcrTests(unittest.TestCase):
                 self.assertEqual(subject["text"], "V/v kết thúc thưc hiên Đề án kiểm thử")
                 self.assertNotIn("text_source", subject)
                 self.assertNotIn("ocr_lines_matched_to_pdf_text_layer", result["fast_metadata"]["reasons"])
+
+
+class PrintedBlankTests(unittest.TestCase):
+    """A number or day/month typed into a printed blank after signing, as its own text object (137-vbhn-bxd)."""
+    HOST = [("BỘ KIỂM THỬ", 40, 40), ("CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM", 300, 40),
+            ("Số:        /2026/VBHN-QA", 40, 90), ("Hà Nội, ngày      tháng      năm 2026", 300, 90),
+            ("QUYẾT ĐỊNH", 260, 130), ("Về việc kiểm thử chỗ trống", 200, 145), ("Căn cứ Luật Kiểm thử;", 60, 190)]
+
+    def payload(self, values):
+        """values: (text, host text, which blank of that host, baseline shift); each is written as its own text
+        object, centred on the blank's spaces as the PDF's own text layer places them."""
+        pdf = fitz.open(); page = pdf.new_page(width=600, height=800)
+        writer = fitz.TextWriter(page.rect)
+        for text, x, y in self.HOST:
+            writer.append((x, y), text, fontsize=9)
+        writer.write_text(page)
+        chars = {"".join(c["c"] for s in line["spans"] for c in s["chars"]): [c for s in line["spans"] for c in s["chars"]]
+                 for block in page.get_text("rawdict")["blocks"] for line in block.get("lines", [])}
+        values_writer = fitz.TextWriter(page.rect)
+        for text, host, blank, shift in values:
+            line_chars = chars[host]
+            start, end = [(m.start(), m.end()) for m in re.finditer(r" {2,}", host)][blank]
+            x0, x1 = line_chars[start]["bbox"][0], line_chars[end - 1]["bbox"][2]
+            width = fitz.get_text_length(text, fontsize=9)
+            values_writer.append(((x0 + x1 - width) / 2, line_chars[0]["origin"][1] + shift), text, fontsize=9)
+        values_writer.write_text(page)
+        pdf.new_page(width=600, height=800)
+        data = pdf.tobytes(); pdf.close()
+        return data
+
+    def native(self, payload):
+        with fitz.open(stream=payload, filetype="pdf") as pdf:
+            return fast.native_lines(pdf[0])[0]
+
+    def test_values_typed_into_the_blanks_are_read_in_place(self):
+        number, date = "Số:        /2026/VBHN-QA", "Hà Nội, ngày      tháng      năm 2026"
+        payload = self.payload([("137", number, 0, 2), ("08", date, 0, 0), ("10", date, 1, 2)])
+        lines = {line["text"]: line for line in self.native(payload)}
+        self.assertIn("Số: 137 /2026/VBHN-QA", lines)
+        self.assertIn("Hà Nội, ngày 08 tháng 10 năm 2026", lines)
+        self.assertEqual([item["text"] for item in lines["Hà Nội, ngày 08 tháng 10 năm 2026"]["filled_blanks"]], ["08", "10"])
+        self.assertFalse({"137", "08", "10"} & set(lines))  # moved, not duplicated
+        result = fast.extract_metadata_fast(payload, "blanks.pdf", lambda: self.fail("no OCR for a complete text layer"))
+        self.assertFalse(result["used_ocr"])
+        self.assertIn("Số: 137 /2026/VBHN-QA", result["text"])
+        self.assertIn("pdf_values_filled_into_printed_blanks", result["fast_metadata"]["reasons"])
+
+    def test_only_digits_inside_a_blank_on_the_same_row_are_moved(self):
+        number, date = "Số:        /2026/VBHN-QA", "Hà Nội, ngày      tháng      năm 2026"
+        cases = {"letters": [("AB", number, 0, 0)], "another row": [("137", number, 0, 14)]}
+        for name, values in cases.items():
+            with self.subTest(name):
+                texts = [line["text"] for line in self.native(self.payload(values))]
+                self.assertIn(number, texts)
+                self.assertIn(values[0][0], texts)
+                self.assertIn(date, texts)
+
+    def test_ocr_lines_match_the_text_layer_regardless_of_quote_style(self):
+        native = [{"text": "“Phát triển kiểm thử”", "bbox": [10, 10, 200, 20]}, {"text": "Số:     /QĐ-KT", "bbox": [10, 30, 200, 40]}]
+        ocr = [{"text": "\"Phát triển kiểm thử\"", "bbox": [20, 20, 400, 40]}, {"text": "Số: 12/QĐ-KT", "bbox": [20, 60, 400, 80]}]
+        merged = fast.native_text_over_ocr(ocr, native, 2)
+        self.assertEqual((merged[0]["text"], merged[0]["text_source"]), ("“Phát triển kiểm thử”", "pdf_text"))
+        self.assertEqual(merged[1]["text"], "Số: 12/QĐ-KT")  # a digit differs: the OCR reading stays

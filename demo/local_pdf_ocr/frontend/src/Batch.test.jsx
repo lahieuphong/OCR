@@ -58,6 +58,8 @@ test("three PDF results retain per-file modes and manual metadata across documen
   await runBatch(user);
   expect(calls).toEqual([{name:"1.pdf",mode:"native_text"},{name:"2.pdf",mode:"vietocr_ocr"},{name:"3.pdf",mode:"native_text"}]);
   expect(document.querySelectorAll(".batch-table tbody tr")).toHaveLength(3);
+  // The type column shows code and name the same way as the form ("VBHN – Văn bản hợp nhất (mã tạm)").
+  expect(document.querySelector(".batch-table tbody tr").cells[3].textContent).toBe("22 – Công văn");
   await user.click(screen.getByRole("button",{name:"Mở thông tin tài liệu 1: 1.pdf"}));
   await user.clear(field("subject")); await user.type(field("subject"),"Chỉnh riêng tài liệu một");
   await user.click(list()); await user.click(screen.getByRole("button",{name:"Mở thông tin tài liệu 2: 2.pdf"}));
@@ -85,7 +87,7 @@ test.each(["native_text","metadata_fast"])("%s middle failure keeps results one/
   await user.click(screen.getByRole("button",{name:"Xuất danh sách Excel"}));
   const dialog=screen.getByRole("alertdialog");
   expect(dialog.textContent).toContain("Xuất 2/3"); expect(dialog.textContent).toContain("1 tài liệu chưa xử lý, lỗi");
-  expect(dialog.textContent).toContain("01 · Công khai");
+  expect(dialog.textContent).toContain("01 – Công khai");
   await user.click(within(dialog).getByRole("button",{name:"Hủy"}));
   await user.click(screen.getByRole("button",{name:"Mở thông tin tài liệu 1: 1.pdf"}));
   if(mode==="metadata_fast")expect(field("numberOfPage").value).toBe("6");

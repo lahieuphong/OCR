@@ -65,10 +65,15 @@ reason. Missing/obscured headers require review instead of a full-document fallb
 A born-digital PDF whose text layer lacks a value added at signing (a blank number
 or date) is OCRed; then each OCR line with the same letters and digits as the text
 layer at its place, apart from diacritics and spacing, takes the PDF's own text
-(`text_source: "pdf_text"`, the reading kept in `ocr_text`). Lines that differ in
-any letter or digit (the inserted number or date) keep the OCR text. A page with an
-image covering half of it (a scan) or with invisible text (another tool's OCR
-layer) is never used this way.
+(`text_source: "pdf_text"`, the reading kept in `ocr_text`); punctuation such as
+curly quotes is not compared. Lines that differ in any letter or digit (the
+inserted number or date) keep the OCR text. A page with an image covering half of
+it (a scan) or with invisible text (another tool's OCR layer) is never used this way.
+When the value added at signing is in the text layer as its own text object, drawn
+over a printed blank ("Số:      /2026/…", "ngày    tháng"), it is put back into
+that blank: only digits, only into a run of two or more spaces on the same row
+whose span holds the value's centre. The line lists them in `filled_blanks`, and
+`fast_metadata.reasons` has `pdf_values_filled_into_printed_blanks`.
 Every mode's result also carries `seal`, a pixel check for a round red seal on the
 last pages (see `frontend/METADATA.md`); it never changes the text, and its failure
 never fails the request.
@@ -87,7 +92,8 @@ sequential batch retries are preserved.
 
 The business-type catalog has official codes for Nghị quyết (`01`), Quyết định
 (`02`) and Công văn (`22`). Nghị định, Thông báo and Thông tư get the owner's
-provisional codes `NĐ`, `TB`, `TT`, marked “mã tạm” and always for review, until
+provisional codes `NĐ`, `TB`, `TT`, and a consolidated text (văn bản hợp nhất)
+gets `VBHN`, marked “mã tạm” and always for review, until
 the official catalog is verified; never invent a business code. Issuing dates/agencies must be supported by the
 document header, not electronic-signature metadata or incoming stamps.
 OCR text, including ambiguous stamp overlaps and diacritics, is not corrected

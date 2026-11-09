@@ -6,7 +6,7 @@ import {Alert, AlertDescription} from "@/components/ui/alert";
 import ConfirmDialog from "./ConfirmDialog.jsx";
 import NumberCodeReview from "./NumberCodeReview.jsx";
 import Select from "@/components/ui/select.jsx";
-import {CATALOGS, FIELD_GROUPS, FIELD_KEYS, FIELD_LABELS, READ_ONLY, STATUS_LABELS,
+import {CATALOGS, FIELD_GROUPS, FIELD_KEYS, FIELD_LABELS, READ_ONLY, STATUS_LABELS, catalogOptionLabel,
   serializeDocumentFields, validateDocumentDraft} from "@/lib/documentFields.js";
 
 // Notes every OCR field or every confirmed field carries. They are stated once above the form (or by the
@@ -102,7 +102,7 @@ export default function DocumentMetadata({draft, onEdit, onConfirmField, onReset
               </details>}
             </div>
             {CATALOGS[key] ? <Select {...controlProps} onChange={edit} popupMinWidth={180} options={[{value:"",label:"Chưa xác định"},
-              ...Object.entries(CATALOGS[key]).sort(([a],[b]) => a.localeCompare(b)).map(([code,label]) => ({value:code,label:`${code} · ${label}`}))]}/>
+              ...Object.entries(CATALOGS[key]).sort(([a],[b]) => a.localeCompare(b)).map(([code]) => ({value:code,label:catalogOptionLabel(key, code)}))]}/>
               : ["subject","description","autograph"].includes(key) ? <textarea {...controlProps} rows={key === "subject" ? 3 : 2} placeholder="Chưa xác định"/>
                 : <input {...controlProps} type="text" readOnly={READ_ONLY.has(key)} placeholder={key === "docId" ? "Luôn để trống" : key === "issuedDate" ? "DD-MM-YYYY" : "Chưa xác định"}/>}
             {(invalid || note || entry.candidate) && <div id={`metadata-${key}-help`} className="field-help">
@@ -118,7 +118,7 @@ export default function DocumentMetadata({draft, onEdit, onConfirmField, onReset
     {pendingExport && <ConfirmDialog title="Xuất bản nháp cần kiểm tra" confirmLabel={pendingExport === "copy" ? "Sao chép bản nháp" : "Xuất bản nháp"}
       onCancel={() => setPendingExport(null)} onConfirm={() => {const kind = pendingExport; setPendingExport(null); performExport(kind);}}>
       <p>Còn {validation.missing.length} trường chưa xác định và {validation.review.length} trường cần kiểm tra. Các giá trị chưa xác định sẽ được giữ rỗng.</p>
-      {validation.unclassifiedMode && <p className="metadata-errors"><strong>Chế độ sử dụng chưa được phân loại.</strong> Backend lưu trữ có thể mặc định mã rỗng thành 01 · Công khai. Hãy xác nhận rủi ro này trước khi xuất/chuyển dữ liệu.</p>}
+      {validation.unclassifiedMode && <p className="metadata-errors"><strong>Chế độ sử dụng chưa được phân loại.</strong> Backend lưu trữ có thể mặc định mã rỗng thành {catalogOptionLabel("mode", "01")}. Hãy xác nhận rủi ro này trước khi xuất/chuyển dữ liệu.</p>}
       <p>Mức độ tin cậy là mã nghiệp vụ theo màu con dấu, không phải xác suất OCR.</p>
     </ConfirmDialog>}
   </section>;

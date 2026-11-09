@@ -1,10 +1,12 @@
 import {MAX_FAST_SOURCE_PAGES} from "./processingModes.js";
 
 // Document-type codes, kept in this one table. "01", "02", "22" come from the project brief.
-// Provisional codes ("mã tạm") are the owner's interim codes (decision 2026-11-09) for types whose
-// official code is not known yet: marked in every label, always for review. When the official
-// catalogue is verified, set `official` here: extraction, the dropdown and validation then use the
-// official code, and nothing else changes. Never invent a numeric code.
+// Provisional codes ("mã tạm") are the owner's interim codes (decisions 2026-11-09; VBHN confirmed by the
+// owner the same day) for types whose official code is not known yet: marked in every label, always
+// for review. When the official catalogue is verified, set `official` here: extraction, the dropdown
+// and validation then use the official code, and nothing else changes. Never invent a numeric code.
+// `notation` is the abbreviation a consolidated text carries in its own number ("137/2026/VBHN-TT-BXD"):
+// it recognises the type and is kept as written; it is not the catalogue code.
 export const TYPE_CODES = Object.freeze([
   {code: "01", label: "Nghị quyết", title: "NGHỊ QUYẾT"},
   {code: "02", label: "Quyết định", title: "QUYẾT ĐỊNH"},
@@ -12,8 +14,11 @@ export const TYPE_CODES = Object.freeze([
   {code: "NĐ", label: "Nghị định", title: "NGHỊ ĐỊNH", provisional: true, official: null},
   {code: "TB", label: "Thông báo", title: "THÔNG BÁO", provisional: true, official: null},
   {code: "TT", label: "Thông tư", title: "THÔNG TƯ", provisional: true, official: null},
+  {code: "VBHN", label: "Văn bản hợp nhất", title: "VĂN BẢN HỢP NHẤT", notation: "VBHN", provisional: true, official: null},
 ].map(Object.freeze));
 const typeCode = entry => entry.official || entry.code;
+const CONSOLIDATED_TYPE = TYPE_CODES.find(entry => entry.notation);
+const consolidatedNotation = new RegExp(`/${CONSOLIDATED_TYPE.notation}-`, "iu");
 export const PROVISIONAL_TYPE_CODES = new Set(TYPE_CODES.filter(entry => entry.provisional && !entry.official).map(entry => entry.code));
 
 // Business codes supplied by the project brief, plus the marked provisional type codes above.
@@ -28,6 +33,8 @@ export const CATALOGS = {
   riskRecoveryStatus: {"01": "Đã dự phòng", "02": "Chưa dự phòng"},
   isCan: {"0": "Đỏ", "1": "Màu khác"},
 };
+// How a code and its name are shown everywhere in the interface: "VBHN – Văn bản hợp nhất (mã tạm)".
+export const catalogOptionLabel = (key, code) => `${code} – ${CATALOGS[key][code]}`;
 export const FIELD_LABELS = {
   docId: "Mã tài liệu", arcDocCode: "Mã văn bản", maintenance: "Thời hạn lưu trữ", typeName: "Loại tài liệu",
   codeNumber: "Số tài liệu", codeNotation: "Ký hiệu văn bản", issuedDate: "Ngày ban hành", organName: "Cơ quan ban hành",
@@ -372,12 +379,21 @@ export function createDocumentDraft(result, {sourceKind = "pdf"} = {}) {
     note: [fields.typeName.note, `Mã tạm “${fields.typeName.value}” (chưa có mã chính thức trong danh mục); kiểm tra lại khi danh mục được xác minh.`].filter(Boolean).join(" ")};
   if (new Set(titles.map(line => line.match.toLocaleUpperCase("vi"))).size > 1) fields.typeName = field("", "review", titles, "Có nhiều tiêu đề loại văn bản cạnh tranh; cần xác nhận.");
   if (!classified.length && titles.length) fields.typeName = field("", "review", titles, "Loại tài liệu chưa có mã nghiệp vụ được xác minh trong danh mục.");
-  // A consolidated text (văn bản hợp nhất) repeats the title of the act it consolidates: that title is
-  // not its own type, so no code is assigned automatically.
-  const consolidated = header.filter(line => /^VĂN BẢN HỢP NHẤT$/iu.test(line.match) || /\/VBHN-/iu.test(line.match));
-  if (consolidated.length && titles.length) fields.typeName = field("", "review", [...consolidated, ...titles],
-    `Văn bản hợp nhất: tiêu đề “${titles[0].match}” là của văn bản được hợp nhất, không phải loại của văn bản này; chọn loại tay.`);
   let typeLabel = titles.length === 1 ? typeLabels[titles[0].match.toLocaleUpperCase("vi")] || "" : "";
+  // A consolidated text (văn bản hợp nhất: that heading in the agency cell, or "/VBHN-" in its number) is
+  // its own type. The title under it ("THÔNG TƯ") belongs to the act it consolidates, never to it.
+  const consolidated = header.filter(line => line.match.toLocaleUpperCase("vi") === CONSOLIDATED_TYPE.title || consolidatedNotation.test(line.match));
+  if (consolidated.length) {
+    const code = typeCode(CONSOLIDATED_TYPE);
+    fields.typeName = field(code, "review", [...consolidated, ...titles], [
+      titles.length ? `Văn bản hợp nhất: tiêu đề “${titles[0].match}” là của văn bản được hợp nhất, không phải loại của văn bản này.` : "Văn bản hợp nhất.",
+      PROVISIONAL_TYPE_CODES.has(code) ? `Mã tạm “${code}” (chưa có mã chính thức trong danh mục); kiểm tra lại khi danh mục được xác minh.` : ""].filter(Boolean).join(" "));
+    typeLabel = CONSOLIDATED_TYPE.label;
+    // Its agency cell holds the words "VĂN BẢN HỢP NHẤT": the authenticating body is named in the
+    // "XÁC THỰC VĂN BẢN HỢP NHẤT" block at the end, which the first-page header does not contain.
+    if (!fields.organName.value) fields.organName = field("", "review", consolidated,
+      "Văn bản hợp nhất: cơ quan xác thực ghi ở khối “XÁC THỰC VĂN BẢN HỢP NHẤT” cuối văn bản, ngoài vùng header trang 1 đã đọc; nhập tay.");
+  }
   const subjects = [];
   const explicit = header.filter(line => subjectLabel.test(line.match));
   const anchors = explicit.length ? explicit : titles;
@@ -386,7 +402,7 @@ export function createDocumentDraft(result, {sourceKind = "pdf"} = {}) {
   const numberLines = header.filter(line => numberLabel.test(line.match));
   const letterSubject = explicit.find(line => line.region && line.region[2] < .5 && numberLines.some(number =>
     number.region && sameColumn(number, line) && line.region[1] >= number.region[1] && line.region[1] - number.region[3] < .06));
-  if (!titles.length && letterSubject) {
+  if (!titles.length && letterSubject && !consolidated.length) {
     fields.typeName = field("22", "review", [...numberLines.filter(line => sameColumn(line, letterSubject)), letterSubject],
       "Suy ra từ bố cục công văn: dòng “V/v” ngay dưới số, không có tiêu đề loại văn bản; kiểm tra.");
     typeLabel = typeLabels["CÔNG VĂN"];
@@ -471,23 +487,20 @@ export function createDocumentDraft(result, {sourceKind = "pdf"} = {}) {
     fields.subject.status = "review";
     fields.subject.note = [fields.subject.note, "Kết quả header một phần: đối chiếu trích yếu với ảnh nguồn, nhất là vùng dấu đóng chồng hoặc dòng bị cắt."].filter(Boolean).join(" ");
   }
-  // Chế độ sử dụng: the Government e-portal signs the documents it publishes (its signature block names
-  // thongtinchinhphu@chinhphu.vn). Such a PDF is classified 01 from its publication source, always for
-  // review: not OCR content, not an internal access decision, and the certificate itself is not checked.
-  // A secrecy mark on page 1 blocks it. Without that evidence mode stays empty, marked for review.
+  // Chế độ sử dụng is an access decision, and the PDF does not hold it: the app never fills it. Publication
+  // by the Government e-portal (its signature names thongtinchinhphu@chinhphu.vn) does not establish it
+  // (owner's rule, round-4 gold 2026-11-09); that signature, or a secrecy mark on page 1, is shown to the
+  // reviewer as evidence only.
   const signatureLines = allLines.filter(line => line.page === headerPage && excludedMetadataLine(line, allLines));
   const portal = signatureLines.filter(line => /thongtinchinhphu@chinhphu\.vn/iu.test(line.match));
   const secrecy = first.filter(line => /^(?:MẬT|TỐI MẬT|TUYỆT MẬT)$/u.test(line.match));
-  if (portal.length && !secrecy.length) {
+  if (secrecy.length) fields.mode = field("", "review", secrecy, "Trang 1 có dấu độ mật: không phân loại Công khai; cần xác minh chế độ sử dụng.");
+  else if (portal.length) {
     const signer = signatureLines.filter(line => /^Người ký\s*[:：]/iu.test(line.match)
       && portal.some(mark => line.y == null || mark.y == null || (mark.y >= line.y && mark.y - line.y < .03)));
-    fields.mode = field("01", "review", [...signer, ...portal],
-      "Phân loại theo nguồn công bố: PDF mang chữ ký số của Cổng Thông tin điện tử Chính phủ (thongtinchinhphu@chinhphu.vn) khi đăng tải công khai. Không phải kết quả OCR nội dung, không phải xác nhận phân quyền nội bộ, chưa kiểm tra chứng thư số; xác minh trước khi lưu.");
-  } else {
-    fields.mode = field("", "review", secrecy, secrecy.length
-      ? "Trang 1 có dấu độ mật: không phân loại Công khai; cần xác minh chế độ sử dụng."
-      : "Chưa đủ căn cứ phân loại chế độ sử dụng (không thấy chữ ký công bố của Cổng Thông tin điện tử Chính phủ); cần xác minh.");
-  }
+    fields.mode = field("", "review", [...signer, ...portal],
+      "PDF mang chữ ký số của Cổng Thông tin điện tử Chính phủ (thongtinchinhphu@chinhphu.vn): đây là nguồn công bố, không tự xác định chế độ sử dụng. Chọn tay sau khi xác minh.");
+  } else fields.mode = field("", "review", [], "Chưa có căn cứ xác định chế độ sử dụng; chọn tay sau khi xác minh.");
   // Seal colour comes from the page pixels (backend seal_colour.py), not from OCR text.
   const seal = result?.seal;
   if (seal?.reason === "found" && seal.colour === "red" && Number.isInteger(seal.page)) {
@@ -497,7 +510,11 @@ export function createDocumentDraft(result, {sourceKind = "pdf"} = {}) {
     fields.confidenceLevel = {...field("01", "recognized"), evidence: [source, {source: "business_rule", text: 'isCan = "0" → 01.'}],
       note: "Tính từ màu con dấu đỏ nhận diện tự động. Mã nghiệp vụ, không phải độ chính xác OCR."};
   } else if (seal?.reason === "black_and_white") {
-    fields.isCan.note = "Bản quét đen trắng: không xác định được màu con dấu từ ảnh; đối chiếu bản gốc.";
+    // Owner decision 2026-11-09: a grey or black seal on a black-and-white scan says nothing about its real colour.
+    // It is never "1" (another colour), and the 02 below is the business rule, not evidence of a seal that is not red.
+    fields.isCan.note = "Bản quét đen trắng/ảnh xám: không xác định được màu thật của con dấu. Dấu xám hoặc đen trên bản quét không có nghĩa là dấu màu khác; chỉ chọn khi đã xác minh màu từ bản gốc hoặc nguồn tin cậy.";
+    fields.confidenceLevel = {...fields.confidenceLevel,
+      note: "Mã nghiệp vụ, không phải độ chính xác OCR. 02 vì màu con dấu chưa xác định (bản quét đen trắng); không có nghĩa con dấu gốc không phải màu đỏ."};
   } else if (seal?.reason === "not_found") {
     fields.isCan.note = `Không thấy dấu tròn màu đỏ trên ${seal.pages_checked?.length ?? 0} trang đã xét; đối chiếu bản gốc.`;
   }
