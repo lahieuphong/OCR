@@ -124,3 +124,16 @@ test("it opens upward when there is no room below, and stays inside the window",
   expect(style.left).toBe("692px");
   expect(style.maxHeight).toBe("320px");
 });
+
+test("prefixes share the widest one's width, and every option keeps a slot for the tick", async () => {
+  const options = Array.from({length:12}, (_, i) => ({value:String(i), prefix:`File ${i + 1}/12`, label:`${i}.pdf`, hint:"Chưa xử lý"}));
+  render(<Select ariaLabel="Tệp" options={options} value="0" onChange={() => {}}/>);
+  const trigger = screen.getByRole("combobox", {name:"Tệp"});
+  expect(trigger.querySelector(".select-prefix").dataset.widest).toBe("File 10/12");
+  expect(trigger.textContent).toBe("File 1/120.pdfChưa xử lý");
+  await userEvent.setup().click(trigger);
+  const rows = screen.getAllByRole("option");
+  expect(rows.map(row => row.querySelector(".select-prefix").dataset.widest)).toEqual(Array(12).fill("File 10/12"));
+  expect(rows.map(row => row.querySelectorAll(".select-check").length)).toEqual(Array(12).fill(1));
+  expect(rows.map(row => !!row.querySelector(".select-check svg"))).toEqual([true, ...Array(11).fill(false)]);
+});

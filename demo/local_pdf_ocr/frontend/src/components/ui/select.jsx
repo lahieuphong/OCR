@@ -1,14 +1,16 @@
-import {useEffect, useId, useLayoutEffect, useRef, useState} from "react";
+import {useEffect, useId, useLayoutEffect, useMemo, useRef, useState} from "react";
 import {createPortal} from "react-dom";
 import {Check, ChevronDown} from "lucide-react";
 import {searchKey} from "@/lib/utils";
 
 const MAX_POPUP_HEIGHT = 320, OPTION_HEIGHT = 30, MARGIN = 8, GAP = 4, TYPING_PAUSE_MS = 600;
 
-function fragments({prefix, label, hint, dot}) {
+// `widest` is the longest prefix of the list ("File 20/20"): every prefix takes its width, so the labels
+// after "File 1/20" and "File 10/20" start in one column, in the list and in the trigger alike.
+function fragments({prefix, label, hint, dot}, widest) {
   return <>
     {dot && <i className={"queue-dot " + dot}/>}
-    {prefix && <span className="select-prefix">{prefix}</span>}
+    {prefix && <span className="select-prefix" data-widest={widest}><span>{prefix}</span></span>}
     <span className="select-label">{label}</span>
     {hint && <span className="select-hint">{hint}</span>}
   </>;
@@ -37,6 +39,7 @@ export default function Select({options, value, onChange, placeholder = "", aria
   const id = useId();
   const selectedIndex = options.findIndex(option => option.value === value);
   const selected = options[selectedIndex];
+  const widest = useMemo(() => options.reduce((longest, option) => (option.prefix?.length ?? 0) > longest.length ? option.prefix : longest, ""), [options]);
 
   function show(index = Math.max(selectedIndex, 0)) {
     if (disabled || !options.length) return;
@@ -94,7 +97,7 @@ export default function Select({options, value, onChange, placeholder = "", aria
     <button {...trigger} ref={button} type="button" role="combobox" value={value} disabled={disabled} aria-label={ariaLabel} aria-haspopup="listbox" aria-expanded={open}
       aria-controls={open ? id : undefined} aria-activedescendant={open ? `${id}-${active}` : undefined} className={("select-trigger " + className).trim()}
       onClick={() => {if (open) setOpen(false); else show();}} onKeyDown={keyDown} onBlur={() => setOpen(false)}>
-      <span className={"select-value" + (selected || value ? "" : " placeholder")}>{selected ? fragments(selected) : <span className="select-label">{value || placeholder}</span>}</span>
+      <span className={"select-value" + (selected || value ? "" : " placeholder")}>{selected ? fragments(selected, widest) : <span className="select-label">{value || placeholder}</span>}</span>
       <ChevronDown className="select-chevron" size={14}/>
     </button>
     {open && createPortal(
@@ -103,8 +106,9 @@ export default function Select({options, value, onChange, placeholder = "", aria
         {options.map((option, index) => <li key={option.value} id={`${id}-${index}`} role="option" aria-selected={index === selectedIndex} aria-label={optionName(option)} title={optionName(option)} data-value={option.value}
           className={"select-option" + (index === active ? " active" : "") + (index === selectedIndex ? " selected" : "")}
           onMouseMove={() => setActive(index)} onClick={() => choose(index)}>
-          {fragments(option)}
-          {index === selectedIndex && <Check className="select-check" size={14}/>}
+          {fragments(option, widest)}
+          {/* The tick keeps its slot on every row, so the hints form one column. */}
+          <span className="select-check">{index === selectedIndex && <Check size={14}/>}</span>
         </li>)}
       </ul>, document.body)}
   </>;
