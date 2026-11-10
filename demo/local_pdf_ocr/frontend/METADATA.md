@@ -51,6 +51,19 @@ text: pages render at 100 dpi from the last page back (20 pages, then the first
 do not qualify. A scan whose page image is greyscale is reported as black and
 white: its seal colour cannot be known and stays empty. The result's `seal` key
 names the page and size, which the metadata panel shows as evidence.
+
+Round 6 (2026-11-10): a seal impression is one ink. A round red mark whose box
+also holds printed yellow ink (saturation ≥ 120 of 255, counted beyond the
+page's own density of it, so yellowed or tinted paper is no second ink) of at
+least 10% of its red pixels is a two-colour print such as the national emblem
+on an appendix's form cover: it is listed in `seal.rejected_marks`
+(`two_colour_print`) and the search goes on. On every page of the 35 PDFs of the
+gold rounds the 30 seal marks measure 0.000, the two printed emblems 0.868. A
+consolidated text's authentication-block page (`consolidation_block.page`, fast
+mode) is checked first, since its seal is there. If no seal is found on those
+pages but a checked page that is not a black-and-white scan shows colour, at
+most 60 more pages between them are checked, from the end back. isCan's rule is
+unchanged: `0` only for a found round red seal.
 `mode` is an access decision that the PDF does not hold: the app never fills it.
 It stays empty and marked for verification. Publication by the Government
 e-portal (a page-1 signature block naming `thongtinchinhphu@chinhphu.vn`) does not
@@ -105,6 +118,15 @@ exporting or copying an unclassified draft; the exported JSON retains `mode: ""`
   under it). Its agency cell holds those words, not an agency: `organName` stays
   empty for review, since the authenticating body is named in the `XÁC THỰC VĂN BẢN
   HỢP NHẤT` block at the end, outside the page-1 header.
+- A consolidated text without a page-1 header (round 6, 2026-11-10: no agency and
+  no `Số:` above the title, and page 1's list of acts ends "… được sửa đổi, bổ sung
+  bởi:" before any `Căn cứ`) is `VBHN` too. Its number, issued date and agency are
+  read from its `XÁC THỰC VĂN BẢN HỢP NHẤT` block (agency and heading, then `Số:` and
+  the place/date line, up to `Nơi nhận:` or `KT.`/`TM.`), always for review, with
+  the block's page in the note and the evidence. The fast mode returns that block
+  as `consolidation_block` (its page, and whether it was read from the PDF's text
+  layer or by OCR); a handwritten date read as other characters stays empty for
+  review, as on page 1. A page-1 header of its own is never replaced by the block.
 - `V/v`, `Về việc` and main title continuations are bounded by column, paragraph
   gap (absolute, and a step 1.7 times the subject's own line spacing), header/body
   markers, upper-case agency lines and length. Ruling lines and underscores are not

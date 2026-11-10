@@ -26,7 +26,13 @@ in Git; they live in the ignored `models/` folder and are checked by SHA-256.
   - metadata_fast: **Bóc tách nhanh thông tin văn bản**. Inspects the first
     page and extracts only header regions for metadata; it does not OCR the
     remaining pages or appendices. A genuine native header may avoid OCR;
-    an electronic-signature text layer alone is not a usable header.
+    an electronic-signature text layer alone is not a usable header. One
+    exception: a consolidated text (văn bản hợp nhất) whose page 1 has no
+    agency or `Số:` above the title but closes its list of acts with
+    "… được sửa đổi, bổ sung bởi:" also has its `XÁC THỰC VĂN BẢN HỢP NHẤT`
+    block read (`consolidation_block`): found in the PDF's text layer without
+    rendering, or, in a scan, OCRed in a band above a round red seal (at most 2
+    pages). Number, date and agency then come from that block, for review.
 - **Folders and long lists**: "Chọn thư mục" (or dropping a folder) adds every
   PDF/PNG/JPG of the folder and its subfolders, in folder order, with the fast
   header mode preselected; other, empty, >15 MB or already listed files are
@@ -34,7 +40,8 @@ in Git; they live in the ignored `models/` folder and are checked by SHA-256.
   The queue still sends ONE document at a time to the backend (no parallel OCR):
   it shows progress and remaining time, can pause after the current document and
   continue later, and retries only failed documents. Up to 1000 documents per list.
-  metadata_fast accepts PDFs up to 1000 pages (it reads only page 1); the other
+  metadata_fast accepts PDFs up to 1000 pages (it reads only page 1, plus the
+  authentication block of a consolidated text described above); the other
   modes keep the 6-page limit.
 - PNG/JPEG support full vietocr_ocr or the explicit metadata_fast header mode.
   A missing model blocks required OCR; it never authorizes guessing text.
@@ -76,7 +83,9 @@ whose span holds the value's centre. The line lists them in `filled_blanks`, and
 `fast_metadata.reasons` has `pdf_values_filled_into_printed_blanks`.
 Every mode's result also carries `seal`, a pixel check for a round red seal on the
 last pages (see `frontend/METADATA.md`); it never changes the text, and its failure
-never fails the request.
+never fails the request. When a fast result has `consolidation_block`, that page is
+checked first; a printed national emblem (red and yellow) is listed in
+`seal.rejected_marks`, never taken for the seal.
 The recognizer, detector, tensor preprocessing and decoder limits stay pinned.
 Fast OCR verifies the local frozen detector and recognizer before SDK loading,
 disables model hosters, and refuses missing/changed files without downloading.

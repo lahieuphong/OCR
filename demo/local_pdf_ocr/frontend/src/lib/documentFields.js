@@ -85,6 +85,15 @@ const spacedNumber = /^\d(?: \d)+(?=\s*\/)/u;
 const joinNumberDigits = text => text.trim().replace(spacedNumber, digits => digits.replace(/ /gu, ""));
 const subjectLabel = /^(?:V\/v\s*[:：]?|Về việc\s*[:：]?)\s*(.*)$/iu;
 const codePattern = /^[\p{L}\p{N}\p{Pd}._?\uFFFD]+(?:\s*\/\s*[\p{L}\p{N}\p{Pd}._?\uFFFD]+)+/u;
+// Comparison only, never a shown value: letters and digits without diacritics or case ("sửa đối" read for "sửa đổi").
+const foldText = (text, separator) => String(text ?? "").normalize("NFD").replace(/đ/gu, "d").replace(/Đ/gu, "D")
+  .replace(/\p{Mn}/gu, "").replace(/[^\p{L}\p{N}]+/gu, separator).trim().toLocaleLowerCase("vi");
+// A consolidated text (văn bản hợp nhất) in the layout without a page-1 header: page 1 lists the acts it consolidates,
+// ending "..., được sửa đổi, bổ sung bởi:", and its number, date and authenticating body sit in the
+// "XÁC THỰC VĂN BẢN HỢP NHẤT" block where its main text ends (backend consolidation_block in the fast mode).
+const consolidationFormula = /(?:^| )duoc sua doi(?: (?:bo sung|bai bo|thay the|dinh chinh|huy bo))* boi(?: |$)/u;
+const AUTHENTICATION_HEADING = "xacthucvanbanhopnhat";
+const authenticationHeading = text => foldText(text, "").endsWith(AUTHENTICATION_HEADING);
 
 function bounds(line, method) {
   const geometry = method === "metadata_fast" ? line.geometry_source : method;
@@ -100,15 +109,17 @@ function bounds(line, method) {
 // Coordinates are interpreted only within their own page and their own method.
 // Native line bboxes describe whole blocks; they are never advertised as exact line highlights.
 function readLines(result) {
-  const pages = Array.isArray(result?.pages) ? [...result.pages].sort((a, b) => a.page - b.page) : [];
+  const own = Array.isArray(result?.pages) ? result.pages : [];
+  const block = result?.method === "metadata_fast" && Array.isArray(result.consolidation_block?.lines) ? [result.consolidation_block] : [];
+  const pages = [...own, ...block].sort((a, b) => a.page - b.page);
   return pages.flatMap((page, p) => {
     const lines = Array.isArray(page.lines) && page.lines.length ? page.lines
-      : String(page.text ?? (pages.length === 1 ? result.text ?? "" : "")).split(/\r?\n/u).map((text, i) => ({text, line_index: i + 1}));
+      : String(page.text ?? (own.length === 1 ? result.text ?? "" : "")).split(/\r?\n/u).map((text, i) => ({text, line_index: i + 1}));
     return lines.map((line, i) => {
       const box = bounds(line, result.method);
       const spatial = box && page.width > 0 && page.height > 0 && box[2] > box[0] && box[3] > box[1];
       return {text: String(line.text ?? ""), match: clean(line.text), page: page.page ?? p + 1,
-        line: line.line_index ?? i + 1, order: i, block: line.block_index,
+        line: line.line_index ?? i + 1, order: i, block: line.block_index, geometry: line.geometry_source,
         box: spatial ? box : null, x: spatial ? (box[0] + box[2]) / (2 * page.width) : null,
         y: spatial ? box[1] / page.height : null,
         region: spatial ? box.map((value,index) => value / (index % 2 ? page.height : page.width)) : null,
@@ -313,26 +324,39 @@ export function issuedDatesIn(line) {
   });
 }
 
-export function createDocumentDraft(result, {sourceKind = "pdf"} = {}) {
-  const fields = Object.fromEntries(FIELD_KEYS.map(key => [key, field()]));
-  fields.docId.note = "Luôn để trống theo schema nghiệp vụ; không tự sinh mã.";
-  const allLines = readLines(result);
-  const metadataLines = splitStampFields(allLines.filter(line => !excludedMetadataLine(line, allLines)));
-  const stamps = stampClusters(metadataLines);
-  const lines = metadataLines.filter(line => !stamps.excluded.has(line));
-  const headerPage = result?.method === "metadata_fast" ? result.pages?.[0]?.page ?? 1 : 1;
-  const first = lines.filter(line => line.page === headerPage);
-  const textualEnd = first.findIndex(line => startsBody(line.match));
-  const bodyY = first.filter(line => startsBody(line.match) && line.y != null).map(line => line.y);
-  const header = first.filter((line, i) => line.y != null
-    // Fast results already contain a bounded, possibly expanded header ROI.
-    // A long header below 45% remains usable until its first body anchor.
-    ? line.y < Math.min(result?.method === "metadata_fast" ? Infinity : .44, ...bodyY)
-    : i < (textualEnd < 0 ? result?.method === "metadata_fast" ? first.length : 24 : textualEnd));
-  const headingLines = header.filter(line => title.test(line.match) || subjectLabel.test(line.match));
-  const headingY = Math.min(...headingLines.map(line => line.y ?? Infinity));
-  const headingOrder = Math.min(...headingLines.map(line => line.order));
-  const identityHeader = header.filter(line => line.y != null && headingY !== Infinity ? line.y < headingY : line.order < headingOrder);
+const IDENTITY_KEYS = ["arcDocCode", "issuedDate", "organName"];
+const capitals = text => /\p{Lu}/u.test(text) && text === text.toLocaleUpperCase("vi");
+const readingOrder = (a, b) => a.y != null && b.y != null ? a.y - b.y : a.order - b.order;
+// The "XÁC THỰC VĂN BẢN HỢP NHẤT" block, on a page other than the header's: its heading and the identity rows read
+// from it (agency and heading, then "Số:" and the place/date line), which end at the recipients ("Nơi nhận:") or the
+// signer's title ("KT.", "TM."). A heading read on one line with the agency beside it is split there.
+function authenticationBlock(lines, headerPage) {
+  const headings = lines.filter(line => line.page !== headerPage && authenticationHeading(line.match));
+  if (headings.length !== 1) return null;
+  const [heading] = headings;
+  // Above the heading's row only the agency's first line may stand, in capitals: a body line ending just above the
+  // block (with a date of its own) is not one of its rows. Lines without geometry: the few after the heading.
+  const rows = lines.filter(line => line.page === heading.page && (line.y == null || heading.y == null
+    ? line.order >= heading.order - 1 && line.order <= heading.order + 8
+    : line.y >= heading.y - .02 && line.y < heading.y + .08 && (line.y >= heading.y - .004 || capitals(line.match))));
+  const end = rows.filter(line => startsBody(line.match)).sort(readingOrder)[0];
+  const beforeEnd = line => !end || (line.y != null && end.y != null ? line.y < end.y - .002 : line.order < end.order);
+  const identity = rows.filter(line => !startsBody(line.match) && beforeEnd(line)).flatMap(line => {
+    if (line !== heading) return [line];
+    const words = line.match.split(" ");
+    const cut = words.findIndex((_, i) => foldText(words.slice(i).join(" "), "") === AUTHENTICATION_HEADING);
+    if (cut < 1) return [line];
+    const agency = words.slice(0, cut).join(" "), rest = words.slice(cut).join(" ");
+    return [{...line, text: agency, match: agency, x: line.region ? line.region[0] + .01 : line.x, splitFromHeading: true},
+      {...line, text: rest, match: rest, splitFromHeading: true}];
+  });
+  return {heading, page: heading.page, identity, readBy: heading.geometry};
+}
+
+// Number, issued date and issuing agency read from a document's identity lines: the page-1 header above the title,
+// or a consolidated text's authentication block. `header` holds the lines the agency may continue on.
+function readIdentity(identityHeader, header) {
+  const fields = {arcDocCode: field(), issuedDate: field(), organName: field()};
   const codes = [];
   let incompleteCode = false;
   for (const line of identityHeader) {
@@ -368,9 +392,6 @@ export function createDocumentDraft(result, {sourceKind = "pdf"} = {}) {
   if (codes.length) fields.arcDocCode = incompleteCode
     ? field("", "review", identityHeader.filter(line => numberLabel.test(line.match)), "Có dòng số/ký hiệu chưa đầy đủ cạnh tranh với ứng viên khác; cần kiểm tra.")
     : choose(codes, "Có nhiều số/ký hiệu cạnh tranh trong header; chưa chọn tự động.");
-  if (fields.arcDocCode.value) {
-    for (const [key, value] of Object.entries(splitDocumentCode(fields.arcDocCode.value))) fields[key] = {...fields.arcDocCode, value};
-  }
 
   const dates = [], unreadDateLines = [];
   for (const line of identityHeader) {
@@ -409,6 +430,47 @@ export function createDocumentDraft(result, {sourceKind = "pdf"} = {}) {
     return {value: used.map(x => x.match).join(" ").toLocaleUpperCase("vi"), lines: used};
   })];
   fields.organName = choose(agencyCandidates, "Header có nhiều cơ quan/cấp cơ quan; chưa xác định cơ quan ban hành.");
+  return fields;
+}
+
+export function createDocumentDraft(result, {sourceKind = "pdf"} = {}) {
+  const fields = Object.fromEntries(FIELD_KEYS.map(key => [key, field()]));
+  fields.docId.note = "Luôn để trống theo schema nghiệp vụ; không tự sinh mã.";
+  const allLines = readLines(result);
+  const metadataLines = splitStampFields(allLines.filter(line => !excludedMetadataLine(line, allLines)));
+  const stamps = stampClusters(metadataLines);
+  const lines = metadataLines.filter(line => !stamps.excluded.has(line));
+  const headerPage = result?.method === "metadata_fast" ? result.pages?.[0]?.page ?? 1 : 1;
+  const first = lines.filter(line => line.page === headerPage);
+  const textualEnd = first.findIndex(line => startsBody(line.match));
+  const bodyY = first.filter(line => startsBody(line.match) && line.y != null).map(line => line.y);
+  const header = first.filter((line, i) => line.y != null
+    // Fast results already contain a bounded, possibly expanded header ROI.
+    // A long header below 45% remains usable until its first body anchor.
+    ? line.y < Math.min(result?.method === "metadata_fast" ? Infinity : .44, ...bodyY)
+    : i < (textualEnd < 0 ? result?.method === "metadata_fast" ? first.length : 24 : textualEnd));
+  const headingLines = header.filter(line => title.test(line.match) || subjectLabel.test(line.match));
+  const headingY = Math.min(...headingLines.map(line => line.y ?? Infinity));
+  const headingOrder = Math.min(...headingLines.map(line => line.order));
+  const identityHeader = header.filter(line => line.y != null && headingY !== Infinity ? line.y < headingY : line.order < headingOrder);
+  let identity = readIdentity(identityHeader, header);
+  // A consolidated text without a page-1 header: number, date and agency come from its authentication block.
+  const block = authenticationBlock(lines, headerPage);
+  const blockUsed = Boolean(block) && IDENTITY_KEYS.every(key => !identity[key].value && !identity[key].evidence.length);
+  if (blockUsed) {
+    const read = readIdentity(block.identity, block.identity);
+    const source = `Văn bản hợp nhất: đọc từ khối “XÁC THỰC VĂN BẢN HỢP NHẤT” trang ${block.page}`
+      + `${block.readBy === "native_text" ? " (lớp chữ PDF)" : block.readBy === "vietocr_ocr" ? " (OCR)" : ""}, không phải header trang 1.`;
+    const missing = `Văn bản hợp nhất: chưa đọc được giá trị này trong khối “XÁC THỰC VĂN BẢN HỢP NHẤT” trang ${block.page}; đối chiếu bản gốc.`;
+    identity = Object.fromEntries(IDENTITY_KEYS.map(key => {
+      const found = Boolean(read[key].value || read[key].evidence.length);
+      return [key, {...read[key], status: found ? "review" : "unknown", note: [found ? source : missing, read[key].note].filter(Boolean).join(" ")}];
+    }));
+  }
+  Object.assign(fields, identity);
+  if (fields.arcDocCode.value) {
+    for (const [key, value] of Object.entries(splitDocumentCode(fields.arcDocCode.value))) fields[key] = {...fields.arcDocCode, value};
+  }
 
   const titles = header.filter(line => title.test(line.match));
   const classified = titles.map(line => ({value: typeCodes[line.match.toLocaleUpperCase("vi")], lines: [line]})).filter(c => c.value);
@@ -421,6 +483,18 @@ export function createDocumentDraft(result, {sourceKind = "pdf"} = {}) {
   // A consolidated text (văn bản hợp nhất: that heading in the agency cell, or "/VBHN-" in its number) is
   // its own type. The title under it ("THÔNG TƯ") belongs to the act it consolidates, never to it.
   const consolidated = header.filter(line => line.match.toLocaleUpperCase("vi") === CONSOLIDATED_TYPE.title || consolidatedNotation.test(line.match));
+  // Without a header of its own (no agency, no "Số" above the title), page 1 of a consolidated text lists the acts it
+  // consolidates before any "Căn cứ": "..., được sửa đổi, bổ sung bởi:". That sentence, or its authentication block,
+  // marks the type; the title above it is the consolidated act's.
+  const ownHeader = identityHeader.some(line => issuer.test(line.match) || numberLabel.test(line.match));
+  const firstTitle = first.find(line => title.test(line.match));
+  const bodyAt = firstTitle ? first.find(line => line.order > firstTitle.order && startsBody(line.match)) : null;
+  const preamble = firstTitle ? first.filter(line => line.order > firstTitle.order && (!bodyAt || line.order < bodyAt.order)) : [];
+  // evidence: the line where the sentence ends
+  const formulaEnd = ownHeader ? -1 : preamble.findIndex((_, i) =>
+    consolidationFormula.test(foldText(preamble.slice(0, i + 1).map(line => line.match).join(" "), " ")));
+  const formulaLines = formulaEnd < 0 ? [] : [preamble[formulaEnd]];
+  if (!consolidated.length && !ownHeader && (block || formulaLines.length)) consolidated.push(...(block ? [block.heading] : []), ...formulaLines);
   if (consolidated.length) {
     const code = typeCode(CONSOLIDATED_TYPE);
     fields.typeName = field(code, "review", [...consolidated, ...titles], [
@@ -429,7 +503,7 @@ export function createDocumentDraft(result, {sourceKind = "pdf"} = {}) {
     typeLabel = CONSOLIDATED_TYPE.label;
     // Its agency cell holds the words "VĂN BẢN HỢP NHẤT": the authenticating body is named in the
     // "XÁC THỰC VĂN BẢN HỢP NHẤT" block at the end, which the first-page header does not contain.
-    if (!fields.organName.value) fields.organName = field("", "review", consolidated,
+    if (!fields.organName.value && !blockUsed) fields.organName = field("", "review", consolidated,
       "Văn bản hợp nhất: cơ quan xác thực ghi ở khối “XÁC THỰC VĂN BẢN HỢP NHẤT” cuối văn bản, ngoài vùng header trang 1 đã đọc; nhập tay.");
   }
   const subjects = [];
@@ -541,10 +615,15 @@ export function createDocumentDraft(result, {sourceKind = "pdf"} = {}) {
   } else fields.mode = field("", "review", [], "Chưa có căn cứ xác định chế độ sử dụng; chọn tay sau khi xác minh.");
   // Seal colour comes from the page pixels (backend seal_colour.py), not from OCR text.
   const seal = result?.seal;
+  // Round 6 (2026-11-10): a round red mark printed with yellow (the national emblem on a form cover) is no seal.
+  const printedPages = [...new Set((Array.isArray(seal?.rejected_marks) ? seal.rejected_marks : [])
+    .filter(mark => mark?.reason === "two_colour_print" && Number.isInteger(mark.page)).map(mark => mark.page))];
+  const printed = printedPages.length
+    ? ` Đã loại dấu tròn in hai màu đỏ và vàng (như quốc huy), không phải con dấu, ở trang ${printedPages.join(", ")}.` : "";
   if (seal?.reason === "found" && seal.colour === "red" && Number.isInteger(seal.page)) {
     const size = Array.isArray(seal.size_mm) ? ` khoảng ${seal.size_mm.map(v => Math.round(v)).join(" × ")} mm` : "";
     const source = {source: "seal_colour", sealPage: seal.page, text: `Trang ${seal.page}: dấu tròn màu đỏ${size}.`};
-    fields.isCan = {...field("0", "recognized"), evidence: [source], note: "Nhận diện từ màu và hình dạng con dấu trên ảnh trang, không phải OCR."};
+    fields.isCan = {...field("0", "recognized"), evidence: [source], note: `Nhận diện từ màu và hình dạng con dấu trên ảnh trang, không phải OCR.${printed}`};
     fields.confidenceLevel = {...field("01", "recognized"), evidence: [source, {source: "business_rule", text: 'isCan = "0" → 01.'}],
       note: "Tính từ màu con dấu đỏ nhận diện tự động. Mã nghiệp vụ, không phải độ chính xác OCR."};
   } else if (seal?.reason === "black_and_white") {
@@ -554,7 +633,7 @@ export function createDocumentDraft(result, {sourceKind = "pdf"} = {}) {
     fields.confidenceLevel = {...fields.confidenceLevel,
       note: "Mã nghiệp vụ, không phải độ chính xác OCR. 02 vì màu con dấu chưa xác định (bản quét đen trắng); không có nghĩa con dấu gốc không phải màu đỏ."};
   } else if (seal?.reason === "not_found") {
-    fields.isCan.note = `Không thấy dấu tròn màu đỏ trên ${seal.pages_checked?.length ?? 0} trang đã xét; đối chiếu bản gốc.`;
+    fields.isCan.note = `Không thấy dấu tròn màu đỏ trên ${seal.pages_checked?.length ?? 0} trang đã xét; đối chiếu bản gốc.${printed}`;
   }
   return {fields, dirty: false, method: result?.method ?? "", typeLabel};
 }

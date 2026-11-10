@@ -473,3 +473,181 @@ class HeaderPatternTests(unittest.TestCase):
         self.assertTrue(fast.TITLE.fullmatch(fast.match_text("CÔNG ĐIỆN")))
         for text in ("CÔNG ĐIỆN KHẨN", "Về việc công điện", "THỦ TƯỚNG CHÍNH PHỦ điện:"):
             self.assertIsNone(fast.TITLE.fullmatch(fast.match_text(text)), text)
+
+
+
+class ConsolidationBlockTests(unittest.TestCase):
+    """A consolidated text whose page 1 has no header (round 6, 2026-11-10, three PDFs of the owner's gold round):
+    its number, date and authenticating body are read from the "XÁC THỰC VĂN BẢN HỢP NHẤT" block where its main
+    text ends. Synthetic layout; no real document text."""
+    MOTTO = [("CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM", 300, 40), ("Độc lập - Tự do - Hạnh phúc", 320, 55)]
+    FORMULA = ("có hiệu lực từ ngày 01 tháng 5 năm 2020, được sửa đổi, bổ sung bởi:", 40, 165)
+    BLOCK = [("BỘ KIỂM THỬ", 60, 300), ("XÁC THỰC VĂN BẢN HỢP NHẤT", 330, 300),
+             ("Số: 12/VBHN-BKT", 80, 320), ("Hà Nội, ngày 31 tháng 12 năm 2025", 330, 320),
+             ("Nơi nhận:", 60, 345), ("KT. BỘ TRƯỞNG", 380, 345)]
+    # the band above a red seal whose top is at 45% of the page (PDF points 168-376), in its own pixels (zoom 2)
+    SCANNED_BAND = [("Điều 2. Nội dung kiểm thử.", 120, 50), ("BỘ KIỂM THỬ", 120, 200), ("XÁC THỰC VĂN BẢN HỢP NHẤT", 660, 200),
+                    ("Số: 12/VBHN-BKT", 160, 240), ("Hà Nội, ngày 3/ tháng 1, năm 2025", 660, 240), ("Nơi nhận:", 120, 300),
+                    ("Người Ký Kiểm Thử", 760, 400)]  # 200 pixels below the heading: past its rows, never recognised
+
+    def page_one(self, formula=FORMULA, agency=False):
+        rows = [*self.MOTTO, ("THÔNG TƯ", 260, 100), ("Quy định về kiểm thử hợp nhất", 200, 115),
+                ("Thông tư số 01/2020/TT-BKT ngày 02 tháng 3 năm 2020 của Bộ trưởng Bộ Kiểm thử,", 60, 150),
+                formula, ("1. Thông tư số 05/2024/TT-BKT ngày 10 tháng 1 năm 2024.", 60, 180), ("Căn cứ Luật Kiểm thử;", 60, 220)]
+        return [("BỘ KIỂM THỬ", 40, 40), ("Số: 12/VBHN-BKT", 40, 60), *rows] if agency else rows
+
+    def payload(self, page_one, block_page=3, pages=5, scanned=False, extra_heading_page=None, invisible_layer=False):
+        """scanned: the block page is a full-page image without text; invisible_layer: the same image carrying another
+        tool's invisible OCR text of the block (render mode 3)."""
+        pdf = fitz.open()
+        white = io.BytesIO(); Image.new("RGB", (60, 80), "white").save(white, "PNG")
+        for number in range(1, pages + 1):
+            page = pdf.new_page(width=600, height=800)
+            rows, render_mode = page_one if number == 1 else [("Điều 2. Nội dung kiểm thử.", 60, 80)], 0
+            if number == block_page:
+                if scanned or invisible_layer:
+                    page.insert_image(page.rect, stream=white.getvalue())
+                    rows, render_mode = (self.BLOCK, 3) if invisible_layer else ([], 0)
+                else:
+                    rows = rows + self.BLOCK
+            if number == extra_heading_page:
+                rows = rows + [("XÁC THỰC VĂN BẢN HỢP NHẤT", 330, 500)]
+            if rows:
+                writer = fitz.TextWriter(page.rect)
+                for text, x, y in rows:
+                    writer.append((x, y), text, fontsize=9)
+                writer.write_text(page, render_mode=render_mode)
+        data = pdf.tobytes(); pdf.close()
+        return data
+
+    def run_fast(self, payload, engine):
+        with patch.object(fast, "offline_engine", side_effect=lambda callback: callback()):
+            return fast.extract_metadata_fast(payload, "vbhn.pdf", lambda: engine)
+
+    def ocr_of(self, page_one, band=()):
+        """Page 1 OCR (zoom 2), then, for a scan, the band's rows: one detector answer per call."""
+        engine = FakeEngine([(text, x * 2, y * 2) for text, x, y in page_one])
+        answers = [engine.detector.rows, list(band)]
+        detect = engine.detector.detect_regions
+        def detect_in_turn(image):
+            engine.detector.rows = answers.pop(0) if answers else []
+            return detect(image)
+        engine.detector.detect_regions = detect_in_turn
+        return engine
+
+    def test_born_digital_block_is_read_from_the_text_layer_without_ocr(self):
+        engine = self.ocr_of(self.page_one())
+        result = self.run_fast(self.payload(self.page_one()), engine)
+        block = result["consolidation_block"]
+        self.assertEqual((block["page"], block["read_by"], block["located_by"], block["coordinate_system"]),
+                         (3, "native_text", "text_layer", "pdf_points"))
+        texts = [line["text"] for line in block["lines"]]
+        for expected in ("BỘ KIỂM THỬ", "XÁC THỰC VĂN BẢN HỢP NHẤT", "Số: 12/VBHN-BKT", "Hà Nội, ngày 31 tháng 12 năm 2025"):
+            self.assertIn(expected, texts)
+        self.assertEqual([line["line_index"] for line in block["lines"]], list(range(1, len(texts) + 1)))
+        self.assertEqual(block["text"], "\n".join(texts))
+        self.assertNotIn("Số: 12/VBHN-BKT", engine.predictions)  # never OCRed
+        self.assertEqual((result["page_count"], [p["page"] for p in result["pages"]]), (1, [1]))  # "pages" stays page 1
+        meta = result["fast_metadata"]
+        self.assertEqual((meta["consolidation_search"]["located_by"], meta["consolidation_search"]["text_layer_pages"]), ("text_layer", [3]))
+        self.assertIn("consolidation_block_read:page_3:native_text", meta["reasons"])
+        self.assertIn("authentication block (page 3)", result["limitations"][0])
+
+    def test_scanned_block_is_found_above_a_red_seal_and_ocred_in_a_bounded_band(self):
+        engine = self.ocr_of(self.page_one(), self.SCANNED_BAND)
+        seal = [{"page": 3, "box": [.5, .45, .7, .6], "size_mm": [40, 40]}]
+        with patch("demo.local_pdf_ocr.backend.seal_colour.red_mark_pages", return_value=seal) as marks:
+            result = self.run_fast(self.payload(self.page_one(), scanned=True), engine)
+        marks.assert_called_once()
+        self.assertEqual(marks.call_args.args[1], fast.MAX_SEAL_CANDIDATES)
+        block = result["consolidation_block"]
+        self.assertEqual((block["page"], block["read_by"], block["located_by"], block["coordinate_system"]),
+                         (3, "vietocr_ocr", "red_seal", "raster_pixels"))
+        texts = [line["text"] for line in block["lines"]]
+        self.assertEqual(texts[:4], ["BỘ KIỂM THỬ", "XÁC THỰC VĂN BẢN HỢP NHẤT", "Số: 12/VBHN-BKT", "Hà Nội, ngày 3/ tháng 1, năm 2025"])
+        self.assertNotIn("Điều 2. Nội dung kiểm thử.", texts)  # above the heading's rows
+        # polygons are placed on the whole page: the band starts 168 points (336 pixels) down
+        self.assertEqual(fast.box_of(block["lines"][0])[1], 200 + 336)
+        self.assertEqual((block["width"], block["height"]), (1200, 1600))
+        self.assertIn("Hà Nội, ngày 3/ tháng 1, năm 2025", engine.predictions)  # read exactly as recognised
+        self.assertEqual(result["fast_metadata"]["consolidation_search"]["seal_pages"], [3])
+        self.assertNotIn("Người Ký Kiểm Thử", engine.predictions)
+
+    def test_a_seal_page_without_the_heading_gives_no_block(self):
+        band = [row for row in self.SCANNED_BAND if "XÁC THỰC" not in row[0]]
+        seal = [{"page": 3, "box": [.5, .45, .7, .6], "size_mm": [40, 40]}]
+        with patch("demo.local_pdf_ocr.backend.seal_colour.red_mark_pages", return_value=seal):
+            result = self.run_fast(self.payload(self.page_one(), scanned=True), self.ocr_of(self.page_one(), band))
+        self.assertNotIn("consolidation_block", result)
+        search = result["fast_metadata"]["consolidation_search"]
+        self.assertEqual((search["reason"], search["seal_pages"]), ("not_found", [3]))
+        self.assertIn("consolidation_block_not_found", result["fast_metadata"]["reasons"])
+
+    def test_another_tools_invisible_text_layer_only_locates_the_block_which_is_then_ocred(self):
+        band = [("BỘ KIỂM THỬ", 120, 30), ("XÁC THỰC VĂN BẢN HỢP NHẤT", 660, 30), ("Số: 12/VBHN-BKT", 160, 70),
+                ("Hà Nội, ngày 31 tháng 12 năm 2025", 660, 70)]
+        engine = self.ocr_of(self.page_one(), band)
+        result = self.run_fast(self.payload(self.page_one(), invisible_layer=True), engine)
+        block = result["consolidation_block"]
+        self.assertEqual((block["page"], block["read_by"], block["located_by"]), (3, "vietocr_ocr", "text_layer"))
+        self.assertEqual([line["text"] for line in block["lines"]], [text for text, _x, _y in band])
+        self.assertIn("Số: 12/VBHN-BKT", engine.predictions)  # read by OCR, not taken from that layer
+
+    def test_a_located_block_whose_heading_ocr_did_not_read_is_not_reported_read(self):
+        # review, 2026-11-10: the text layer locates the block, but the band's OCR misses its heading (or reads nothing)
+        for name, band in {"heading misread": [("BỘ KIỂM THỬ", 120, 30), ("XÁC THỰC VĂN BẢN HỢP", 660, 30)], "nothing": []}.items():
+            with self.subTest(name):
+                result = self.run_fast(self.payload(self.page_one(), invisible_layer=True), self.ocr_of(self.page_one(), band))
+                self.assertNotIn("consolidation_block", result)
+                search = result["fast_metadata"]["consolidation_search"]
+                self.assertEqual((search["located_by"], search["page"], search["reason"]), ("text_layer", 3, "unreadable"))
+                self.assertIn("consolidation_block_unreadable", result["fast_metadata"]["reasons"])
+                self.assertNotIn("authentication block", result["limitations"][0])
+
+    def test_a_failing_block_search_keeps_the_page_one_header(self):
+        engine = self.ocr_of(self.page_one(), self.SCANNED_BAND)
+        with patch("demo.local_pdf_ocr.backend.seal_colour.red_mark_pages", side_effect=RuntimeError("renderer crashed")), \
+             self.assertLogs("local_pdf_ocr", "ERROR"):
+            result = self.run_fast(self.payload(self.page_one(), scanned=True), engine)
+        self.assertNotIn("consolidation_block", result)
+        self.assertEqual(result["fast_metadata"]["consolidation_search"]["reason"], "error")
+        self.assertIn("consolidation_block_error", result["fast_metadata"]["reasons"])
+        self.assertIn("THÔNG TƯ", result["text"])  # page 1 as read
+
+    def test_a_born_digital_seal_page_is_not_ocred_again(self):
+        # no heading in any text layer; the seal sits on a born-digital page whose text was already searched
+        rows = self.page_one()
+        engine = self.ocr_of(rows, self.SCANNED_BAND)
+        seal = [{"page": 3, "box": [.5, .45, .7, .6], "size_mm": [40, 40]}]
+        with patch("demo.local_pdf_ocr.backend.seal_colour.red_mark_pages", return_value=seal):
+            result = self.run_fast(self.payload(rows, block_page=None), engine)
+        self.assertNotIn("consolidation_block", result)
+        self.assertEqual(result["fast_metadata"]["consolidation_search"]["seal_pages"], [])
+        self.assertNotIn("XÁC THỰC VĂN BẢN HỢP NHẤT", engine.predictions)
+
+    def test_two_authentication_headings_are_ambiguous_and_not_read(self):
+        result = self.run_fast(self.payload(self.page_one(), extra_heading_page=4), self.ocr_of(self.page_one()))
+        self.assertNotIn("consolidation_block", result)
+        search = result["fast_metadata"]["consolidation_search"]
+        self.assertEqual((search["reason"], search["text_layer_pages"]), ("ambiguous", [3, 4]))
+
+    def test_a_page_one_header_or_a_legal_basis_sentence_never_starts_the_search(self):
+        basis = ("Căn cứ Luật Kiểm thử được sửa đổi, bổ sung bởi Luật số 9/2024/QH15;", 60, 165)
+        number_only = [("Số: 7/2020/TT-BKT", 40, 60), *self.page_one()]  # its agency not read: still a header of its own
+        for name, rows in {"own header": self.page_one(agency=True), "number only": number_only,
+                           "legal basis": self.page_one(formula=basis)}.items():
+            with self.subTest(name), patch("demo.local_pdf_ocr.backend.seal_colour.red_mark_pages",
+                                           side_effect=AssertionError("no search")):
+                result = self.run_fast(self.payload(rows), self.ocr_of(rows))
+            self.assertNotIn("consolidation_block", result)
+            self.assertNotIn("consolidation_search", result["fast_metadata"])
+
+    def test_the_sentence_is_compared_without_diacritics_but_word_by_word(self):
+        title = [{"text": "THÔNG TƯ"}]
+        for text, expected in (("năm 2005, được sửa đối, bổ sung bởi:", True), ("được sửa đổi, bổ sung, bãi bỏ bởi:", True),
+                               ("được sửa đổi bởi các văn bản sau", True), ("sửa đổi, bổ sung một số điều", False),
+                               ("đượcsửađổibổsungbởi", False)):
+            self.assertIs(fast.consolidated_page_one(title + [{"text": text}]), expected, text)
+        self.assertFalse(fast.consolidated_page_one([{"text": "BỘ KIỂM THỬ"}, *title, {"text": "được sửa đổi, bổ sung bởi:"}]))
+        self.assertTrue(fast.authentication_heading("BỘ KIỂM THỬ XÁC THỰC VĂN BẢN HỢP NHẤT"))
+        self.assertFalse(fast.authentication_heading("XÁC THỰC VĂN BẢN HỢP NHẤT CỦA BỘ"))

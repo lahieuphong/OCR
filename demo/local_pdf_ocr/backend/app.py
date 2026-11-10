@@ -37,10 +37,17 @@ def get_engine() -> LocalOcrEngine:
     return LocalOcrEngine()
 
 
-def seal_check(payload: bytes, extension: str) -> dict:
+def seal_pages_first(result: dict) -> tuple[int, ...]:
+    """The page of a consolidated text's authentication block, where its seal is, checked before the others."""
+    block = result.get("consolidation_block") if isinstance(result, dict) else None
+    page = block.get("page") if isinstance(block, dict) else None
+    return (page,) if isinstance(page, int) and not isinstance(page, bool) and page >= 1 else ()
+
+
+def seal_check(payload: bytes, extension: str, first_pages=()) -> dict:
     # A pixel check beside the text result: it never changes the text, and its failure never fails the request.
     try:
-        return find_seal(payload, extension)
+        return find_seal(payload, extension, first_pages)
     except Exception:
         logger.exception("Seal colour check failed")
         return {"method": SEAL_METHOD, "reason": "error", "colour": None}
@@ -118,7 +125,7 @@ async def ocr(file: UploadFile = File(...), mode: str = Form("vietocr_ocr")):
                     "PaddleOCR/PaddlePaddle, mô hình detection và ONNX Runtime."
                 ),
             ) from exc
-        result["seal"] = await run_in_threadpool(seal_check, payload, extension)
+        result["seal"] = await run_in_threadpool(seal_check, payload, extension, seal_pages_first(result))
         result["request_elapsed_ms"] = round((time.perf_counter() - start) * 1000)
         return JSONResponse(content=result)
 

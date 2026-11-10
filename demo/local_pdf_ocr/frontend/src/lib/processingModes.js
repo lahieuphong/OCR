@@ -16,10 +16,14 @@ export const resumeLabel = left => `${RESUME_LABEL} (${left} tài liệu còn l�
 export const PROCESSING_MODES = ["native_text", "vietocr_ocr", "hybrid_h1", "metadata_fast"];
 export const PROCESSING_LABELS = {native_text:"Văn bản có sẵn",vietocr_ocr:"Nhận dạng OCR",hybrid_h1:"Kết hợp PDF + OCR (thử nghiệm)",metadata_fast:"Bóc tách nhanh · Header một phần"};
 
+// A consolidated text without a page-1 header also has its authentication block read (backend consolidation_block).
+const BLOCK_SOURCES = {native_text: "lớp chữ PDF", vietocr_ocr: "OCR"};
 export function partialScope(result) {
   const inspected = result.inspected_pages?.join(", ") || "chưa xác định";
   const processed = result.processed_pages?.length ? `OCR trang ${result.processed_pages.join(", ")}` : "không chạy OCR";
-  return `Nguồn ${result.source_page_count ?? "—"} trang · Đã xét trang ${inspected} · ${processed}`;
+  const block = result.consolidation_block;
+  const blockScope = block ? ` · Khối xác thực văn bản hợp nhất: trang ${block.page} (${BLOCK_SOURCES[block.read_by] ?? "không rõ nguồn"})` : "";
+  return `Nguồn ${result.source_page_count ?? "—"} trang · Đã xét trang ${inspected} · ${processed}${blockScope}`;
 }
 export function resultTextExport(result, text = result.text || "") {
   return result.method === "metadata_fast"
@@ -42,6 +46,18 @@ export function validateFastResult(data) {
   const validText = validLines && typeof data.text === "string" && page.text === data.text
     && page.lines.map(line => line.text).join("\n") === data.text
     && Number.isInteger(data.line_count) && data.line_count === page.lines.length;
+  // Optional: a consolidated text's authentication block, one page after page 1, read from the text layer or by OCR.
+  const block = data.consolidation_block;
+  const validBlock = block === undefined || Boolean(block) && Number.isInteger(block.page) && block.page > 1
+    && block.page <= data.source_page_count && finite(block.width) && block.width > 0 && finite(block.height) && block.height > 0
+    && {native_text: "pdf_points", vietocr_ocr: "raster_pixels"}[block.read_by] === block.coordinate_system
+    && ["text_layer", "red_seal"].includes(block.located_by) && Array.isArray(block.lines) && block.lines.length > 0
+    && block.lines.every((line, index) => line && typeof line.text === "string" && line.line_index === index + 1
+      && line.geometry_source === block.read_by && (block.read_by === "native_text"
+        ? Array.isArray(line.bbox) && line.bbox.length === 4 && line.bbox.every(finite)
+        : Array.isArray(line.polygon) && line.polygon.length >= 4
+          && line.polygon.every(point => Array.isArray(point) && point.length === 2 && point.every(finite))))
+    && block.text === block.lines.map(line => line.text).join("\n");
   if (data.partial_result !== true || !Number.isInteger(data.source_page_count) || data.source_page_count < 1 || data.source_page_count > MAX_FAST_SOURCE_PAGES
     || !onePage(data.inspected_pages)
     || !Array.isArray(data.processed_pages) || !(data.processed_pages.length === 0 || onePage(data.processed_pages))
@@ -49,7 +65,7 @@ export function validateFastResult(data) {
     || typeof data.used_ocr !== "boolean" || data.used_ocr !== Boolean(data.processed_pages.length)
     || !["header_native_text", "header_ocr"].includes(data.source)
     || (data.source === "header_native_text") !== !data.used_ocr
-    || !validPage || !validText
+    || !validPage || !validText || !validBlock
     || typeof data.fast_metadata?.needs_review !== "boolean" || typeof data.fast_metadata?.header_complete !== "boolean") {
     throw Error("Kết quả bóc tách nhanh thiếu hoặc sai thông tin số trang nguồn/phạm vi header; không dùng như toàn văn.");
   }

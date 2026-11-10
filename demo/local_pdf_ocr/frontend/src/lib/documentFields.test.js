@@ -304,6 +304,20 @@ describe("seal colour", () => {
       expect(documentValues(d).confidenceLevel).toBe("02");
     }
   });
+  test("a printed emblem the seal check set aside is named, and never counts as the seal (round 6)", () => {
+    const emblem = {page: 55, reason: "two_colour_print", yellow_per_red: .89, size_mm: [30, 30]};
+    const found = withSeal({method: "red_round_mark_v1", reason: "found", colour: "red", page: 28, size_mm: [36, 36],
+      pages_checked: [61, 55, 28], rejected_marks: [emblem, {...emblem, page: 54}, {...emblem, page: 55}]});
+    expect(value(found, "isCan")).toBe("0");
+    expect(found.fields.isCan.evidence).toEqual([{source: "seal_colour", sealPage: 28, text: "Trang 28: dấu tròn màu đỏ khoảng 36 × 36 mm."}]);
+    expect(found.fields.isCan.note).toContain("như quốc huy), không phải con dấu, ở trang 55, 54.");
+    const none = withSeal({method: "red_round_mark_v1", reason: "not_found", colour: null, pages_checked: [2, 1], rejected_marks: [emblem]});
+    expect(value(none, "isCan")).toBe(""); expect(none.fields.isCan.status).toBe("unknown");
+    expect(none.fields.isCan.note).toContain("2 trang"); expect(none.fields.isCan.note).toContain("ở trang 55.");
+    expect(documentValues(none).confidenceLevel).toBe("02");
+    const plain = withSeal({method: "red_round_mark_v1", reason: "found", colour: "red", page: 2, pages_checked: [2], rejected_marks: [{page: "x"}]});
+    expect(plain.fields.isCan.note).toBe("Nhận diện từ màu và hình dạng con dấu trên ảnh trang, không phải OCR.");
+  });
   test("a grey seal on a black-and-white scan is never another colour, and 02 is not evidence against red (owner, 2026-11-09)", () => {
     const d = withSeal({method: "red_round_mark_v1", reason: "black_and_white", colour: null, pages_checked: [1]});
     expect(value(d, "isCan")).toBe(""); expect(documentValues(d).isCan).toBe("");

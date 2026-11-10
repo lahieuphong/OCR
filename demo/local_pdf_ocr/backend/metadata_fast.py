@@ -11,10 +11,23 @@ The OCR region grows downwards only while growing can still add header evidence.
 * SUBJECT_LINE_ALLOWANCE lines were read after the title or "V/v" line without a body marker
   (a notice has no "Căn cứ"): the subject has ended within them;
 * MAX_HEADER_LINES lines were read: a taller region would read the same first lines.
+
+One layout keeps its number, date and authenticating body off page 1: a consolidated text (văn bản hợp nhất) whose
+page 1 starts with the national motto and the consolidated act's title, then "... được sửa đổi, bổ sung bởi:". It
+carries them in the "XÁC THỰC VĂN BẢN HỢP NHẤT" block where its main text ends, before any appendix. Only for that
+page-1 layout (no agency and no "Số" above the title, and that sentence below it) the block is looked for, and read
+alone (consolidation_block in the result; "pages" stays page 1):
+* in the PDF's own text layer, which is searched without rendering anything; the block is read from it when the page
+  is born-digital, else its rows are OCRed;
+* in a scan without a text layer, on at most MAX_SEAL_CANDIDATES pages holding a round red seal (seal_colour), where a
+  band above the seal is OCRed and kept only if it holds the block's heading.
+OCRed rows count as the block only if they hold its heading (else fast_metadata.consolidation_search.reason is
+"unreadable"); a failing search leaves the page-1 result as read (reason "error").
 """
 from __future__ import annotations
 
 import hashlib
+import logging
 import math
 import os
 import re
@@ -26,6 +39,7 @@ from .contract import (MAX_FAST_SOURCE_PAGES, MAX_IMAGE_PIXELS, DemoConfiguratio
                        sha256_file, validate_upload, verify_frozen_onnx)
 from .engine import iter_images
 
+logger = logging.getLogger("local_pdf_ocr")
 ROI_FRACTIONS = (.45, .65, .80)
 MAX_HEADER_LINES = 64
 SUBJECT_LINE_ALLOWANCE = 10
@@ -39,6 +53,16 @@ NUMBER = re.compile(r"^số\s*[:：﹕]?\s*\S+\s*/\s*\S+")
 # The space where a keyword meets its digits can be missing ("tháng 11năm 2026"): a letter next to a digit is an
 # unambiguous boundary (same rule as the frontend's issued-date reader). Evidence only; the text is never changed.
 DATE = re.compile(r"ngày\s*\d{1,2}\s*tháng\s*\d{1,2}\s*năm\s*\d{4}")
+# A consolidated text: the sentence closing its page-1 list of acts ("..., được sửa đổi, bổ sung bởi:"), compared on
+# folded words (OCR can misread a diacritic: "sửa đối"), and its authentication block's heading, compared on folded letters.
+CONSOLIDATION_FORMULA = re.compile(r"\bduoc sua doi(?: (?:bo sung|bai bo|thay the|dinh chinh|huy bo))* boi\b")
+AUTHENTICATION_HEADING = "xacthucvanbanhopnhat"
+# The block's rows, in page heights around its heading: agency and heading, then "Số:" and the place/date line.
+BLOCK_BAND = (.02, .10)
+# A scan: the band above a red seal that holds the heading (the signer's title and the seal sit below it).
+SEAL_BAND = (.24, .02)
+MAX_SEAL_CANDIDATES = 2
+MAX_BLOCK_LINES = 40
 DETECTOR_FILES = {
     "inference.json": "0f1a7ec35da36173529c7a60238b7f7919e3831929c3f700ad90ad4896adecd5",
     "inference.pdiparams": "85218d2e3d98f5a21c58b4220627be923a97aee5db3cc71f39536ab31ac53960",
@@ -99,6 +123,128 @@ def fold_letters(text):
     (OCR reads curly quotes as straight ones)."""
     decomposed = unicodedata.normalize("NFD", str(text)).replace("đ", "d").replace("Đ", "D")
     return "".join(c for c in decomposed if unicodedata.category(c) != "Mn" and c.isalnum()).casefold()
+
+
+def fold_words(text):
+    """Comparison only: the words of a text without diacritics, case or punctuation, one space apart."""
+    decomposed = unicodedata.normalize("NFD", str(text)).replace("đ", "d").replace("Đ", "D")
+    kept = "".join(c if c.isalnum() else " " for c in decomposed if unicodedata.category(c) != "Mn")
+    return " ".join(kept.casefold().split())
+
+
+def authentication_heading(text):
+    """The block's heading, alone or read as one line with the agency beside it ("BỘ ... XÁC THỰC VĂN BẢN HỢP NHẤT")."""
+    return fold_letters(text).endswith(AUTHENTICATION_HEADING)
+
+
+def consolidated_page_one(lines):
+    """Page 1 of a consolidated text in the layout of the module docstring: a title with no agency and no "Số" line
+    above it, and the closing sentence of the list of consolidated acts between it and the body ("Căn cứ ... được
+    sửa đổi, bổ sung bởi Luật số ..." in a decree's legal basis is not that sentence)."""
+    usable = [match_text(line["text"]) for line in lines if not line.get("metadata_excluded_reason")]
+    title = next((i for i, text in enumerate(usable) if TITLE.fullmatch(text)), None)
+    if title is None or any(ISSUER.match(text) or text.startswith("số") for text in usable[:title]):
+        return False
+    body = next((i for i in range(title + 1, len(usable)) if BODY.match(usable[i])), len(usable))
+    return bool(CONSOLIDATION_FORMULA.search(fold_words(" ".join(usable[title + 1:body]))))
+
+
+def ocr_band(page, engine, top, bottom, timings, signature_boxes=()):
+    """OCR of the full-width band [top, bottom] (PDF points) of one page, in reading order. Polygons are in pixels of
+    the whole page rendered at the header's zoom. Once the block's heading is read, lines starting more than
+    BLOCK_BAND[1] page heights below it are not recognised. Returns (lines, heading top or None, zoom)."""
+    import pymupdf as fitz
+    from PIL import Image
+
+    width, height = float(page.rect.width), float(page.rect.height)
+    zoom = zoom_of(page)
+    t = time.perf_counter()
+    pix = page.get_pixmap(matrix=fitz.Matrix(zoom, zoom), clip=fitz.Rect(0, top, width, bottom), colorspace=fitz.csRGB, alpha=False)
+    if pix.width * pix.height > MAX_IMAGE_PIXELS + 5000:
+        raise ValueError("Vùng PDF vượt giới hạn pixel.")
+    image = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
+    timings["render"] += (time.perf_counter() - t) * 1000
+    t = time.perf_counter(); bgr, polygons = engine.detector.detect_regions(image); timings["detection"] += (time.perf_counter() - t) * 1000
+    shift, lines, heading_at = top * zoom, [], None
+    for polygon in sorted(polygons, key=lambda quad: (min(p[1] for p in quad), min(p[0] for p in quad))):
+        placed = [[point[0], point[1] + shift] for point in polygon]
+        bounds = box_of({"polygon": placed})
+        if len(lines) >= MAX_BLOCK_LINES or heading_at is not None and bounds[1] > heading_at + BLOCK_BAND[1] * height * zoom:
+            break
+        t = time.perf_counter(); crop = engine.detector.crop_region(bgr, polygon); timings["crop"] += (time.perf_counter() - t) * 1000
+        t = time.perf_counter(); text, truncated = engine.recognizer.predict(crop); timings["recognition"] += (time.perf_counter() - t) * 1000
+        line = {"text": text, "polygon": placed, "geometry_source": "vietocr_ocr", "hit_decoder_limit": truncated}
+        if SIGNATURE.match(match_text(text)) or any(covered_by(bounds, box) >= .85 for box in signature_boxes):
+            line["metadata_excluded_reason"] = "electronic_signature"
+        elif heading_at is None and authentication_heading(text):
+            heading_at = bounds[1]
+        lines.append(line)
+    return lines, heading_at, zoom
+
+
+def block_record(number, width, height, coordinates, roi, lines, read_by, located_by):
+    lines = [{**line, "line_index": index} for index, line in enumerate(lines, 1)]
+    return {"page": number, "width": width, "height": height, "coordinate_system": coordinates, "roi": roi,
+            "lines": lines, "text": "\n".join(line["text"] for line in lines), "located_by": located_by, "read_by": read_by}
+
+
+def consolidation_block(document, raw, engine, timings):
+    """Find and read a consolidated text's authentication block (module docstring). Returns (block or None, search)."""
+    from .seal_colour import red_mark_pages
+
+    started = time.perf_counter()
+    hits = []
+    for index in range(1, len(document)):
+        page = document[index]
+        if AUTHENTICATION_HEADING not in fold_letters(page.get_text("text")):
+            continue
+        lines, signatures = native_lines(page)
+        headings = [line for line in lines if not line.get("metadata_excluded_reason") and authentication_heading(line["text"])]
+        if headings:
+            hits.append((page, lines, signatures, headings))
+    search = {"located_by": None, "page": None, "text_layer_pages": [hit[0].number + 1 for hit in hits], "seal_pages": []}
+    block = None
+    if len(hits) == 1 and len(hits[0][3]) == 1:
+        page, lines, signatures, (heading,) = hits[0]
+        width, height = float(page.rect.width), float(page.rect.height)
+        top = max(0.0, heading["bbox"][1] - BLOCK_BAND[0] * height)
+        bottom = min(height, heading["bbox"][1] + BLOCK_BAND[1] * height)
+        search.update(located_by="text_layer", page=page.number + 1)
+        if visible_text_layer(page):
+            rows = [line for line in lines if top <= box_of(line)[1] <= bottom]
+            block = block_record(page.number + 1, width, height, "pdf_points", [0, top, width, bottom], rows, "native_text", "text_layer")
+        else:  # the text layer locates the block; another tool's OCR layer is not read as the document's text
+            rows, heading_at, zoom = ocr_band(page, engine, top, bottom, timings, [[v * zoom_of(page) for v in box] for box in signatures])
+            if heading_at is None:  # located, but OCR did not read its heading: nothing in the band is known to be it
+                search["reason"] = "unreadable"
+            else:
+                block = block_record(page.number + 1, math.ceil(width * zoom), math.ceil(height * zoom), "raster_pixels",
+                                     [0, top * zoom, math.ceil(width * zoom), bottom * zoom], rows, "vietocr_ocr", "text_layer")
+    elif not hits:
+        for mark in red_mark_pages(raw, MAX_SEAL_CANDIDATES):
+            page = document[mark["page"] - 1]
+            if mark["page"] == 1 or visible_text_layer(page) and page.get_text("text").strip():
+                continue  # page 1 is read already; a born-digital page's text layer was searched above
+            search["seal_pages"].append(mark["page"])
+            width, height = float(page.rect.width), float(page.rect.height)
+            seal_top = mark["box"][1] * height
+            top, bottom = max(0.0, seal_top - SEAL_BAND[0] * height), min(height, seal_top + SEAL_BAND[1] * height)
+            rows, heading_at, zoom = ocr_band(page, engine, top, bottom, timings)
+            if heading_at is None:
+                continue
+            rows = [line for line in rows if box_of(line)[1] >= heading_at - BLOCK_BAND[0] * height * zoom]
+            block = block_record(mark["page"], math.ceil(width * zoom), math.ceil(height * zoom), "raster_pixels",
+                                 [0, top * zoom, math.ceil(width * zoom), bottom * zoom], rows, "vietocr_ocr", "red_seal")
+            search.update(located_by="red_seal", page=mark["page"])
+            break
+    if block is None and "reason" not in search:
+        search["reason"] = "ambiguous" if len(hits) > 1 or hits and len(hits[0][3]) > 1 else "not_found"
+    timings["consolidation"] = (time.perf_counter() - started) * 1000
+    return block, search
+
+
+def zoom_of(page):
+    return min(2.0, math.sqrt(MAX_IMAGE_PIXELS / (float(page.rect.width) * float(page.rect.height))))
 
 
 def visible_text_layer(page):
@@ -265,7 +411,7 @@ def extract_metadata_fast(raw: bytes, filename: str, engine_provider) -> dict:
             if not 1 <= len(document) <= MAX_FAST_SOURCE_PAGES:
                 raise ValueError(f"Bóc tách nhanh hỗ trợ PDF tối đa {MAX_FAST_SOURCE_PAGES} trang.")
             source_count = len(document)
-            page = document[0]  # No other page is opened/rendered/OCRed in this strategy.
+            page = document[0]  # Other pages only for a consolidated text's authentication block (module docstring).
             width, height = float(page.rect.width), float(page.rect.height)
             if width <= 0 or height <= 0:
                 raise ValueError("Trang PDF có kích thước không hợp lệ.")
@@ -355,15 +501,23 @@ def extract_metadata_fast(raw: bytes, filename: str, engine_provider) -> dict:
                 break
         if text_layer:
             final_lines = native_text_over_ocr(final_lines, *text_layer)
+        block = search = None
+        if extension == ".pdf" and source_count > 1 and consolidated_page_one(final_lines):
+            try:
+                block, search = consolidation_block(document, raw, engine, timings)
+            except Exception:  # a later page that cannot be read never fails the page-1 header already read
+                logger.exception("Consolidation block search failed")
+                search = {"located_by": None, "page": None, "text_layer_pages": [], "seal_pages": [], "reason": "error"}
         return result_record(filename, source_count, final_lines, full_width, full_height, attempts[-1]["roi"],
-                             "raster_pixels", True, status, attempts, native_attempts, timings, started, stop_reason)
+                             "raster_pixels", True, status, attempts, native_attempts, timings, started, stop_reason,
+                             block, search)
     finally:
         if document is not None:
             document.close()
 
 
 def result_record(filename, source_count, lines, width, height, roi, coordinates, used_ocr,
-                  status, attempts, native_attempts, timings, started, stop_reason=None):
+                  status, attempts, native_attempts, timings, started, stop_reason=None, block=None, search=None):
     lines = [{**line, "line_index": index} for index, line in enumerate(lines, 1)]
     reasons = ["metadata_from_partial_header_requires_review"]
     if status["missing"]:
@@ -382,9 +536,18 @@ def result_record(filename, source_count, lines, width, height, roi, coordinates
         reasons.append("bounded_first_page_roi_limit_reached")
     elif not status["header_complete"]:
         reasons.append("roi_growth_stopped:" + stop_reason)
+    if search is not None:
+        reasons.append(f"consolidation_block_read:page_{block['page']}:{block['read_by']}" if block
+                       else "consolidation_block_" + search["reason"])
     timings = {key: round(value, 3) for key, value in timings.items()}
     timings["total"] = round((time.perf_counter()-started)*1000, 3)
     text = "\n".join(line["text"] for line in lines)
+    limitations = ["Partial first-page header only; remaining source pages were not OCRed",
+                   "Unknown fields remain unknown; no spelling or diacritic correction",
+                   "Upright administrative layouts only; review stamps and incomplete/overlapping headers"]
+    if block:
+        limitations[0] = (f"Partial first-page header and the consolidated text's authentication block (page {block['page']})"
+                          " only; other source pages were not OCRed")
     return {"filename": Path(filename).name, "method": "metadata_fast", "partial_result": True,
             "source": "header_ocr" if used_ocr else "header_native_text", "used_ocr": used_ocr,
             "engine": "PaddleOCR Detection + VietOCR B ONNX (header ROI)" if used_ocr else "PyMuPDF (header evidence only)",
@@ -399,8 +562,8 @@ def result_record(filename, source_count, lines, width, height, roi, coordinates
             "fast_metadata": {"strategy": "bounded_first_page_header_v1", "header_complete": status["header_complete"],
                               "needs_review": True, "reasons": reasons, "roi_limit_reached": limit, "stopped": stop_reason,
                               "native_header_usable": not used_ocr, "roi_attempts": attempts,
-                              "native_header_attempts": native_attempts},
+                              "native_header_attempts": native_attempts,
+                              **({"consolidation_search": search} if search is not None else {})},
+            **({"consolidation_block": block} if block else {}),
             "timings_ms": timings, "elapsed_ms": round(timings["total"]), "deployment_approved": False,
-            "limitations": ["Partial first-page header only; remaining source pages were not OCRed",
-                            "Unknown fields remain unknown; no spelling or diacritic correction",
-                            "Upright administrative layouts only; review stamps and incomplete/overlapping headers"]}
+            "limitations": limitations}
