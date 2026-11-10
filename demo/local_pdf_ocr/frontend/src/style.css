@@ -171,6 +171,9 @@
 .preview-loading { position: absolute; inset: 0 0 auto; z-index: 4; height: 2px; opacity: 0; background: linear-gradient(90deg, transparent, #2563eb, transparent) no-repeat; background-size: 40% 100%; animation: preview-loading-in .15s .5s forwards, preview-loading-slide 1.1s linear infinite; }
 @keyframes preview-loading-in { to { opacity: 1; } }
 @keyframes preview-loading-slide { from { background-position: -70% 0; } to { background-position: 170% 0; } }
+/* A switch that takes long: the document still on screen is not the chosen one, so it is dimmed and labelled. */
+.preview-stage.waiting .preview-layer.shown { opacity: .25; filter: grayscale(1); transition: opacity .2s ease-out; }
+.preview-wait { position: absolute; top: 50%; left: 50%; z-index: 5; transform: translate(-50%, -50%); padding: 6px 12px; border: 1px solid #e2e8f0; border-radius: 999px; background: #fff; box-shadow: 0 4px 12px #0f172a1a; color: #334155; font-size: 12px; white-space: nowrap; pointer-events: none; }
 .preview-placeholder { display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 10px; color: #94a3b8; font-size: 12px; }
 .pdf-view { display: block; background: #e2e8f0; }
 .image-view { display: flex; align-items: center; justify-content: center; overflow: auto; padding: 8px; }

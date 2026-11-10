@@ -83,6 +83,37 @@ test("the same document keeps its layer when only its details change", () => {
   expect(frame("a")).toBeTruthy();
 });
 
+test("a switch that takes long dims the document still on screen and says the new one is opening", () => {
+  const view = render(<DocumentPreview {...pdf("a")}/>);
+  fireEvent.load(frame("a")); pass(200); pass(120);
+  const stage = document.querySelector(".preview-stage");
+  view.rerender(<DocumentPreview {...pdf("b")}/>);
+  pass(399);
+  expect(stage.classList.contains("waiting")).toBe(false);
+  expect(document.querySelector(".preview-wait")).toBeNull();
+  // Another switch in between does not restart the wait: the first document is still not the chosen one.
+  view.rerender(<DocumentPreview {...pdf("c")}/>);
+  pass(1);
+  expect(stage.classList.contains("waiting")).toBe(true);
+  expect(document.querySelector(".preview-wait").textContent).toBe("Đang mở bản xem trước…");
+  expect(layers()).toEqual(["blob:a:shown", "blob:c:loading"]);
+  fireEvent.load(frame("c")); pass(200);
+  expect(layers()).toEqual(["blob:a:leaving", "blob:c:shown"]);
+  expect(stage.classList.contains("waiting")).toBe(false);
+  expect(document.querySelector(".preview-wait")).toBeNull();
+});
+
+test("a quick switch shows no waiting label", () => {
+  const view = render(<DocumentPreview {...pdf("a")}/>);
+  fireEvent.load(frame("a")); pass(200); pass(120);
+  view.rerender(<DocumentPreview {...pdf("b")}/>);
+  fireEvent.load(frame("b")); pass(200);
+  expect(layers()).toEqual(["blob:a:leaving", "blob:b:shown"]);
+  pass(400);
+  expect(document.querySelector(".preview-stage").classList.contains("waiting")).toBe(false);
+  expect(document.querySelector(".preview-wait")).toBeNull();
+});
+
 test("only the visible layer can be used; a loading bar exists while one is loading", () => {
   const view = render(<DocumentPreview {...pdf("a")}/>);
   expect(document.querySelector(".preview-loading")).toBeTruthy();

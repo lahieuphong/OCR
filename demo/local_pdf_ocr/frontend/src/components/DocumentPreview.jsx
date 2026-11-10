@@ -6,6 +6,10 @@ import {useEffect, useState} from "react";
 // dark frame; too long makes switching feel slow.
 const PDF_PAINT_BASE_MS = 200, PDF_PAINT_PER_MB_MS = 90;
 const LOAD_LIMIT_MS = 5000, FADE_MS = 120;
+// Chromium sometimes reports a PDF frame loaded late or not at all (then LOAD_LIMIT_MS applies): measured in the
+// app on 2026-11-10, the previous document could stay up for seconds after another was chosen. Past this delay the
+// document still on screen is dimmed and labelled, so it is never taken for the one just chosen.
+const SLOW_SWITCH_MS = 400;
 export const paintDelay = ({isPDF, size}) => isPDF ? PDF_PAINT_BASE_MS + PDF_PAINT_PER_MB_MS * size / 1048576 : 0;
 
 // A new document loads underneath the one on screen and only replaces it once drawn, so switching never
@@ -29,6 +33,15 @@ export default function DocumentPreview({url, isPDF, size = 0}) {
     return () => window.clearTimeout(timer);
   }, [loading?.url, wait]);
 
+  // From the first switch until a document is shown again, however many switches happen in between.
+  const switching = Boolean(loading);
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    if (!switching) {setSlow(false); return;}
+    const timer = window.setTimeout(() => setSlow(true), SLOW_SWITCH_MS);
+    return () => window.clearTimeout(timer);
+  }, [switching]);
+
   const leaving = layers.some(layer => layer.state === "leaving");
   useEffect(() => {
     if (!leaving) return;
@@ -36,12 +49,13 @@ export default function DocumentPreview({url, isPDF, size = 0}) {
     return () => window.clearTimeout(timer);
   }, [leaving]);
 
-  return <div className="preview-stage">
+  return <div className={"preview-stage" + (slow ? " waiting" : "")}>
     {layers.map(layer => <div key={layer.url || "cover"} className={"preview-layer " + layer.state} inert={layer.state !== "shown"}>
       {!layer.url ? null : layer.isPDF
         ? <iframe className="pdf-view" src={layer.url + "#toolbar=0"} title="Bản xem trước PDF" onLoad={() => setLoadedUrl(layer.url)}/>
         : <div className="image-view"><img src={layer.url} alt="Bản xem trước tài liệu" onLoad={() => setLoadedUrl(layer.url)} onError={() => setLoadedUrl(layer.url)}/></div>}
     </div>)}
     {loading && <div className="preview-loading" aria-hidden="true"/>}
+    {slow && <div className="preview-wait" role="status">Đang mở bản xem trước…</div>}
   </div>;
 }
