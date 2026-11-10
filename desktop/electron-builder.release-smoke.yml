@@ -1,0 +1,13 @@
+# INTERNAL QA build of the release: electron-builder.release.yml plus the smoke test, so the packaged-app regression
+# can drive the real UI with the bundled models (OCR, fast mode, exports). Only app.asar and the executable that
+# embeds its hash differ from the release folder. Never publish or hand out its output: the release refuses the
+# smoke test (exit code 2).
+extends: electron-builder.release.yml
+extraMetadata:
+  vietdocSmokeTest: true
+  author:
+    name: VietDoc OCR project
+  description: VietDoc OCR - INTERNAL SMOKE TEST BUILD
+nsis:
+  artifactName: VietDoc-OCR-v${version}-INTERNAL-SMOKE-TEST-Windows-${arch}-Setup.${ext}
+  uninstallDisplayName: ${productName} ${version} (INTERNAL SMOKE TEST)

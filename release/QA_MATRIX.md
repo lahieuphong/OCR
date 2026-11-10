@@ -17,5 +17,9 @@
 | SmartScreen/Defender/code signing | Authenticode Valid, không tắt bảo vệ | CHƯA THỬ |
 | Bundle/historical secrets và privacy scan | Không có tài liệu nhạy cảm/weights vô ý | CHƯA THỬ ĐỦ |
 | License/SBOM/corresponding source | Quyền phân phối được duyệt | BLOCKED |
+| Setup v0.1.0: cài không hỏi và có giao diện, Start Menu, Desktop tùy chọn, mở lại, cài đè (nâng cấp), gỡ | Payload = thư mục app đã kiểm tra; dữ liệu người dùng còn sau nâng cấp và gỡ; không còn bản sao installer trong `%LOCALAPPDATA%` | Có công cụ (`packaging/windows`); kết quả ghi ngoài Git |
+| Portable ZIP: giải nén bằng Explorer/`Expand-Archive`, chạy, đóng | File = thư mục app đã kiểm tra; dữ liệu nằm trong `VietDoc OCR Data`, không ghi `%APPDATA%\VietDoc OCR`; không còn tiến trình | Có công cụ; kết quả ghi ngoài Git |
+| Thư mục cài hoặc giải nén có dấu tiếng Việt và khoảng trắng (code page 1252) | OCR chạy nhờ manifest `activeCodePage` UTF-8 của backend | Có công cụ; Windows 10 trước 1903 không hỗ trợ |
+| Đường dẫn dài (tài khoản 20 ký tự, giải nén trong Downloads) | ≤ 259 ký tự, `build_release.py` kiểm tra khi build | Tự động trong build |
 
 Báo cáo từ máy dev: 10333 50/50 và 137 255/255 khớp A0; 383 129/129 khớp DEV; PNG/JPG 38/38 khớp DEV. **Scan 383 trang 4 khác A0 ở thứ tự 5 dòng chữ ký**. Không được ghi là A0-perfect.

@@ -52,6 +52,17 @@ class NativeSpecTests(unittest.TestCase):
         self.assertIn("asyncio.windows_events", build["analysis"]["hiddenimports"])
         self.assertIsNone(build["exe"]["target_arch"])
 
+    def test_windows_backend_opens_models_from_any_folder_name(self):
+        # Paddle opens model files through ANSI APIs: the UTF-8 code page keeps a Vietnamese folder name working.
+        import xml.dom.minidom
+        manifest = assemble("win32")["exe"]["manifest"]
+        dom = xml.dom.minidom.parseString(manifest)
+        settings = {node.localName: node.firstChild.data for node in dom.getElementsByTagName("*")
+                    if node.namespaceURI and "WindowsSettings" in node.namespaceURI}
+        self.assertEqual(settings, {"longPathAware": "true", "activeCodePage": "UTF-8"})
+        self.assertNotIn("requireAdministrator", manifest)
+        self.assertIsNone(assemble("darwin")["exe"]["manifest"])
+
     def test_mac_assembles_a_native_backend_without_windows_extensions(self):
         build = assemble("darwin")
         imports = build["analysis"]["hiddenimports"]

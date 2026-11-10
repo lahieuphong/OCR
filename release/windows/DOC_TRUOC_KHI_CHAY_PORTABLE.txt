@@ -1,0 +1,35 @@
+﻿VietDoc OCR - bản Portable cho Windows 10/11 (64-bit)
+=====================================================
+
+Không cần cài đặt. Không cần Python, Node.js hay Git. Toàn bộ OCR chạy trên máy,
+không tải model, không gửi tài liệu lên Internet, không tự cập nhật.
+
+1. GIẢI NÉN TRƯỚC
+   Đừng mở VietDoc OCR.exe ngay trong cửa sổ xem file ZIP: ứng dụng sẽ không chạy.
+   Bấm chuột phải vào file ZIP > "Extract All..." (Giải nén tất cả), chọn một thư mục
+   ngắn mà tài khoản của bạn có quyền ghi, ví dụ D:\VietDoc hoặc thư mục Downloads.
+   Không đặt trong "C:\Program Files".
+
+2. CHẠY
+   Mở thư mục "VietDoc OCR" rồi chạy "VietDoc OCR.exe".
+   Bản này chưa có chữ ký số. Nếu Windows SmartScreen cảnh báo, chỉ tiếp tục khi bạn
+   đã kiểm tra SHA-256 của file ZIP khớp với SHA256SUMS.txt trên trang phát hành
+   (xem HUONG_DAN_CAI_DAT.md). Không tắt Windows Defender hay SmartScreen.
+
+3. DỮ LIỆU
+   Thư mục "VietDoc OCR Data" nằm cạnh thư mục "VietDoc OCR". Cài đặt, nhật ký (log) và
+   dữ liệu trình duyệt của bản Portable được lưu tại đó, không ghi vào %APPDATA%.
+   Giữ hai thư mục này cạnh nhau khi di chuyển. Muốn xóa hẳn ứng dụng: đóng ứng dụng rồi
+   xóa cả hai thư mục.
+   Kết quả OCR chỉ được lưu khi bạn bấm xuất (TXT, JSON, Excel) và chọn nơi lưu.
+
+4. GIỚI HẠN
+   - Windows 10 (phiên bản 1903 trở lên) hoặc Windows 11, 64-bit (x64). Cần khoảng 2 GB
+     dung lượng trống và nên có từ 8 GB RAM.
+   - OCR ảnh/scan chạy bằng CPU; mỗi trang có thể mất vài chục giây.
+   - Kết quả OCR và 22 trường thông tin là gợi ý: luôn kiểm tra lại các ô
+     "Cần kiểm tra" trước khi sử dụng.
+   - Không chạy hai bản VietDoc OCR cùng lúc từ cùng một thư mục dữ liệu.
+
+Thông báo giấy phép của các thành phần bên thứ ba:
+VietDoc OCR\resources\licenses\THIRD_PARTY_NOTICES.txt

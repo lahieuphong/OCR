@@ -107,7 +107,7 @@ jobs:
       - name: Python unit tests - backend, desktop server, packaging tools (skips fail)
         run: |
           "$VPY" .github/scripts/run_backend_tests.py
-          for dir in desktop/python/tests packaging/backend packaging/ci packaging/windows; do
+          for dir in desktop/python/tests packaging/backend packaging/ci packaging/windows packaging/windows/clean_machine; do
             "$VPY" -m unittest discover -v -s "$dir" -p "test_*.py" 2>&1 | tee "$OUT/report/unittest-${dir//\//-}.txt"
             test "${PIPESTATUS[0]}" -eq 0
             if grep -q "skipped=" "$OUT/report/unittest-${dir//\//-}.txt"; then echo "::error::$dir tests were skipped"; exit 1; fi

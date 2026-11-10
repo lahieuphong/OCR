@@ -11,6 +11,9 @@ Reads files only; never modifies the build.
 Usage: python packaging/ci/scan_bundle.py <app dir> <out dir> [--forbid-string TEXT ...]
 The optional --allow-internal-symlinks accepts macOS framework links only when
 their resolved target exists inside the scanned app; escaping/broken links fail.
+The optional --allow-locked-models <model_lock.json> is for the offline release build, which carries the
+verified models: exactly the locked files at their bundled paths with their locked SHA-256 are accepted,
+and every one of them must be there. Any other weight file, a renamed copy or a changed byte still fails.
 """
 from __future__ import annotations
 
@@ -137,6 +140,27 @@ def verified_upstream_native(rel: str, digest: str, wheel_root: str | None) -> b
     return original.is_file() and not original.is_symlink() and sha256(str(original)) == digest
 
 
+def locked_models(lock_path: str, prefix: str = "resources/") -> dict[str, str]:
+    """Bundled path -> SHA-256 of every model file the offline release carries (desktop/model_lock.json).
+
+    The layout is the one desktop/electron/lib/config.js reads: resources/models (VietOCR, repository layout)
+    and resources/paddlex (a PaddleX home with the detector)."""
+    with open(lock_path, encoding="utf-8") as f:
+        lock = json.load(f)
+    recognizer, detector = lock["recognizer"], lock["detector"]
+    vietocr = prefix + "models/vietocr/"
+    files = {
+        vietocr + "onnx/exp_b_width1024/encoder.onnx": recognizer["encoder_sha256"],
+        vietocr + "onnx/exp_b_width1024/decoder_step.onnx": recognizer["decoder_sha256"],
+        vietocr + "finetuned/exp_b_width1024/weights.pth": recognizer["checkpoint_sha256"],
+    }
+    for name, digest in detector["files"].items():
+        files[f"{prefix}paddlex/official_models/{detector['model_name']}/{name}"] = digest
+    if not all(re.fullmatch(r"[0-9a-f]{64}", digest) for digest in files.values()):
+        raise ValueError("model_lock.json must hold one SHA-256 per model file")
+    return files
+
+
 def sha256(path: str) -> str:
     h = hashlib.sha256()
     with open(path, "rb") as f:
@@ -146,8 +170,11 @@ def sha256(path: str) -> str:
 
 
 def scan(root: str, forbid: list[str], *, wheel_root: str | None = None,
-         wheel_profile: str | None = None, allow_internal_symlinks: bool = False) -> tuple[list[dict], list[tuple[str, int, str]], list[dict]]:
+         wheel_profile: str | None = None, allow_internal_symlinks: bool = False,
+         allowed_models: dict[str, str] | None = None) -> tuple[list[dict], list[tuple[str, int, str]], list[dict]]:
     findings, manifest = [], []
+    allowed_models = allowed_models or {}
+    locked_digests = set(allowed_models.values())
     needles = set().union(*(encoded_variants(value) for value in forbid if value))
     profile_needles = (encoded_variants(wheel_profile) & needles) if wheel_root and wheel_profile in forbid else set()
     verified_paths = set()
@@ -189,8 +216,13 @@ def scan(root: str, forbid: list[str], *, wheel_root: str | None = None,
             size = os.path.getsize(full)
             digest = sha256(full)
             manifest.append((rel, size, digest))
+            locked = allowed_models.get(rel) == digest
+            if digest in locked_digests and not locked:
+                # A locked model under another name (weights.bin, encoder.dat): extensions alone would miss it.
+                findings.append({"path": rel, "reason": "copy of a locked model"})
             if not any(rx.search("/" + rel) for rx in ALLOWED_FILES):
-                findings += [{"path": rel, "reason": reason} for reason, rx in FORBIDDEN_FILES if rx.search(rel)]
+                findings += [{"path": rel, "reason": reason} for reason, rx in FORBIDDEN_FILES
+                             if rx.search(rel) and not (locked and reason == "model weights or checkpoint")]
             with open(full, "rb") as f:
                 data = f.read()
             secrets, public_matches = secret_findings(rel, data)
@@ -210,6 +242,9 @@ def scan(root: str, forbid: list[str], *, wheel_root: str | None = None,
                 text = json.dumps(lock)
                 if re.search(r"[A-Za-z]:[\\/]|/home/|/Users/", text):
                     findings.append({"path": rel, "reason": "model_lock.json contains a path"})
+    found = {rel: digest for rel, _, digest in manifest}
+    findings += [{"path": rel, "reason": "locked model missing or different"}
+                 for rel, digest in sorted(allowed_models.items()) if found.get(rel) != digest]
     warnings = [{"path": rel, "reason": "byte-identical upstream wheel has CI profile debug data"}
                 for rel in sorted(verified_paths)]
     warnings += [{"path": rel, "reason": "public upstream crypto parser constants or known-answer self-tests",
@@ -226,13 +261,17 @@ def main() -> int:
                     help="accept existing links resolving inside the app (macOS frameworks); never follow directory aliases")
     ap.add_argument("--verified-wheel-root", help="site-packages directory of the installed wheels")
     ap.add_argument("--verified-wheel-profile", help="CI account profile already in --forbid-string")
+    ap.add_argument("--allow-locked-models", metavar="MODEL_LOCK",
+                    help="offline release build: accept exactly the locked model files (and require all of them)")
     a = ap.parse_args()
     if bool(a.verified_wheel_root) != bool(a.verified_wheel_profile):
         ap.error("both verified wheel arguments must be provided")
+    allowed_models = locked_models(a.allow_locked_models) if a.allow_locked_models else {}
     os.makedirs(a.out, exist_ok=True)
     findings, manifest, warnings = scan(a.root, a.forbid_string,
                                         wheel_root=a.verified_wheel_root, wheel_profile=a.verified_wheel_profile,
-                                        allow_internal_symlinks=a.allow_internal_symlinks)
+                                        allow_internal_symlinks=a.allow_internal_symlinks,
+                                        allowed_models=allowed_models)
     with open(os.path.join(a.out, "manifest.tsv"), "w", encoding="utf-8", newline="\n") as f:
         f.write("path\tsize\tsha256\n")
         f.writelines(f"{p}\t{s}\t{h}\n" for p, s, h in manifest)
@@ -241,6 +280,7 @@ def main() -> int:
                "findings": findings,
                "verified_wheel_warnings": [w for w in warnings if "byte-identical" in w["reason"]],
                "public_crypto_warnings": [w for w in warnings if w["reason"].startswith("public upstream")],
+               "locked_models": sorted(allowed_models),
                "result": "FAIL" if findings else "PASS"}
     with open(os.path.join(a.out, "scan.json"), "w", encoding="utf-8", newline="\n") as f:
         json.dump(summary, f, ensure_ascii=False, indent=1)

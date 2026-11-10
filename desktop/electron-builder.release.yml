@@ -1,0 +1,62 @@
+# electron-builder configuration: the Windows RELEASE of VietDoc OCR (Setup and Portable), with the verified models.
+#
+# Built by packaging/windows/build_release.py only (packaging/README.md, section 8). The script links the
+# PyInstaller backend, the staged models and the collected licence notices into the ignored out\ folder, builds
+# the folder app with this file, checks it, then makes the Setup from that exact folder (--prepackaged) and the
+# Portable ZIP from the same folder.
+#
+# The defaults are the INTERNAL test release: "INTERNAL" in the file and uninstall names and the internal notice
+# on the installer's licence page. electron-builder.release-public.yml changes only those, and the build script
+# refuses it until the owner has closed the licence review (release/LICENSING_AUDIT.md).
+#
+# The models are never committed, never in Git LFS, never a CI artifact. Nothing is downloaded at install or run
+# time: no web installer, no update feed (publish: null), no model download. The build is unsigned.
+extends: electron-builder.yml
+appId: vn.vietdoc.ocr.desktop        # the release identity: keep it for every later version (upgrade, uninstall)
+productName: VietDoc OCR
+copyright: INTERNAL TEST BUILD / NOT FOR DISTRIBUTION
+extraMetadata:
+  vietdocSmokeTest: false
+  # Written into the executables' version information (rcedit): without an author, VietDoc OCR.exe would keep
+  # Electron's own CompanyName ("GitHub, Inc.").
+  author:
+    name: VietDoc OCR project
+  description: VietDoc OCR - offline Vietnamese OCR (internal test build)
+# Added to electron-builder.yml's resources (extends concatenates the lists). config.js uses resources/models and
+# resources/paddlex when nothing else is configured; contract.py and model_lock.json check every SHA-256.
+extraResources:
+  - from: out/models
+    to: models
+  - from: out/paddlex
+    to: paddlex
+  - from: out/licenses
+    to: licenses
+publish: null
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  icon: build-resources/icon.ico
+  # No certificate: nothing is signed. This only lets electron-builder write the icon and version information.
+  signAndEditExecutable: true
+  requestedExecutionLevel: asInvoker
+nsis:
+  oneClick: false              # assisted: licence page, Desktop-shortcut choice, progress, finish
+  perMachine: false            # per-user (%LOCALAPPDATA%\Programs); installer.nsh skips the mode page
+  allowElevation: false
+  allowToChangeInstallationDirectory: false
+  packElevateHelper: false
+  createStartMenuShortcut: true
+  createDesktopShortcut: false # installer.nsh asks the user instead (off by default)
+  shortcutName: VietDoc OCR
+  uninstallDisplayName: ${productName} ${version} (INTERNAL TEST)
+  artifactName: VietDoc-OCR-v${version}-INTERNAL-Windows-${arch}-Setup.${ext}
+  installerIcon: build-resources/icon.ico
+  uninstallerIcon: build-resources/icon.ico
+  license: build-resources/INTERNAL_NOTICE.txt
+  include: build-resources/installer.nsh
+  deleteAppDataOnUninstall: false   # settings and logs survive an upgrade, a reinstall and an uninstall
+  differentialPackage: false        # no blockmap: nothing is updated over the network
+  runAfterFinish: true
+  unicode: true
+  warningsAsErrors: true

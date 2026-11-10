@@ -253,5 +253,84 @@ class ScanBundleTest(unittest.TestCase):
         self.assertIn("model_lock.json contains a path", self.reasons(summary))
 
 
+class LockedModelsTest(unittest.TestCase):
+    """The offline release carries the verified models: exactly those bytes at those paths, all of them."""
+    FILES = {
+        "resources/models/vietocr/onnx/exp_b_width1024/encoder.onnx": b"encoder",
+        "resources/models/vietocr/onnx/exp_b_width1024/decoder_step.onnx": b"decoder",
+        "resources/models/vietocr/finetuned/exp_b_width1024/weights.pth": b"checkpoint",
+        "resources/paddlex/official_models/PP-OCRv6_medium_det/inference.json": b"{}",
+        "resources/paddlex/official_models/PP-OCRv6_medium_det/inference.pdiparams": b"detector",
+        "resources/paddlex/official_models/PP-OCRv6_medium_det/inference.yml": b"yml",
+    }
+
+    def setUp(self):
+        import hashlib
+        digest = lambda rel: hashlib.sha256(self.FILES[rel]).hexdigest()
+        prefix = "resources/paddlex/official_models/PP-OCRv6_medium_det/"
+        lock = {"recognizer": {"encoder_sha256": digest("resources/models/vietocr/onnx/exp_b_width1024/encoder.onnx"),
+                               "decoder_sha256": digest("resources/models/vietocr/onnx/exp_b_width1024/decoder_step.onnx"),
+                               "checkpoint_sha256": digest("resources/models/vietocr/finetuned/exp_b_width1024/weights.pth")},
+                "detector": {"model_name": "PP-OCRv6_medium_det",
+                             "files": {name: digest(prefix + name) for name in
+                                       ("inference.json", "inference.pdiparams", "inference.yml")}}}
+        self.lock = Path(tempfile.mkdtemp(), "model_lock.json")
+        self.lock.write_text(json.dumps(lock), encoding="utf-8")
+        self.root = tempfile.mkdtemp()
+        write(self.root, "VietDoc OCR.exe", b"MZ")
+        for rel, data in self.FILES.items():
+            write(self.root, rel, data)
+
+    def reasons(self, summary):
+        return sorted({f["reason"] for f in summary["findings"]})
+
+    def test_exact_locked_models_pass_only_with_the_option(self):
+        code, summary, _ = run(self.root, "--allow-locked-models", str(self.lock))
+        self.assertEqual(code, 0, summary)
+        self.assertEqual(summary["locked_models"], sorted(self.FILES))
+        code, summary, _ = run(self.root)
+        self.assertEqual(code, 1)
+        self.assertEqual(self.reasons(summary), ["model weights or checkpoint"])
+
+    def test_a_changed_byte_fails(self):
+        write(self.root, "resources/models/vietocr/onnx/exp_b_width1024/encoder.onnx", b"encodeR")
+        code, summary, _ = run(self.root, "--allow-locked-models", str(self.lock))
+        self.assertEqual(code, 1)
+        self.assertEqual(self.reasons(summary), ["locked model missing or different", "model weights or checkpoint"])
+
+    def test_a_non_weight_model_file_that_changed_fails(self):
+        write(self.root, "resources/paddlex/official_models/PP-OCRv6_medium_det/inference.yml", b"other")
+        code, summary, _ = run(self.root, "--allow-locked-models", str(self.lock))
+        self.assertEqual(code, 1)
+        self.assertEqual(self.reasons(summary), ["locked model missing or different"])
+
+    def test_extra_or_moved_weights_and_missing_models_fail(self):
+        write(self.root, "resources/models/vietocr/onnx/exp_b_width1024/other.onnx", b"encoder")
+        write(self.root, "resources/encoder.onnx", b"encoder")
+        Path(self.root, "resources/models/vietocr/finetuned/exp_b_width1024/weights.pth").unlink()
+        code, summary, _ = run(self.root, "--allow-locked-models", str(self.lock))
+        self.assertEqual(code, 1)
+        paths = {f["path"]: f["reason"] for f in summary["findings"]}
+        self.assertEqual(paths, {
+            "resources/models/vietocr/onnx/exp_b_width1024/other.onnx": "model weights or checkpoint",
+            "resources/encoder.onnx": "model weights or checkpoint",
+            "resources/models/vietocr/finetuned/exp_b_width1024/weights.pth": "locked model missing or different"})
+
+    def test_a_locked_model_under_another_name_fails(self):
+        write(self.root, "resources/backend/weights.bin", b"checkpoint")
+        write(self.root, "resources/encoder.dat", b"encoder")
+        code, summary, _ = run(self.root, "--allow-locked-models", str(self.lock))
+        self.assertEqual(code, 1)
+        self.assertEqual({f["path"]: f["reason"] for f in summary["findings"]},
+                         {"resources/backend/weights.bin": "copy of a locked model",
+                          "resources/encoder.dat": "copy of a locked model"})
+
+    def test_documents_are_still_refused_in_a_build_with_models(self):
+        write(self.root, "resources/models/sample.pdf", b"%PDF-1.7")
+        code, summary, _ = run(self.root, "--allow-locked-models", str(self.lock))
+        self.assertEqual(code, 1)
+        self.assertEqual(self.reasons(summary), ["document"])
+
+
 if __name__ == "__main__":
     unittest.main()

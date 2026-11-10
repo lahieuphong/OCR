@@ -134,6 +134,30 @@ a = Analysis(
     noarchive=False,
     optimize=0,
 )
+# Windows: Paddle Inference opens the detector files through narrow (ANSI) file APIs. When the system code page cannot
+# spell the folder (a Vietnamese user name or folder name under code page 1252, for example), OCR stops with
+# "(NotFound) Cannot open file ...\inference.json". activeCodePage UTF-8 (honoured from Windows 10 version 1903) makes
+# those APIs take UTF-8 in this process only, so the bundled models load from any install or extract folder. The rest
+# is PyInstaller's default manifest; Python itself already runs in UTF-8 mode (-X utf8 below).
+WINDOWS_MANIFEST = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
+  <compatibility xmlns="urn:schemas-microsoft-com:compatibility.v1">
+    <application>
+      <supportedOS Id="{e2011457-1546-43c5-a5fe-008deee3d3f0}"/>
+      <supportedOS Id="{35138b9a-5d96-4fbd-8e2d-a2440225f93a}"/>
+      <supportedOS Id="{4a2f28e3-53b9-4441-ba9c-d69d4a4a6e38}"/>
+      <supportedOS Id="{1f676c76-80e1-4239-95bb-83d0f6d0da78}"/>
+      <supportedOS Id="{8e0f7a12-bfb3-4fe8-b9a5-48fd50a15a9a}"/>
+    </application>
+  </compatibility>
+  <application xmlns="urn:schemas-microsoft-com:asm.v3">
+    <windowsSettings>
+      <longPathAware xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings">true</longPathAware>
+      <activeCodePage xmlns="http://schemas.microsoft.com/SMI/2019/WindowsSettings">UTF-8</activeCodePage>
+    </windowsSettings>
+  </application>
+</assembly>
+"""
 a.binaries = [entry for entry in a.binaries if not unused_file(entry[0])]
 a.datas = [entry for entry in a.datas if not unused_file(entry[0]) and not excluded_metadata(entry[0])]
 pyz = PYZ(a.pure)
@@ -144,6 +168,7 @@ exe = EXE(
     exclude_binaries=True,
     name="vietdoc-backend",
     console=True,  # Electron starts it hidden (windowsHide) and talks to it over pipes
+    manifest=WINDOWS_MANIFEST if sys.platform == "win32" else None,
     upx=False,
     strip=False,
     debug=False,

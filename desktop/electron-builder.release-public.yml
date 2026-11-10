@@ -1,0 +1,15 @@
+# The PUBLIC Windows release: electron-builder.release.yml with its public names and licence page, nothing else.
+# packaging/windows/build_release.py --channel public uses it and refuses to while the licence review is open:
+# build-resources/PUBLIC_LICENSE.txt, the licence text the owner approves for the installer, does not exist yet
+# (release/LICENSING_AUDIT.md). The metadata is repeated in full so nothing depends on how extends merges it.
+extends: electron-builder.release.yml
+copyright: VietDoc OCR project
+extraMetadata:
+  vietdocSmokeTest: false
+  author:
+    name: VietDoc OCR project
+  description: VietDoc OCR - offline Vietnamese OCR
+nsis:
+  uninstallDisplayName: ${productName} ${version}
+  artifactName: VietDoc-OCR-v${version}-Windows-${arch}-Setup.${ext}
+  license: build-resources/PUBLIC_LICENSE.txt

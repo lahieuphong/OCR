@@ -57,6 +57,12 @@ once without models. Then rebuild and repeat the full regression:
 
 The spec stops the build if a module it leaves out appears in `runtime_modules.txt`.
 
+On Windows the backend executable carries a manifest with `activeCodePage` UTF-8 (honoured from Windows 10 version
+1903). Paddle Inference opens the detector files through ANSI file APIs; without it, an app installed or extracted
+under a folder the system code page cannot spell (a Vietnamese user name under code page 1252, for example) stops
+OCR with "(NotFound) Cannot open file ...\inference.json". Only that process is affected; Python already runs in
+UTF-8 mode.
+
 ## 3. Frontend
 
 ```
@@ -155,3 +161,55 @@ The packaged app finds `resources\models` and `resources\paddlex` by itself (`de
 SHA-256 checks of `contract.py` and `model_lock.json` apply unchanged: a missing or modified bundled file blocks
 OCR. `electron-builder.installer-smoke.yml` makes the internal test installer whose app accepts the smoke test,
 for the clean-profile regression only. Development and the model-free CI never look for bundled folders.
+
+## 8. Release build: Setup and Portable with the verified models
+
+`packaging/windows/build_release.py` makes both Windows downloads from one checked folder app, on the owner's build
+machine (the models never go to CI). Run it with the packaging environment of section 1:
+
+```
+<out>\venv-packaging\Scripts\python.exe packaging\windows\build_release.py --out <new empty folder outside the checkout> ^
+    --model-root <folder with vietocr\onnx\exp_b_width1024 and vietocr\finetuned\exp_b_width1024\weights.pth> ^
+    --paddlex-home <folder with official_models\PP-OCRv6_medium_det> --vietocr-license <vietocr>\LICENSE ^
+    [--channel internal|public] [--allow-dirty] [--reuse-backend <earlier work\backend-dist>]
+```
+
+It stops at the first failed check and never uploads, tags, signs or installs anything:
+
+1. checks the machine, the packaging venv, `node_modules` against both lockfiles, the installed `paddleocr` against
+   `PaddleOCR/`, the Git tree, and that `<out>` is new and outside the checkout;
+2. copies exactly the files OCR needs into `<out>\work\staging` (`models\` in the repository layout, `paddlex\` as a
+   PaddleX home): the weight and detector files are checked against `desktop/model_lock.json` before and after the
+   copy; `metadata.json` and `parity_full.json` are copied as they are and checked by `contract.py` at run time;
+3. builds the frontend and the backend (section 2), then collects the licence notices of everything bundled
+   (`collect_notices.py`: Python distributions, npm packages of the frontend build, CPython, the Microsoft runtime
+   DLLs, Electron, the models, the app itself) with a NEEDS REVIEW list for the licence review;
+4. links backend, staging and notices into the ignored `desktop\out\` and builds the folder app with
+   `electron-builder.release.yml` (`--channel public`: `electron-builder.release-public.yml`) and the QA variant
+   `electron-builder.release-smoke.yml`, then removes the links;
+5. checks the folder app: Electron fuses, `scan_bundle.py --allow-locked-models` (no documents, keys, secrets or
+   machine paths; weights only the locked files, all present), the longest path under a typical install and extract
+   location (Windows' 260-character limit), and that the smoke variant differs only in `app.asar` and the executable;
+6. makes the Setup from that exact folder (`--prepackaged`) and the Portable ZIP (`portable_zip.py`: the folder as
+   `VietDoc OCR\`, an empty `VietDoc OCR Data\` so the copy keeps its data beside itself, a short guide), reads the
+   whole ZIP back against the folder and, when full 7-Zip is installed, the Setup's payload too;
+7. writes `<out>\release\` (Setup, Portable, `SHA256SUMS.txt`, `BUILD_INFO.txt`, guide, release notes, notices) and
+   `<out>\reports\build_report.json`.
+
+The release configuration is internal by default (`-INTERNAL` in the names, `INTERNAL_NOTICE.txt` on the licence
+page). `--channel public` needs a clean tree, `desktop/build-resources/PUBLIC_LICENSE.txt` (it exists only once the
+owner has closed the licence review), `--vietocr-license`, the detector's model card, full 7-Zip for the Setup payload
+comparison and a backend built in the same run (no `--reuse-backend`). Every build checks that the backend carries the
+UTF-8 code-page manifest. The installer deletes the installer copy electron-builder leaves in
+`%LOCALAPPDATA%\vietdoc-ocr-desktop-updater` (there is no auto-update).
+
+Real OCR through a built app, compared with the development server of the same checkout:
+
+```
+<packaging venv python> packaging\windows\check_packaged_ocr.py --dev-python .venv-demo\Scripts\python.exe ^
+    --model-root <models> --paddlex-home <paddlex> --out <qa>\ref --doc <file>=vietocr_ocr --doc <file>=metadata_fast
+<packaging venv python> packaging\windows\check_packaged_ocr.py --app "<installed or extracted VietDoc OCR folder>" ^
+    --out <qa>\run --compare <qa>\ref --doc ... (same documents)
+```
+
+The process and the release page are described in `release/PHAT_HANH_WINDOWS.md`.

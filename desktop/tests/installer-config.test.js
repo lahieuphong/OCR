@@ -58,10 +58,76 @@ test('internal smoke-test installer: only the smoke switch and its own name diff
   assert.deepEqual(keys, ['extends', 'extraMetadata', 'nsis']);
 });
 
+test('release: one per-user NSIS Setup with the bundled models and notices, no update feed, internal by default', () => {
+  const yml = settings('electron-builder.release.yml');
+  assert.match(yml, /^extends: electron-builder\.yml$/m);
+  assert.match(yml, /^appId: vn\.vietdoc\.ocr\.desktop$/m);
+  assert.match(yml, /^productName: VietDoc OCR$/m);
+  assert.match(yml, /^publish: null$/m);
+  assert.match(yml, /^extraMetadata:\n {2}vietdocSmokeTest: false$/m);
+  assert.doesNotMatch(yml, /vietdocSmokeTest: true|nsis-web|appx|squirrel|electron-updater|autoUpdate|target: portable/i);
+  assert.match(yml, /^win:\n {2}target:\n {4}- target: nsis\n {6}arch: \[x64\]$/m);
+  for (const line of ['oneClick: false', 'perMachine: false', 'allowElevation: false', 'packElevateHelper: false',
+    'allowToChangeInstallationDirectory: false', 'createStartMenuShortcut: true', 'createDesktopShortcut: false',
+    'deleteAppDataOnUninstall: false', 'differentialPackage: false', 'include: build-resources/installer.nsh',
+    'warningsAsErrors: true', 'shortcutName: VietDoc OCR']) {
+    assert.match(yml, new RegExp(`^ {2}${line}$`, 'm'), line);
+  }
+  assert.match(yml, /^ {2}requestedExecutionLevel: asInvoker$/m);
+  const block = yml.match(/^extraResources:\n((?: {2}.*\n?)+)/m)[1];
+  assert.deepEqual([...block.matchAll(/- from: (\S+)\n {4}to: (\S+)/g)].map((m) => [m[1], m[2]]),
+    [['out/models', 'models'], ['out/paddlex', 'paddlex'], ['out/licenses', 'licenses']]);
+  // Internal unless the public variant is used: names and the licence page say so.
+  assert.match(yml, /^ {2}artifactName: VietDoc-OCR-v\$\{version\}-INTERNAL-Windows-\$\{arch\}-Setup\.\$\{ext\}$/m);
+  assert.match(yml, /^ {2}uninstallDisplayName: \$\{productName\} \$\{version\} \(INTERNAL TEST\)$/m);
+  assert.match(yml, /^ {2}license: build-resources\/INTERNAL_NOTICE\.txt$/m);
+  // Its own appId (own uninstall entry). The test build ("VietDoc OCR Test") also has its own folder and profile; the
+  // older internal offline installer (electron-builder.installer.yml) shares the name "VietDoc OCR", so its default
+  // install folder, shortcut and %APPDATA% profile: uninstall that one first (release/PHAT_HANH_WINDOWS.md).
+  for (const other of ['electron-builder.yml', 'electron-builder.windows.yml']) {
+    const appId = settings(other).match(/^appId: (\S+)$/m)[1];
+    assert.notEqual(appId, 'vn.vietdoc.ocr.desktop', other);
+  }
+});
+
+test('public release: only the names, the licence page and the metadata change', () => {
+  const yml = settings('electron-builder.release-public.yml');
+  assert.match(yml, /^extends: electron-builder\.release\.yml$/m);
+  const keys = yml.split('\n').filter((line) => /^\S/.test(line)).map((line) => line.split(':')[0]);
+  assert.deepEqual(keys, ['extends', 'copyright', 'extraMetadata', 'nsis']);
+  const nsis = yml.match(/^nsis:\n((?: {2}.*\n?)+)/m)[1].trim().split('\n').map((line) => line.trim().split(':')[0]);
+  assert.deepEqual(nsis, ['uninstallDisplayName', 'artifactName', 'license']);
+  assert.match(yml, /^ {2}artifactName: VietDoc-OCR-v\$\{version\}-Windows-\$\{arch\}-Setup\.\$\{ext\}$/m);
+  assert.match(yml, /^ {2}license: build-resources\/PUBLIC_LICENSE\.txt$/m);
+  assert.match(yml, /^ {2}vietdocSmokeTest: false$/m);
+  assert.doesNotMatch(yml, /INTERNAL|vietdocSmokeTest: true/);
+});
+
+test('release smoke-test variant: only the smoke switch and its internal names differ', () => {
+  const yml = settings('electron-builder.release-smoke.yml');
+  assert.match(yml, /^extends: electron-builder\.release\.yml$/m);
+  const keys = yml.split('\n').filter((line) => /^\S/.test(line)).map((line) => line.split(':')[0]);
+  assert.deepEqual(keys, ['extends', 'extraMetadata', 'nsis']);
+  assert.match(yml, /^ {2}vietdocSmokeTest: true$/m);
+  assert.match(yml, /^ {2}artifactName: VietDoc-OCR-v\$\{version\}-INTERNAL-SMOKE-TEST-Windows-\$\{arch\}-Setup\.\$\{ext\}$/m);
+});
+
+test('installer script: the installer copy kept for an auto-updater is deleted after installing', () => {
+  const nsh = read('build-resources/installer.nsh');
+  const install = nsh.match(/!macro customInstall\n([\s\S]*?)!macroend/)[1];
+  assert.match(install, /!ifdef APP_INSTALLER_STORE_FILE\n[\s\S]*Delete "\$LOCALAPPDATA\\\$\{APP_INSTALLER_STORE_FILE\}"[\s\S]*RMDir "\$0"[\s\S]*!endif/);
+  // RMDir without /r: the folder goes only when it is empty.
+  assert.doesNotMatch(nsh, /RMDir \/r/i);
+});
+
 test('installer script: per-user forced, Desktop shortcut opt-in, nothing downloaded or executed', () => {
   const nsh = read('build-resources/installer.nsh');
   assert.match(nsh, /!macro customInstallMode\n {2}StrCpy \$isForceCurrentInstall "1"\n!macroend/);
-  assert.match(nsh, /!macro customInit\n {2}StrCpy \$VietDocDesktopShortcut "0"\n!macroend/);
+  assert.match(nsh, /!macro customInit\n {2}StrCpy \$VietDocDesktopShortcut "0"\n/);
+  // Off by default; on only when the user already has the shortcut (upgrade keeps it).
+  assert.match(nsh, /\$\{If\} \$\{FileExists\} "\$DESKTOP\\\$\{SHORTCUT_NAME\}\.lnk"\n {4}StrCpy \$VietDocDesktopShortcut "1"/);
+  const uninstall = nsh.match(/!macro customUnInstall\n([\s\S]*?)!macroend/)[1];
+  assert.match(uninstall, /^ {2}\$\{ifNot\} \$\{isUpdated\}\n[\s\S]*Delete "\$DESKTOP\\/m);
   assert.match(nsh, /\$\{If\} \$VietDocDesktopShortcut == "1"\n {4}CreateShortCut "\$DESKTOP\\/);
   const code = nsh.split('\n').filter((line) => !/^\s*;/.test(line)).join('\n');
   assert.doesNotMatch(code, /inetc|NSISdl|INetC|http:|https:|ExecWait|nsExec|ExecShell|UAC_RunElevated|RequestExecutionLevel/i);

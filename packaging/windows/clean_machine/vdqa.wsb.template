@@ -1,0 +1,22 @@
+<!-- Windows Sandbox configuration for the clean-machine QA (release/windows/QA_MAY_SACH.md, section 4).
+     Replace the four HostFolder values with absolute folders of this machine and save as vdqa.wsb:
+       RELEASE_DIR  the build's release folder (Setup, Portable ZIP, SHA256SUMS.txt)      read-only
+       INPUTS_DIR   permitted QA documents named in sandbox_docs.txt                      read-only
+       TOOLS_DIR    this folder (the scripts and sandbox_docs.txt)                         read-only
+       OUT_DIR      an empty folder for the results                                        writable
+     Networking is disabled: the whole run is offline. The sandbox shuts itself down at the end. -->
+<Configuration>
+  <Networking>Disable</Networking>
+  <vGPU>Disable</vGPU>
+  <AudioInput>Disable</AudioInput>
+  <VideoInput>Disable</VideoInput>
+  <ClipboardRedirection>Disable</ClipboardRedirection>
+  <MemoryInMB>8192</MemoryInMB>
+  <MappedFolders>
+    <MappedFolder><HostFolder>RELEASE_DIR</HostFolder><SandboxFolder>C:\vd\release</SandboxFolder><ReadOnly>true</ReadOnly></MappedFolder>
+    <MappedFolder><HostFolder>INPUTS_DIR</HostFolder><SandboxFolder>C:\vd\inputs</SandboxFolder><ReadOnly>true</ReadOnly></MappedFolder>
+    <MappedFolder><HostFolder>TOOLS_DIR</HostFolder><SandboxFolder>C:\vd\tools</SandboxFolder><ReadOnly>true</ReadOnly></MappedFolder>
+    <MappedFolder><HostFolder>OUT_DIR</HostFolder><SandboxFolder>C:\vd\out</SandboxFolder><ReadOnly>false</ReadOnly></MappedFolder>
+  </MappedFolders>
+  <LogonCommand><Command>powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\vd\tools\run_sandbox_qa.ps1</Command></LogonCommand>
+</Configuration>

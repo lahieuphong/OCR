@@ -19,13 +19,16 @@ class PublicReleaseGateTests(unittest.TestCase):
         self.repo.mkdir()
         self.evidence = self.dir / "private_evidence"
         self.evidence.mkdir()
-        self.installer = self.dir / "VietDoc OCR Setup.exe"
+        self.installer = self.dir / "VietDoc-OCR-v0.1.0-rc.1-Windows-x64-Setup.exe"
         self.installer.write_bytes(b"synthetic installer fixture only")
+        self.portable = self.dir / "VietDoc-OCR-v0.1.0-rc.1-Windows-x64-Portable.zip"
+        self.portable.write_bytes(b"synthetic portable fixture only")
         self.attestation = self.evidence / "attestation.json"
         self.commit = "a" * 40
         self.data = {
             "schema": SCHEMA, "tag": "v0.1.0-rc.1",
             "source_commit": self.commit, "installer_sha256": digest(self.installer.read_bytes()),
+            "portable_sha256": digest(self.portable.read_bytes()),
             "gates": {},
         }
         for group, names in REQUIRED.items():
@@ -38,7 +41,7 @@ class PublicReleaseGateTests(unittest.TestCase):
                 }
 
     def check(self):
-        return verify(self.data, self.installer, self.repo, self.commit, self.attestation)
+        return verify(self.data, self.installer, self.repo, self.commit, self.attestation, self.portable)
 
     def test_synthetic_valid_attestation(self):
         self.assertEqual(self.check(), [])
@@ -91,6 +94,25 @@ class PublicReleaseGateTests(unittest.TestCase):
     def test_wrong_attestation_location_rejected(self):
         errors = verify(self.data, self.installer, self.repo, self.commit, self.repo / "local.json")
         self.assertIn("attestation must be outside Git checkout", errors)
+
+
+class ReleaseFileTests(PublicReleaseGateTests):
+    def test_portable_is_required_and_hashed(self):
+        self.assertIn("portable missing", verify(self.data, self.installer, self.repo, self.commit, self.attestation))
+        self.portable.write_bytes(b"tampered")
+        self.assertIn("portable SHA-256 mismatch", self.check())
+
+    def test_names_follow_the_tag(self):
+        self.data["tag"] = "v0.1.0"
+        errors = self.check()
+        self.assertIn("incorrect installer filename", errors)
+        self.assertIn("incorrect portable filename", errors)
+
+    def test_internal_names_are_refused(self):
+        internal = self.dir / "VietDoc-OCR-v0.1.0-INTERNAL-Windows-x64-Setup.exe"
+        internal.write_bytes(self.installer.read_bytes())
+        self.assertIn("incorrect installer filename",
+                      verify(self.data, internal, self.repo, self.commit, self.attestation, self.portable))
 
 
 if __name__ == "__main__":
