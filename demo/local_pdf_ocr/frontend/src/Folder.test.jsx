@@ -133,7 +133,12 @@ test("one button runs only the selected document; the emphasized second button r
   expect(dialog.textContent).toContain("1/3 tài liệu đã có kết quả");
   await user.click(within(dialog).getByRole("button", {name: "Bóc tách tất cả"}));
   await waitFor(() => expect(calls.map(call => call.name)).toEqual(["1.pdf", "1.pdf", "2.pdf", "3.pdf"]));
-  await runAll(user);
+  // Every document has a result now: both buttons step back to secondary re-runs.
+  const again = await screen.findByRole("button", {name: "Bóc tách lại tất cả (3 tài liệu)"});
+  expect(again.dataset.variant).toBe("outline");
+  expect(screen.getByRole("button", {name: "Bóc tách lại văn bản này"}).dataset.variant).toBe("outline");
+  expect(screen.queryByRole("button", {name: /^Bóc tách tất cả/})).toBeNull();
+  await user.click(again);
   await user.click(within(screen.getByRole("alertdialog")).getByRole("button", {name: "Hủy"}));
   expect(calls).toHaveLength(4);
 });

@@ -21,8 +21,8 @@ import DocumentQueue from "@/components/DocumentQueue.jsx";
 import useDocumentBatch from "@/hooks/useDocumentBatch.js";
 import {EXCEL_FILENAME} from "@/lib/excelExport.js";
 import {editDocumentField, confirmDocumentField} from "@/lib/documentFields.js";
-import {FAST_MODE_DESCRIPTION, PROCESSING_LABELS, RESUME_LABEL, RUN_ONE_FAST_LABEL, RUN_ONE_LABEL,
-  partialScope, resultTextExport, resumeLabel, runAllLabel} from "@/lib/processingModes.js";
+import {FAST_MODE_DESCRIPTION, PROCESSING_LABELS, RERUN_ONE_LABEL, RERUN_THIS_LABEL, RESUME_LABEL, RUN_ONE_FAST_LABEL, RUN_ONE_LABEL,
+  partialScope, rerunAllLabel, resultTextExport, resumeLabel, runAllLabel} from "@/lib/processingModes.js";
 import {dropHasFolder, filesFromDrop} from "@/lib/folderImport.js";
 
 function formatTime(ms) {
@@ -108,6 +108,10 @@ export default function App() {
   useEffect(() => {setPage(1); setCopied(false);}, [activeId,selectedMode]);
   const result = resultsByMode[selectedMode] || null;
   const fast = selectedMode === "metadata_fast";
+  // The selected document already has a result for the selected method: nothing is left to run, so the run button
+  // steps back (a "done" line and a secondary "Bóc tách lại"); switching to a method without a result brings it back.
+  const done = Boolean(result) && !working;
+  const allDone = documents.length > 1 && documents.every(doc => doc.resultsByMode[doc.mode]);
   useEffect(() => {
     if (result?.pages?.length && !result.pages.some(item => item.page === page)) setPage(result.pages[0].page);
   }, [result,page]);
@@ -243,16 +247,20 @@ export default function App() {
               <div className="input-actions">
                 <div className={"run-buttons" + (documents.length > 1 ? " two" : "")}>
                   {/* With several documents the whole-list button is the main action; the selected one is secondary. */}
-                  <Button className="run-button" size="lg" variant={documents.length > 1 ? "outline" : "default"} onClick={() => runOcr()} disabled={!document || working || !canRun}>
-                    {working && batchProgress?.total === 1 ? <LoaderCircle className="spin" size={18}/> : <ScanText size={18}/>}
-                    {working && batchProgress?.total === 1 ? "Đang bóc tách…" : fast ? RUN_ONE_FAST_LABEL : RUN_ONE_LABEL}{!working && <ArrowRight size={17}/>}
-                  </Button>
+                  {done && documents.length < 2 ? <div className="run-done">
+                    <span className="run-done-text" role="status"><CircleCheck size={16}/><span><strong>{fast ? "Đã bóc tách nhanh xong" : "Đã bóc tách xong"}</strong> · {formatTime(result.elapsed_ms)}</span></span>
+                    <Button className="run-button rerun-button" size="sm" variant="outline" onClick={() => runOcr()} disabled={!canRun}
+                      title="Chạy lại phương pháp đang chọn cho văn bản này"><RotateCcw size={14}/>{RERUN_ONE_LABEL}</Button>
+                  </div> : <Button className="run-button" size="lg" variant={documents.length > 1 ? "outline" : "default"} onClick={() => runOcr()} disabled={!document || working || !canRun}>
+                    {working && batchProgress?.total === 1 ? <LoaderCircle className="spin" size={18}/> : done ? <RotateCcw size={16}/> : <ScanText size={18}/>}
+                    {working && batchProgress?.total === 1 ? "Đang bóc tách…" : done ? RERUN_THIS_LABEL : fast ? RUN_ONE_FAST_LABEL : RUN_ONE_LABEL}{!working && !done && <ArrowRight size={17}/>}
+                  </Button>}
                   {documents.length > 1 && (working && batchProgress?.total > 1
                     ? <Button className="batch-pause-button" size="lg" variant="outline" onClick={pause} disabled={pausing}><Pause size={15}/>{pausing ? "Sẽ dừng sau tài liệu đang xử lý…" : "Tạm dừng hàng chờ"}</Button>
                     : resumeCount > 0
                       ? <Button className="batch-run-button batch-resume-button" size="lg" onClick={resume}><ListChecks size={18}/>{resumeLabel(resumeCount)}</Button>
-                      : <Button className="batch-run-button" size="lg" onClick={runBatch} disabled={working || !canRunBatch}>
-                        <ListChecks size={18}/>{runAllLabel(documents.length)}</Button>)}
+                      : <Button className={"batch-run-button" + (allDone ? " rerun-all" : "")} size="lg" variant={allDone ? "outline" : "default"} onClick={runBatch} disabled={working || !canRunBatch}>
+                        {allDone ? <RotateCcw size={16}/> : <ListChecks size={18}/>}{allDone ? rerunAllLabel(documents.length) : runAllLabel(documents.length)}</Button>)}
                 </div>
                 {batchProgress && documents.length > 1 && <div className="queue-progress" role="status">
                   {batchProgress.total > 1 && batchProgress.completed < batchProgress.total && <Progress value={100 * batchProgress.completed / batchProgress.total} aria-label="Tiến độ hàng chờ"/>}

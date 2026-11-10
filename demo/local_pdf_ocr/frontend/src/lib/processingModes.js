@@ -7,6 +7,10 @@ export const RUN_ONE_LABEL = "Bóc tách văn bản này";
 export const RUN_ONE_FAST_LABEL = "Bóc tách nhanh văn bản này";
 export const RUN_ALL_LABEL = "Bóc tách tất cả";
 export const runAllLabel = count => `${RUN_ALL_LABEL} (${count} tài liệu)`;
+// Once the selected method has a result, running again is a secondary action, not the next step.
+export const RERUN_ONE_LABEL = "Bóc tách lại";
+export const RERUN_THIS_LABEL = "Bóc tách lại văn bản này";
+export const rerunAllLabel = count => `Bóc tách lại tất cả (${count} tài liệu)`;
 export const RESUME_LABEL = "Tiếp tục";
 export const resumeLabel = left => `${RESUME_LABEL} (${left} tài liệu còn lại)`;
 export const PROCESSING_MODES = ["native_text", "vietocr_ocr", "hybrid_h1", "metadata_fast"];

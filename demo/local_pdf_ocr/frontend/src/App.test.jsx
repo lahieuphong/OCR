@@ -162,7 +162,7 @@ describe("explicit fast metadata mode", () => {
     expect(document.querySelector(".partial-result-notice").textContent).toContain("không chạy OCR");
     await user.type(field("arcDocCode"),"-KEEP");
     apiResults.push(jsonResponse({detail:"Cần model OCR để đọc header ảnh; không dùng lớp chữ ký."},false));
-    await user.click(run);await user.click(within(screen.getByRole("alertdialog")).getByRole("button",{name:"Thay thế bản nháp"}));
+    await user.click(screen.getByRole("button",{name:"Bóc tách lại"}));await user.click(within(screen.getByRole("alertdialog")).getByRole("button",{name:"Thay thế bản nháp"}));
     await screen.findByText("Cần model OCR để đọc header ảnh; không dùng lớp chữ ký.");
     expect(field("arcDocCode").value).toBe("00042/2025/NĐ-QA-KEEP");
     await user.click(document.querySelector('input[name=mode][value=vietocr_ocr]'));
@@ -237,14 +237,33 @@ describe("metadata UI integration", () => {
     const user = await start();
     await user.type(field("arcDocCode"), "-EDIT");
     const before = fetch.mock.calls.length;
-    await user.click(screen.getByRole("button", {name:"Bóc tách văn bản này"}));
+    await user.click(screen.getByRole("button", {name:"Bóc tách lại"}));
     expect(fetch.mock.calls.length).toBe(before);
     await user.click(within(screen.getByRole("alertdialog")).getByRole("button", {name:"Hủy"}));
     apiResults.push(jsonResponse({detail:"Lỗi tổng hợp để kiểm tra giữ bản nháp"}, false));
-    await user.click(screen.getByRole("button", {name:"Bóc tách văn bản này"}));
+    await user.click(screen.getByRole("button", {name:"Bóc tách lại"}));
     await user.click(within(screen.getByRole("alertdialog")).getByRole("button", {name:"Thay thế bản nháp"}));
     await screen.findByText("Lỗi tổng hợp để kiểm tra giữ bản nháp");
     expect(field("arcDocCode").value).toBe("00103/TEST-CN-EDIT");
+  });
+  test("once the selected method has a result the run button steps back: a done line and a secondary re-run", async () => {
+    const user = await start();
+    expect(screen.queryByRole("button", {name:"Bóc tách văn bản này"})).toBeNull();
+    const done = document.querySelector(".run-done");
+    expect(done.textContent).toMatch(/^Đã bóc tách xong · \d+\.\d giây/);
+    const rerun = screen.getByRole("button", {name:"Bóc tách lại"});
+    expect([rerun.dataset.variant, rerun.disabled]).toEqual(["outline", false]);
+    // Re-running without edits needs no confirmation and keeps the done line afterwards.
+    const before = fetch.mock.calls.filter(([url]) => url === "/api/ocr").length;
+    await user.click(rerun);
+    await waitFor(() => expect(fetch.mock.calls.filter(([url]) => url === "/api/ocr")).toHaveLength(before + 1));
+    await waitFor(() => expect(document.querySelector(".run-done")).not.toBeNull());
+    // A method without a result is still a step to take: the main button is back.
+    await user.click(document.querySelector('input[name=mode][value=vietocr_ocr]'));
+    expect(document.querySelector(".run-done")).toBeNull();
+    expect(screen.getByRole("button", {name:"Bóc tách văn bản này"}).dataset.variant).toBe("default");
+    await user.click(document.querySelector('input[name=mode][value=native_text]'));
+    expect(screen.getByRole("button", {name:"Bóc tách lại"})).toBeTruthy();
   });
   test("replacing a document resets metadata only after accepting loss of edits", async () => {
     const user = await start();
