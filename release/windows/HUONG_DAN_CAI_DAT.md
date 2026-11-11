@@ -51,7 +51,7 @@ Bản phát hành hiện **chưa có chữ ký số** (UNSIGNED). Khi mở, Wind
 
 Ứng dụng được cài vào `%LOCALAPPDATA%\Programs\VietDoc OCR`, chỉ cho tài khoản hiện tại.
 
-**Cập nhật:** khi có Internet, ứng dụng tự kiểm tra GitHub Releases sau khi mở, tải bản mới ở nền và cài khi bạn đóng ứng dụng. Bạn cũng có thể chọn menu **VietDoc → Kiểm tra cập nhật…**, hoặc tự chạy Setup của phiên bản mới. Cài đặt, nhật ký và lối tắt Desktop được giữ lại.
+**Cập nhật:** khi có Internet, ứng dụng tự kiểm tra GitHub Releases sau khi mở, tải bản mới ở nền và cài khi bạn đóng ứng dụng. Bạn cũng có thể bấm nút menu **☰** ở góc phải thanh trên cùng → **Kiểm tra cập nhật**, hoặc tự chạy Setup của phiên bản mới. Cài đặt, nhật ký và lối tắt Desktop được giữ lại.
 
 **Gỡ bỏ:** Settings → Apps → Installed apps → **VietDoc OCR** → Uninstall. Thư mục `%APPDATA%\VietDoc OCR` vẫn được giữ; xóa thủ công nếu không cần nữa.
 
@@ -81,8 +81,8 @@ Giới hạn: tối đa 15 MB mỗi tệp; chỉ đọc trang 1 của PDF; ảnh
 
 ## 9. Khi gặp sự cố
 
-- Menu **VietDoc → Trạng thái backend và model** cho biết model đã được kiểm tra chưa. Nếu báo thiếu hoặc sai SHA-256 thì OCR bị khóa: cài lại hoặc giải nén lại bản Portable.
-- Menu **VietDoc → Mở thư mục log** mở nhật ký để gửi kèm khi báo lỗi. Nhật ký ghi trạng thái và lỗi, có thể chứa đường dẫn thư mục trên máy (kể cả tên tài khoản Windows); hãy xem lại trước khi gửi.
+- Nút menu **☰** ở góc phải thanh trên cùng → **Trạng thái hệ thống** cho biết model đã được kiểm tra chưa. Nếu báo thiếu hoặc sai SHA-256 thì OCR bị khóa: cài lại hoặc giải nén lại bản Portable.
+- Nút menu **☰ → Mở thư mục nhật ký** mở nhật ký để gửi kèm khi báo lỗi. Nhật ký ghi trạng thái và lỗi, có thể chứa đường dẫn thư mục trên máy (kể cả tên tài khoản Windows); hãy xem lại trước khi gửi.
 
 ## 10. Giấy phép
 

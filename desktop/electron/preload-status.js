@@ -1,5 +1,5 @@
 'use strict';
-// The only bridge in the app, for the local status page. The OCR window has no preload at all.
+// Bridge for the local status page. The app window has its own, smaller one (preload-app.js).
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('vietdoc', {

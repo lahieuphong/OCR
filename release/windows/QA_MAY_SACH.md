@@ -38,7 +38,7 @@ Get-NetAdapter | Where-Object Status -eq 'Up'
 |---|---|---|
 | 3.1 | Kiểm tra SHA-256 theo `HUONG_DAN_CAI_DAT.md` | Hai file đều `KHỚP` |
 | 3.2 | Chạy Setup bằng giao diện: I Agree → **chọn** "Tạo lối tắt trên Desktop" → Install → Finish | Không hỏi quyền quản trị; có lối tắt Start Menu **và** Desktop; Apps có "VietDoc OCR" |
-| 3.3 | Mở ứng dụng từ lối tắt Desktop | Một cửa sổ; menu VietDoc → Trạng thái backend và model báo model đã kiểm tra, OCR được phép |
+| 3.3 | Mở ứng dụng từ lối tắt Desktop | Một cửa sổ, thanh trên cùng nền trắng liền với nút thu nhỏ/phóng to/đóng, không có thanh menu tối; nút **☰ → Trạng thái hệ thống** báo model đã kiểm tra, OCR được phép |
 | 3.4 | Bóc tách nhanh (cách xử lý duy nhất của app): PDF có lớp chữ, PDF scan đen trắng, PDF scan màu, PNG, JPG | Có kết quả, không báo lỗi, không cần mạng; không có ô chọn phương pháp |
 | 3.5 | Bóc tách nhanh 22 trường trên ít nhất 3 văn bản; xuất JSON, TXT, Excel | JSON có đủ 22 khóa; Excel mở được, đủ 23 cột |
 | 3.6 | Kiểm tra `%APPDATA%\VietDoc OCR` | Thư mục được tạo, có `logs\`; không có file nào trong thư mục cài ngoài `resources\paddlex\{func_ret,locks,temp}` rỗng |

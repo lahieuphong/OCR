@@ -41,7 +41,7 @@ Mở app một lần, thoát app. Tạo file
 ```
 
 Muốn giữ cấu hình, log và bộ nhớ trình duyệt cạnh app thay vì `~/Library/Application Support`, tạo thư mục `VietDoc OCR Data` ngay cạnh `VietDoc OCR.app` (ví dụ `/Applications/VietDoc OCR Data`) trước khi mở app; khi đó đặt `desktop.config.json` trong thư mục này.
-Thư mục PaddleX phải ghi được, nằm ngoài `.app` và DMG. Mở lại app, chọn menu **VietDoc → Trạng thái backend và model**.
+Thư mục PaddleX phải ghi được, nằm ngoài `.app` và DMG. Mở lại app, chọn menu **VietDoc → Trạng thái hệ thống**.
 Backend kiểm SHA-256 cũ trước khi cho phép OCR. Không thay weights hoặc bỏ kiểm SHA để vượt lỗi.
 Chỉ dùng tài liệu DEV để test; so kết quả scan với nhãn được người đọc độc lập. CI chưa xác nhận độ chính xác OCR thật trên Mac.
 

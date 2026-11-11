@@ -113,7 +113,7 @@ Chưa thêm workflow tạo release vì hai lý do: bản đầy đủ cần mode
 Theo quyết định của chủ dự án (11/11/2026), bản Setup **tự cập nhật** như các ứng dụng Electron thông thường. Mã ở `desktop/electron/lib/updater.js`, dùng `electron-updater`, nguồn là GitHub Releases của `lahieuphong/OCR`:
 
 - Chỉ bản Setup đã cài mới cập nhật: có trình gỡ cài đặt cạnh exe và có `app-update.yml`. Không cập nhật khi chạy Portable, chạy từ mã nguồn, chạy smoke test hay các bản test/nội bộ.
-- Kiểm tra một lần khoảng 10 giây sau khi mở, tải ở nền, cài khi đóng ứng dụng. Có thể kiểm tra tay qua menu **VietDoc → Kiểm tra cập nhật…**. Mọi sự kiện được ghi vào `main.log`.
+- Kiểm tra một lần khoảng 10 giây sau khi mở, tải ở nền, cài khi đóng ứng dụng. Có thể kiểm tra tay qua nút menu **☰ → Kiểm tra cập nhật**. Mọi sự kiện được ghi vào `main.log`.
 - File tải về được kiểm SHA-512 theo `latest.yml`. Cập nhật vi sai dùng blockmap và bản sao installer trong `%LOCALAPPDATA%\vietdoc-ocr-desktop-updater`.
 - **Rủi ro còn lại:** bản build chưa ký số, nên không kiểm được chữ ký nhà phát hành. Ai chiếm được quyền ghi Release của repository có thể đẩy bản cập nhật cho mọi máy đã cài. Cần bật xác thực hai lớp, bảo vệ tag, và ký số sớm (khi đó đặt `publisherName`).
 - Phát hành: `packaging/windows/build_release.py --channel public`, rồi `packaging/windows/publish_github_release.py --publish`.

@@ -4,14 +4,18 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'"/>
-  <title>VietDoc OCR · Trạng thái</title>
+  <title>VietDoc OCR · Trạng thái hệ thống</title>
   <link rel="stylesheet" href="status.css"/>
 </head>
 <body>
   <main>
-    <header class="status-header"><span class="brand-mark" aria-hidden="true">V</span><div><h1>VietDoc OCR</h1><p>Bóc tách văn bản hành chính</p></div><span class="offline-label">Trên máy tính</span></header>
+    <header class="status-header">
+      <span class="brand-mark" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 8h8"/><path d="M7 12h10"/><path d="M7 16h6"/></svg></span>
+      <div><h1>VietDoc OCR</h1><p>Bóc tách văn bản hành chính</p></div>
+      <span class="offline-label"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Xử lý trên máy</span>
+    </header>
     <section class="status-card" aria-labelledby="status-title">
-      <h2 id="status-title">Trạng thái ứng dụng</h2>
+      <h2 id="status-title">Trạng thái hệ thống</h2>
       <p id="message" class="message" role="status">Đang khởi động…</p>
       <dl id="summary" class="summary"></dl>
       <details>
@@ -22,8 +26,8 @@
       </details>
     </section>
     <div class="actions">
-      <button id="retry" type="button" class="primary">Thử lại</button>
-      <button id="logs" type="button">Mở log</button>
+      <button id="retry" type="button">Khởi động lại máy chủ</button>
+      <button id="logs" type="button">Mở thư mục nhật ký</button>
       <button id="quit" type="button">Thoát</button>
     </div>
     <p class="privacy-note">Tài liệu được xử lý trên máy. Ứng dụng không tự tải model.</p>

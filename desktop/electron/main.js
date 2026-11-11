@@ -4,7 +4,7 @@
 const fs = require('node:fs');
 const net = require('node:net');
 const path = require('node:path');
-const { app, BrowserWindow, Menu, clipboard, dialog, ipcMain, protocol, session, shell, webFrameMain } = require('electron');
+const { app, BrowserWindow, Menu, clipboard, dialog, ipcMain, nativeTheme, protocol, session, shell, webFrameMain } = require('electron');
 const { resolveConfig } = require('./lib/config');
 const { BackendProcess, describeExit } = require('./lib/backend');
 const security = require('./lib/security');
@@ -15,6 +15,7 @@ const { matchesTextView } = require('./lib/smoke-text');
 const { STATUS_SCHEME, STATUS_ORIGIN, STATUS_URL, STATUS_SCHEME_PRIVILEGES, statusHandler } = require('./lib/status-protocol');
 const { SPLASH_URL, statusWindowNeeded } = require('./lib/splash');
 const { stylePdfViewerFrame, viewerScrollbarWidth } = require('./lib/pdf-viewer-style');
+const { windowChrome, nextZoom, shortcutFor } = require('./lib/app-window');
 
 // The status page is served over vietdoc-status://app/ (see lib/status-protocol.js), not file://.
 const STATIC_PREFIX = `${STATUS_ORIGIN}/`;
@@ -35,6 +36,8 @@ let lastStatus = { state: 'starting', message: 'Đang khởi động…' };
 const smoke = { started_at: new Date().toISOString(), checks: {}, console: [] };
 
 const IDENTITY = configureAppIdentity(app, require('../package.json'));
+// The app's pages are light only: the system's dark mode must not darken the native frames and dialogs around them.
+nativeTheme.themeSource = 'light';
 if (SMOKE_DIR) app.setPath('userData', path.join(SMOKE_DIR, 'userData'));
 app.setAppLogsPath(path.join(app.getPath('userData'), 'logs'));
 // Only the installed release updates itself (lib/updater.js); electron-updater is loaded only then.
@@ -94,6 +97,19 @@ function fromStatusPage(event) {
   return Boolean(event.senderFrame) && event.senderFrame.url === STATUS_URL;
 }
 
+// The app menu in the page's top bar: only the app window's top frame, on the backend's own origin.
+function fromAppPage(event) {
+  return Boolean(mainWindow) && !mainWindow.isDestroyed() && event.sender === mainWindow.webContents
+    && Boolean(event.senderFrame) && event.senderFrame === mainWindow.webContents.mainFrame
+    && Boolean(backend) && security.sameOrigin(event.senderFrame.url, backend.origin);
+}
+
+function setZoom(step) {
+  const wc = mainWindow.webContents;
+  wc.setZoomFactor(nextZoom(wc.getZoomFactor(), step) / 100);
+  return Math.round(wc.getZoomFactor() * 100);
+}
+
 app.on('web-contents-created', (_event, contents) => {
   security.hardenContents(contents, () => ({ origin: backend && backend.origin, statusUrl: STATUS_URL }));
 });
@@ -109,7 +125,7 @@ function createStatusWindow({ show = true } = {}) {
   });
   if (!statusSession.protocol.isProtocolHandled(STATUS_SCHEME)) statusSession.protocol.handle(STATUS_SCHEME, statusHandler(__dirname));
   statusWindow = new BrowserWindow({
-    width: 680, height: 680, minHeight: 420, show: false, title: 'VietDoc OCR · Trạng thái', autoHideMenuBar: true, backgroundColor: '#ffffff',
+    width: 680, height: 600, minHeight: 420, show: false, title: 'VietDoc OCR · Trạng thái hệ thống', autoHideMenuBar: true, backgroundColor: '#ffffff',
     webPreferences: {
       contextIsolation: true, nodeIntegration: false, sandbox: true, session: statusSession, spellcheck: false,
       preload: path.join(__dirname, 'preload-status.js'), devTools: DEV,
@@ -165,9 +181,18 @@ function createMainWindow() {
   }
   if (!mainWindow) {
     mainWindow = new BrowserWindow({
-      width: 1360, height: 900, show: false, title: 'VietDoc OCR', backgroundColor: '#ffffff',
+      width: 1360, height: 900, show: false, title: 'VietDoc OCR', backgroundColor: '#ffffff', ...windowChrome(process.platform),
       // plugins: Chromium's built-in PDF viewer (PDFium) for the existing PDF preview; it is the only plugin left.
-      webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true, session: appSession, spellcheck: false, devTools: DEV, plugins: true },
+      webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true, session: appSession, spellcheck: false, devTools: DEV, plugins: true,
+        preload: path.join(__dirname, 'preload-app.js') },
+    });
+    // The shortcuts of the former native menu bar (lib/app-window.js).
+    mainWindow.webContents.on('before-input-event', (event, input) => {
+      const action = shortcutFor(input, { platform: process.platform, dev: DEV });
+      if (!action) return;
+      event.preventDefault();
+      if (action === 'devtools') mainWindow.webContents.toggleDevTools();
+      else setZoom({ 'zoom-in': 1, 'zoom-out': -1, 'zoom-reset': 0 }[action]);
     });
     // First paint is the startup page; a startup error may hide the window before that.
     mainWindow.once('ready-to-show', () => { if (mainWindow && !statusWindowNeeded(lastStatus)) mainWindow.show(); });
@@ -214,7 +239,7 @@ async function startBackend() {
     sendStatus({
       state: ocr ? 'ready' : 'limited', step: 'ready', health: health.data, desktop: desktop.data, log: backend.logFile,
       message: ocr ? 'Sẵn sàng bóc tách văn bản từ PDF và ảnh.'
-        : 'OCR chưa sẵn sàng. Bạn vẫn có thể trích xuất văn bản có sẵn trong PDF.',
+        : 'OCR chưa sẵn sàng: vẫn bóc tách nhanh được PDF có lớp chữ; bản scan và ảnh cần model OCR.',
     });
     return true;
   } catch (error) {
@@ -227,7 +252,7 @@ async function startBackend() {
 function onBackendExit(info) {
   if (quitting || info.expected) return;
   sendStatus({ state: 'error', step: 'crashed', desktop: null,
-    message: `Máy chủ xử lý đã dừng (${describeExit(info.code)}). Bấm "Thử lại" hoặc mở log để kiểm tra.` });
+    message: `Máy chủ xử lý đã dừng (${describeExit(info.code)}). Bấm "Thử lại" hoặc mở thư mục nhật ký để kiểm tra.` });
   showStatusWindow();
 }
 
@@ -243,23 +268,39 @@ async function restart() {
   return false;
 }
 
+// Windows and Linux: no native menu bar (it cannot follow the app's look); the page's top bar has the app
+// menu and lib/app-window.js the shortcuts. macOS keeps its system menu bar, whose Edit menu gives the
+// standard Command shortcuts. No "reload" anywhere: it would drop every document of the list.
 function buildMenu() {
+  if (process.platform !== 'darwin') {
+    Menu.setApplicationMenu(null);
+    return;
+  }
   Menu.setApplicationMenu(Menu.buildFromTemplate([
     { label: 'VietDoc', submenu: [
-      { label: 'Trạng thái backend và model', click: showStatusWindow },
-      { label: 'Mở thư mục log', click: () => shell.openPath(logDir()) },
+      { label: 'Trạng thái hệ thống', click: showStatusWindow },
+      { label: 'Mở thư mục nhật ký', click: () => shell.openPath(logDir()) },
       ...(UPDATES.allowed ? [{ label: 'Kiểm tra cập nhật…', click: () => checkUpdatesFromMenu() }] : []),
       { type: 'separator' },
-      { label: 'Thoát', role: 'quit' },
+      { label: 'Thoát VietDoc OCR', role: 'quit' },
     ] },
-    // Native Edit roles register the standard Command shortcuts on macOS.
-    ...(process.platform === 'darwin' ? [{ id: 'vietdoc-edit', role: 'editMenu' }] : []),
+    { id: 'vietdoc-edit', role: 'editMenu' },
     { label: 'Xem', submenu: [
-      { label: 'Tải lại', role: 'reload' }, { label: 'Phóng to', role: 'zoomIn' }, { label: 'Thu nhỏ', role: 'zoomOut' },
-      { label: 'Cỡ mặc định', role: 'resetZoom' }, ...(DEV ? [{ type: 'separator' }, { role: 'toggleDevTools' }] : []),
+      { label: 'Phóng to', role: 'zoomIn' }, { label: 'Thu nhỏ', role: 'zoomOut' }, { label: 'Cỡ mặc định', role: 'resetZoom' },
+      ...(DEV ? [{ type: 'separator' }, { role: 'toggleDevTools' }] : []),
     ] },
   ]));
 }
+
+ipcMain.handle('vietdoc-app:info', (event) => (fromAppPage(event)
+  ? { version: app.getVersion(), platform: process.platform, updates: UPDATES.allowed, zoom: Math.round(mainWindow.webContents.getZoomFactor() * 100) }
+  : null));
+ipcMain.handle('vietdoc-app:open-status', (event) => (fromAppPage(event) ? showStatusWindow().then(() => true) : false));
+ipcMain.handle('vietdoc-app:open-logs', (event) => (fromAppPage(event) ? shell.openPath(logDir()).then((error) => !error) : false));
+ipcMain.handle('vietdoc-app:check-updates', (event) => (fromAppPage(event) && UPDATES.allowed
+  ? checkNow({ updater: getUpdater(), currentVersion: app.getVersion() }) : null));
+ipcMain.handle('vietdoc-app:zoom', (event, step) => (fromAppPage(event) && [-1, 0, 1].includes(step) ? setZoom(step) : null));
+ipcMain.handle('vietdoc-app:quit', (event) => { if (fromAppPage(event)) app.quit(); return null; });
 
 ipcMain.handle('vietdoc:get-status', (event) => (fromStatusPage(event) ? lastStatus : null));
 ipcMain.on('vietdoc:retry', (event) => { if (fromStatusPage(event)) restart(); });
@@ -444,6 +485,37 @@ async function runSmoke() {
   c.request_without_token_status = await fetch(`${backend.origin}/api/health`).then((r) => r.status);
   c.request_localhost_host_status = await fetch(`http://localhost:${backend.port}/api/health`,
     { headers: { 'X-VietDoc-Token': backend.token } }).then((r) => r.status, (e) => `error: ${e.cause?.code || e.message}`);
+
+  // The app menu in the top bar replaces the native menu bar (lib/app-window.js, components/AppMenu.jsx).
+  smoke.step = 'app-menu';
+  c.app_menu = { platform: process.platform, native_menu_bar: Menu.getApplicationMenu() !== null,
+    title_bar_overlay: await js(`Boolean(navigator.windowControlsOverlay && navigator.windowControlsOverlay.visible)
+      && document.querySelector('.app-shell').classList.contains('window-title-bar')
+      && getComputedStyle(document.querySelector('.topbar')).getPropertyValue('-webkit-app-region') === 'drag'`) };
+  assert.ok(await waitFor(() => js(`Boolean(document.querySelector('.app-menu-trigger'))`), 10_000), 'the app menu button is missing');
+  await js(`document.querySelector('.app-menu-trigger').click(); true`);
+  assert.ok(await waitFor(() => js(`Boolean(document.querySelector('[role=menu]'))`), 5000), 'the app menu did not open');
+  c.app_menu.items = await js(`Array.from(document.querySelectorAll('[role=menu] .app-menu-item .app-menu-text > span'), s => s.textContent)`);
+  c.app_menu.version_shown = await js(`document.querySelector('.app-menu-head').textContent.includes(${JSON.stringify(app.getVersion())})`);
+  await sleep(400);  // past the menu's fade-in
+  await screenshot('01b_app_menu.png');
+  const zoomButton = (label) => js(`document.querySelector('[role=menu] button[aria-label^=${JSON.stringify(label)}]').click(); true`);
+  await zoomButton('Phóng to');
+  c.app_menu.zoom_after_plus = await waitFor(async () => { const z = Math.round(wc.getZoomFactor() * 100); return z !== 100 ? z : null; }, 3000);
+  await zoomButton('Cỡ hiển thị');
+  c.app_menu.zoom_after_reset = await waitFor(async () => { const z = Math.round(wc.getZoomFactor() * 100); return z === 100 ? z : null; }, 3000);
+  await js(`document.querySelector('[role=menu]').dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', bubbles: true})); true`);
+  c.app_menu.escape_closes = Boolean(await waitFor(() => js(`!document.querySelector('[role=menu]')`), 3000));
+  // The former menu bar's shortcut, as a key press: Ctrl+= (Command+= on macOS), then Ctrl+0.
+  const command = process.platform === 'darwin' ? 'meta' : 'control';
+  wc.focus();
+  wc.sendInputEvent({ type: 'keyDown', keyCode: '=', modifiers: [command] });
+  wc.sendInputEvent({ type: 'keyUp', keyCode: '=', modifiers: [command] });
+  c.app_menu.zoom_shortcut = await waitFor(async () => { const z = Math.round(wc.getZoomFactor() * 100); return z !== 100 ? z : null; }, 3000);
+  wc.sendInputEvent({ type: 'keyDown', keyCode: '0', modifiers: [command] });
+  wc.sendInputEvent({ type: 'keyUp', keyCode: '0', modifiers: [command] });
+  await waitFor(async () => Math.round(wc.getZoomFactor() * 100) === 100, 3000);
+  wc.setZoomFactor(1);
 
   const pdf = ARGS['smoke-pdf'];
   smoke.step = 'document-flow';
@@ -787,8 +859,9 @@ async function runSmoke() {
       diagnostics: Boolean(document.querySelector('details #facts dd') && document.querySelector('details #problems li')),
       csp: document.querySelector('meta[http-equiv="Content-Security-Policy"]').content
     })`);
-    assert.deepEqual(c.status_ui.actions, ['Thử lại', 'Mở log', 'Thoát']);
-    assert.ok(c.status_ui.summary.includes('Văn bản có sẵn trong PDF') && c.status_ui.summary.includes('Sẵn sàng'));
+    // Running: restarting the server is a secondary action ("Thử lại" is the primary one only after an error).
+    assert.deepEqual(c.status_ui.actions, ['Khởi động lại máy chủ', 'Mở thư mục nhật ký', 'Thoát']);
+    assert.ok(c.status_ui.summary.includes('PDF có lớp chữ') && c.status_ui.summary.includes('Sẵn sàng'));
     assert.ok(c.status_ui.csp.includes("default-src 'none'") && c.status_ui.csp.includes("script-src 'self'"));
   }
 
@@ -856,7 +929,7 @@ if (SMOKE_REFUSED) {
         await runSmoke().catch((error) => { smoke.error = String((error && error.stack) || error); app.quit(); });
       }
     } else {
-      // Startup error: the status window (Thử lại / Mở log / Thoát) replaces the startup page.
+      // Startup error: the status window (Thử lại / Mở thư mục nhật ký / Thoát) replaces the startup page.
       await showStatusWindow();
       if (mainWindow) mainWindow.hide();
       if (SMOKE_DIR) {

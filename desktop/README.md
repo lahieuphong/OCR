@@ -125,9 +125,12 @@ desktop/
   package.json, package-lock.json   Electron 44.6.0 (dev dependency only)
   model_lock.json                   SHA-256 of recognizer (mirrors contract.py) and detector files
   desktop.config.example.json
-  electron/main.js                  windows, menu, lifecycle, smoke test
+  electron/main.js                  windows, lifecycle, smoke test
+  electron/preload-app.js           app-window bridge: the app menu (☰) in the page's top bar
   electron/preload-status.js        status-window bridge
   electron/status.{html,css,js}     status window
+  electron/lib/app-window.js        Windows title bar in the page, zoom steps, Ctrl +/-/0 (no native menu bar
+                                    outside macOS: it cannot follow the app's light look)
   electron/lib/{config,backend,security}.js
   python/vietdoc_desktop_server.py  FastAPI app + static UI + guard + model checks
   python/tests/                     server tests

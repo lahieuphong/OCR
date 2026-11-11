@@ -36,6 +36,14 @@ function checkReport(report, { expect = 'no-models', withPdf = false, withFast =
     `request with Host localhost: ${localhost} (403 or no connection expected)`);
   need(c.backend_status && c.backend_status.model_downloads === 'disabled', 'model downloads are not reported as disabled');
 
+  // The app menu lives in the page's top bar: no native menu bar outside macOS, the title bar drawn into the
+  // page on Windows, its actions listed, the display size changed from the menu and by Ctrl+=, Escape closes.
+  const menu = c.app_menu || {};
+  need(Array.isArray(menu.items) && ['Trạng thái hệ thống', 'Mở thư mục nhật ký', 'Thoát VietDoc OCR'].every((label) => menu.items.includes(label))
+    && menu.version_shown === true && menu.zoom_after_plus === 110 && menu.zoom_after_reset === 100 && menu.zoom_shortcut === 110
+    && menu.escape_closes === true && (menu.platform === 'darwin' || menu.native_menu_bar === false)
+    && (menu.platform !== 'win32' || menu.title_bar_overlay === true), `app menu in the top bar: ${JSON.stringify(c.app_menu)}`);
+
   const ocr = expect === 'ocr';
   need(c.backend_status && c.backend_status.ocr_allowed === ocr, `backend ocr_allowed should be ${ocr}`);
   need(c.ui && (ocr ? /\bconnected\b/ : /\bnot-ready\b/).test(c.ui.pill_class || ''),

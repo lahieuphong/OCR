@@ -13,6 +13,7 @@ import {Tooltip, TooltipContent, TooltipProvider, TooltipTrigger} from "@/compon
 import {Progress} from "@/components/ui/progress";
 import DocumentMetadata from "@/components/DocumentMetadata.jsx";
 import ConfirmDialog from "@/components/ConfirmDialog.jsx";
+import AppMenu, {useWindowTitleBar} from "@/components/AppMenu.jsx";
 import DocumentList from "@/components/DocumentList.jsx";
 import DocumentNavigator from "@/components/DocumentNavigator.jsx";
 import DocumentPreview from "@/components/DocumentPreview.jsx";
@@ -80,6 +81,7 @@ export default function App() {
   const [copied, setCopied] = useState(false);
   const [health, setHealth] = useState("checking");
   const [healthAttempt, setHealthAttempt] = useState(0);
+  const windowTitleBar = useWindowTitleBar();
   const {documents,activeId,document,preview,selectedMode,resultsByMode,metadataByMode,setMetadataByMode,
     pendingDiscard,setPendingDiscard,working,elapsed,error,setError,activeView,setActiveView,canRun,canRunBatch,
     batchProgress,chooseFiles,selectDocument,removeDocument,restoreMetadata,runOcr,runBatch,confirmDocument,setIncluded,
@@ -132,7 +134,7 @@ export default function App() {
   const openFiles = (intent = "add") => {pickerIntent.current = intent; fileInput.current?.click();};
 
   return <TooltipProvider delayDuration={250}>
-    <div className="app-shell">
+    <div className={"app-shell" + (windowTitleBar ? " window-title-bar" : "")}>
       <header className="topbar">
         <div className="brand">
           <span className="brand-mark"><ScanText size={22} strokeWidth={1.7}/></span>
@@ -144,6 +146,7 @@ export default function App() {
             <span className="server-dot"/>
             {health === "connected" ? "Hệ thống sẵn sàng" : health === "checking" ? "Đang kết nối" : health === "not-ready" ? "Thiếu model OCR" : "Chưa kết nối"}
           </Badge>
+          <AppMenu/>
         </div>
       </header>
 

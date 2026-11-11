@@ -11,6 +11,9 @@ function passingNoModels() {
       renderer_has_node: false, external_fetch_blocked: true, external_navigation_blocked: true,
       request_without_token_status: 403, request_localhost_host_status: 403,
       ui_file_selected: 'synthetic.pdf', ui_preview: { rendered: true },
+      app_menu: { platform: 'win32', native_menu_bar: false, title_bar_overlay: true, version_shown: true,
+        items: ['Trạng thái hệ thống', 'Mở thư mục nhật ký', 'Thoát VietDoc OCR'], zoom_after_plus: 110, zoom_after_reset: 100,
+        zoom_shortcut: 110, escape_closes: true },
       ui_fast_only: { mode_inputs: 0, bulk_mode: false, queued_mode: 'metadata_fast', run_fast: true },
       ui_fast_pdf: { ok: false, error: 'Không thể hoàn tất thao tácBản desktop chặn OCR: Missing/invalid ONNX files.' },
       ui_fast_flow: { file: 'officialLetter.pdf', ok: true },
@@ -53,6 +56,24 @@ test('without models the smoke PDF is read from its text layer or refused, and t
   const noFlow = passingNoModels();
   noFlow.checks.ui_fast_flow = { file: 'officialLetter.pdf', ok: false, error: 'x' };
   assert.ok(checkReport(noFlow, { expect: 'no-models', withPdf: true }).failures.some((f) => f.includes('text-layer fixture')));
+});
+
+test('a native menu bar, a system title bar on Windows or a broken app menu fails', () => {
+  for (const change of [{ native_menu_bar: true }, { title_bar_overlay: false }, { items: ['Thoát VietDoc OCR'] },
+    { zoom_after_plus: null }, { zoom_shortcut: null }, { escape_closes: false }, { version_shown: false }]) {
+    const r = passingNoModels();
+    r.checks.app_menu = { ...r.checks.app_menu, ...change };
+    assert.ok(checkReport(r, { expect: 'no-models', withPdf: true }).failures.some((f) => f.startsWith('app menu')), JSON.stringify(change));
+  }
+  const r = passingNoModels();
+  delete r.checks.app_menu;
+  assert.equal(checkReport(r, { expect: 'no-models' }).ok, false);
+  // macOS keeps its system menu bar and frame; Linux keeps its frame.
+  for (const platform of [['darwin', { native_menu_bar: true, title_bar_overlay: false }], ['linux', { title_bar_overlay: false }]]) {
+    const s = passingNoModels();
+    s.checks.app_menu = { ...s.checks.app_menu, platform: platform[0], ...platform[1] };
+    assert.deepEqual(checkReport(s, { expect: 'no-models', withPdf: true }).failures, [], platform[0]);
+  }
 });
 
 test('a method choice in the UI, a missing form check or a full-text export fails', () => {

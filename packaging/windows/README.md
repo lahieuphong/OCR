@@ -31,7 +31,7 @@ Mở app một lần rồi thoát. Tạo `%APPDATA%\VietDoc OCR Test\desktop.con
 }
 ```
 
-Thư mục PaddleX phải ghi được và nằm ngoài thư mục cài app. Mở lại app, kiểm tra menu **VietDoc → Trạng thái backend và model**. Thiếu file hoặc sai SHA-256 sẽ khóa OCR.
+Thư mục PaddleX phải ghi được và nằm ngoài thư mục cài app. Mở lại app, bấm nút menu **☰** ở góc phải thanh trên cùng → **Trạng thái hệ thống**. Thiếu file hoặc sai SHA-256 sẽ khóa OCR.
 
 ## Lưu dữ liệu app cạnh thư mục cài
 

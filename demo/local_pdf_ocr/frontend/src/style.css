@@ -86,6 +86,42 @@
 .server-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 .server-pill.connected { background: #f0fdf4; color: #15803d; border-color: #bbf7d0; }
 .server-pill.not-ready, .server-pill.disconnected { background: #fffbeb; color: #92400e; border-color: #fde68a; }
+
+/* Desktop app on Windows: the top bar is the window's title bar. It moves the window, and keeps clear of the
+   minimise/maximise/close buttons the system draws at its right (Window Controls Overlay, same height). */
+.window-title-bar .topbar { -webkit-app-region: drag; user-select: none; min-height: max(60px, env(titlebar-area-height, 60px));
+  padding-block: 0; padding-right: max(20px, calc((100vw - 1400px) / 2), calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw) + 12px)); }
+.window-title-bar .topbar button, .window-title-bar .topbar a { -webkit-app-region: no-drag; }
+
+/* The desktop app's menu (components/AppMenu.jsx), drawn like the app's dropdowns. */
+.app-menu-trigger { width: 34px; height: 34px; border-radius: 9px; color: #475569; }
+.app-menu-trigger[aria-expanded="true"] { background: #eff6ff; color: #1d4ed8; }
+.app-menu-content { z-index: 60; width: 272px; padding: 6px; border: 1px solid var(--border); border-radius: 12px; background: #fff; color: #334155;
+  box-shadow: 0 2px 4px #0f172a0d, 0 12px 28px #0f172a24; animation: select-in .1s ease-out; font-size: 13px; }
+.app-menu-head { display: flex; align-items: center; gap: 10px; margin: 0 0 6px; padding: 8px 8px 12px; border-bottom: 1px solid var(--border); }
+.app-menu-mark { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 8px; background: var(--primary); color: #fff; }
+.app-menu-head strong, .app-menu-head small, .app-menu-text span, .app-menu-text small { display: block; }
+.app-menu-head strong { color: #0f172a; font-size: 13px; font-weight: 650; letter-spacing: -.2px; }
+.app-menu-head small { color: #64748b; font-size: 11px; }
+.app-menu-item { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 40px; padding: 6px 10px; border: 0; border-radius: 8px; background: none; color: #0f172a; font: inherit; text-align: left; cursor: pointer; }
+.app-menu-item > svg { flex: none; color: #64748b; }
+.app-menu-item:hover, .app-menu-item:focus-visible { background: #eff6ff; color: #1d4ed8; outline: none; }
+.app-menu-item:hover > svg, .app-menu-item:focus-visible > svg { color: #2563eb; }
+.app-menu-text { min-width: 0; line-height: 1.35; }
+.app-menu-text small { color: #64748b; font-size: 11px; }
+.app-menu-item[data-action="quit"] { min-height: 36px; }
+.app-menu-separator { height: 1px; margin: 6px 4px; background: var(--border); }
+.app-menu-zoom { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 4px 4px 4px 10px; color: #0f172a; }
+.app-menu-zoom-buttons { display: inline-flex; align-items: center; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.app-menu-zoom-buttons button { display: grid; place-items: center; min-width: 30px; height: 28px; padding: 0 6px; border: 0; background: #fff; color: #475569; font: inherit; font-size: 12px; cursor: pointer; }
+.app-menu-zoom-buttons button + button { border-left: 1px solid var(--border); }
+.app-menu-zoom-buttons button:hover, .app-menu-zoom-buttons button:focus-visible { background: #eff6ff; color: #1d4ed8; outline: none; }
+.app-menu-zoom-value { min-width: 52px !important; font-variant-numeric: tabular-nums; font-weight: 600; }
+.update-message { display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; border: 1px solid #bbf7d0; border-radius: 8px; background: #f0fdf4; color: #15803d; }
+.update-message > svg { flex: none; margin-top: 4px; }
+.update-message.warning { border-color: #fde68a; background: #fffbeb; color: #92400e; }
+.update-dialog[aria-busy="true"] .update-message { border-color: #dbeafe; background: #eff6ff; color: #1d4ed8; }
+.update-detail { color: #64748b; font-size: 11px !important; overflow-wrap: anywhere; }
 .main-container { flex: 1; min-height: 0; width: 100%; max-width: 1440px; margin: 0 auto; padding: 14px 20px; display: flex; flex-direction: column; gap: 12px; }
 .workspace { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 45fr) minmax(0, 55fr); gap: 14px; }
 .left-pane, .right-pane { min-width: 0; min-height: 0; display: flex; flex-direction: column; padding: 0; gap: 0; border-radius: 14px; border: 1px solid var(--border); box-shadow: 0 1px 2px #0f172a08, 0 8px 24px #0f172a06; overflow: hidden; background: #fff; }

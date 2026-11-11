@@ -13,6 +13,8 @@ const SPLASH_HTML = `<!doctype html>
 <style>
 :root { color-scheme: light; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI Variable", "Segoe UI", sans-serif; }
 html, body { height: 100%; margin: 0; background: #fff; color: #334155; }
+/* On Windows the window has no system title bar (lib/app-window.js): the whole page moves the window. */
+body { -webkit-app-region: drag; user-select: none; }
 body { display: grid; place-items: center; }
 main { display: flex; flex-direction: column; align-items: center; gap: 22px; padding: 24px; text-align: center; }
 .brand { display: flex; align-items: center; gap: 12px; text-align: left; }
