@@ -40,7 +40,7 @@ Script dừng ở bất kỳ bước kiểm tra nào không đạt. Nó không u
 
 1. Unit test, build và hồi quy OCR như mọi thay đổi (backend, frontend, desktop, packaging).
 2. `packaging/windows/check_packaged_ocr.py`: chạy OCR thật bằng backend của bản đã cài và bản Portable đã giải nén, so với backend chạy từ mã nguồn.
-3. Smoke giao diện bằng biến thể smoke của cùng bản build: OCR, Bóc tách nhanh, xuất JSON 22 trường và Excel.
+3. Smoke giao diện bằng biến thể smoke của cùng bản build: Bóc tách nhanh (cách xử lý duy nhất, có OCR cho bản scan), xuất JSON 22 trường và Excel.
 4. Cài, mở lại, nâng cấp, gỡ; Portable ở đường dẫn tiếng Việt có khoảng trắng; không còn tiến trình sau khi thoát; không có kết nối ra ngoài.
 5. Windows 10 và Windows 11 sạch, offline: quy trình và script trong [windows/QA_MAY_SACH.md](windows/QA_MAY_SACH.md).
 6. Cổng bằng chứng [check_release_candidate.py](check_release_candidate.py): đủ báo cáo PASS và SHA-256 khớp với file sẽ phát hành.

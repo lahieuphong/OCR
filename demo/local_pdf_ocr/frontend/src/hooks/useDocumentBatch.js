@@ -1,11 +1,11 @@
 import {useEffect, useReducer, useRef, useState} from "react";
-import {batchReducer, createBatchDocument, estimateRemainingMs, modeAllowed, runDocumentQueue} from "@/lib/documentBatch.js";
+import {batchReducer, createBatchDocument, estimateRemainingMs, runDocumentQueue} from "@/lib/documentBatch.js";
 import {createDocumentDraft, validateDocumentDraft} from "@/lib/documentFields.js";
 import {describeImport, documentPath, planImport} from "@/lib/folderImport.js";
 
 
-// The 22 fields are the main purpose: every document added in the app starts with the fast header mode
-// (first page only, about 7-15 s per PDF). Full text (native/OCR/H1) stays one click away.
+// The 22 fields are the app's purpose: every document is processed with the fast header mode
+// (first page only, about 7-15 s per PDF). The app offers no other method.
 export const NEW_DOCUMENT_MODE = "metadata_fast";
 
 export default function useDocumentBatch(health) {
@@ -29,15 +29,14 @@ export default function useDocumentBatch(health) {
   const metadataByMode = active?.metadataByMode || {};
   // Fast PDF headers with a genuine text layer can work without models. If OCR
   // is needed the backend refuses that request; never fall back to e-sign text.
-  // Without models only a PDF's own text works: the text layer, or a fast header from it. An image always needs OCR.
-  const canRunMode = (mode, name = active?.name || "") => health === "connected"
-    || (health === "not-ready" && (mode === "native_text" || (mode === "metadata_fast" && /\.pdf$/iu.test(name))));
-  const canRun = canRunMode(selectedMode);
-  // "Bóc tách tất cả" runs EVERY document of the list with its own method, processed or not.
-  const canRunBatch = documents.length > 0 && documents.every(doc => canRunMode(doc.mode, doc.name));
+  // Without models only a PDF can be tried (its text layer); an image always needs OCR.
+  const canRunDocument = (name = active?.name || "") => health === "connected" || (health === "not-ready" && /\.pdf$/iu.test(name));
+  const canRun = canRunDocument();
+  // "Bóc tách tất cả" runs EVERY document of the list, processed or not.
+  const canRunBatch = documents.length > 0 && documents.every(doc => canRunDocument(doc.name));
   const resumable = resumeIds.map(id => documents.find(doc => doc.id === id)).filter(Boolean);
   const failed = documents.filter(doc => doc.errorsByMode[doc.mode]);
-  const canRunFailed = failed.length > 0 && failed.every(doc => canRunMode(doc.mode, doc.name));
+  const canRunFailed = failed.length > 0 && failed.every(doc => canRunDocument(doc.name));
 
   useEffect(() => {
     mounted.current = true;
@@ -98,28 +97,13 @@ export default function useDocumentBatch(health) {
     if (doc && Object.values(doc.metadataByMode).some(draft => draft.dirty)) setPendingDiscard({run:apply,message:"Xóa tài liệu sẽ mất các chỉnh sửa metadata của tài liệu này."});
     else apply();
   }
-  function changeMode(mode, id = activeId) {
-    const target = documents.find(doc => doc.id === id);
-    if (!target || running.current || !modeAllowed(target.name, mode)) return;
-    update(target.id, doc => ({...doc,mode})); setError("");
-    if (id === activeId) setActiveView(target.metadataByMode[mode] ? "metadata" : "text");
-  }
-  // One method for every document of the list. Results and edits are kept per method, so switching
-  // never deletes anything. Images keep their own method when the chosen one needs a PDF text layer.
-  function changeModeForAll(mode) {
-    if (running.current) return 0;
-    const targets = documents.filter(doc => modeAllowed(doc.name, mode) && doc.mode !== mode);
-    for (const doc of targets) update(doc.id, current => ({...current,mode}));
-    setError("");
-    return targets.length;
-  }
   // Pause = stop after the document being processed (a request is never cut off); "continue" runs what is left.
   function pause() {
     if (!running.current) return;
     pauseRequested.current = true; setPausing(true);
   }
   async function process(entries, batch = false) {
-    if (running.current || !entries.length || entries.some(doc => !canRunMode(doc.mode, doc.name))) return;
+    if (running.current || !entries.length || entries.some(doc => !canRunDocument(doc.name))) return;
     running.current = true; pauseRequested.current = false; setPausing(false); setResumeIds([]);
     setWorking(true); setError(""); setNotice("");
     const startedAt = Date.now();
@@ -137,15 +121,9 @@ export default function useDocumentBatch(health) {
             errorsByMode:{...current.errorsByMode,[doc.mode]:""},statesByMode:{...current.statesByMode,[doc.mode]:"processing"}}));
         },
         onSuccess:(doc, {raw,draft}) => {
-          update(doc.id, current => {
-            const baseline = doc.mode === "hybrid_h1" && raw.ocr_result?.method === "vietocr_ocr"
-              && !current.resultsByMode.vietocr_ocr ? raw.ocr_result : null;
-            return {...current,resultsByMode:{...current.resultsByMode,...(baseline ? {vietocr_ocr:baseline} : {}),[doc.mode]:raw},
-              metadataByMode:{...current.metadataByMode,...(baseline ? {vietocr_ocr:createDocumentDraft(baseline,{sourceKind:"pdf"})} : {}),[doc.mode]:draft},
-              errorsByMode:{...current.errorsByMode,...(baseline ? {vietocr_ocr:""} : {}),[doc.mode]:""},
-              statesByMode:{...current.statesByMode,...(baseline ? {vietocr_ocr:"success"} : {}),[doc.mode]:"success"},
-              confirmedByMode:{...current.confirmedByMode,...(baseline ? {vietocr_ocr:false} : {}),[doc.mode]:false}};
-          });
+          update(doc.id, current => ({...current,resultsByMode:{...current.resultsByMode,[doc.mode]:raw},
+            metadataByMode:{...current.metadataByMode,[doc.mode]:draft},errorsByMode:{...current.errorsByMode,[doc.mode]:""},
+            statesByMode:{...current.statesByMode,[doc.mode]:"success"},confirmedByMode:{...current.confirmedByMode,[doc.mode]:false}}));
           if (!batch) setActiveView("metadata");
         },
         onError:(doc,error) => {
@@ -178,14 +156,14 @@ export default function useDocumentBatch(health) {
     const edited = done.filter(doc => doc.metadataByMode[doc.mode]?.dirty);
     if (!done.length) {process(documents, true); return;}
     setPendingDiscard({title:"Bóc tách lại tất cả tài liệu?", confirmLabel:"Bóc tách tất cả",
-      message:`${done.length}/${documents.length} tài liệu đã có kết quả với phương pháp đang chọn và sẽ được bóc tách lại.`
+      message:`${done.length}/${documents.length} tài liệu đã có kết quả và sẽ được bóc tách lại.`
         + (edited.length ? ` ${edited.length} tài liệu có chỉnh sửa metadata sẽ bị thay bằng giá trị tự động mới.` : ""),
       run:() => process(documents, true)});
   }
   function runOcr(id = activeId) {
     const doc = documents.find(item => item.id === id);
-    if (!doc || !canRunMode(doc.mode, doc.name)) return;
-    if (doc.metadataByMode[doc.mode]?.dirty) setPendingDiscard({run:() => process([doc]),message:"Chạy lại sẽ thay thế bản nháp metadata đã chỉnh sửa của phương pháp đang chọn nếu xử lý thành công."});
+    if (!doc || !canRunDocument(doc.name)) return;
+    if (doc.metadataByMode[doc.mode]?.dirty) setPendingDiscard({run:() => process([doc]),message:"Chạy lại sẽ thay thế bản nháp metadata đã chỉnh sửa của văn bản này nếu xử lý thành công."});
     else process([doc]);
   }
   function restoreMetadata() {
@@ -201,9 +179,9 @@ export default function useDocumentBatch(health) {
   }
   return {documents,activeId,active,document,preview,selectedMode,resultsByMode,metadataByMode,setMetadataByMode,
     pendingDiscard,setPendingDiscard,working,elapsed,error:uiError || active?.errorsByMode[selectedMode] || "",setError,
-    activeView,setActiveView,canRun,canRunBatch,batchProgress,chooseFiles,selectDocument,removeDocument,changeMode,restoreMetadata,
+    activeView,setActiveView,canRun,canRunBatch,batchProgress,chooseFiles,selectDocument,removeDocument,restoreMetadata,
     runOcr,runBatch:runAll,confirmDocument,resumeCount:resumable.length,resume:() => process(resumable,true),
     failedCount:failed.length,canRunFailed,runFailed:() => process(failed,true),
-    changeModeForAll,pause,pausing,notice,dismissNotice:() => setNotice(""),
+    pause,pausing,notice,dismissNotice:() => setNotice(""),
     setIncluded:(id,checked) => update(id, doc => ({...doc,includeInExport:checked}))};
 }

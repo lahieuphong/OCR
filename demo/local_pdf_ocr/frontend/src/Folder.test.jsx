@@ -6,7 +6,6 @@ import userEvent from "@testing-library/user-event";
 import App from "./App.jsx";
 import {syntheticDocument} from "./test/fixtures/administrativeDocuments.js";
 import {fastMetadataDocument} from "./test/fixtures/fastMetadata.js";
-import {pick} from "./test/select.js";
 
 function folderFile(path, size) {
   // Same lastModified for the same path: the file the folder picker returns again.
@@ -61,12 +60,11 @@ test("a chosen folder adds its PDFs and images in folder order, fast mode by def
   expect(calls.map(call => call.name)).toEqual(["2.pdf", "10.pdf", "3.png", "11.pdf"]);
 });
 
-test("one method can be applied to every document; images keep a mode they support", async () => {
-  const user = await chooseFolder([folderFile("d/1.pdf"), folderFile("d/2.png"), folderFile("d/3.pdf")]);
-  await pick(user, screen.getByLabelText("Phương pháp cho tất cả tài liệu"), "native_text");
-  expect(modes()).toEqual(["native_text", "metadata_fast", "native_text"]);
-  await pick(user, screen.getByLabelText("Phương pháp cho tất cả tài liệu"), "vietocr_ocr");
-  expect(modes()).toEqual(["vietocr_ocr", "vietocr_ocr", "vietocr_ocr"]);
+test("PDFs and images of a folder are all queued for the fast header mode; no method can be chosen", async () => {
+  await chooseFolder([folderFile("d/1.pdf"), folderFile("d/2.png"), folderFile("d/3.pdf")]);
+  expect(modes()).toEqual(["metadata_fast", "metadata_fast", "metadata_fast"]);
+  expect(screen.queryByLabelText("Phương pháp cho tất cả tài liệu")).toBeNull();
+  expect(document.querySelectorAll("input[name=mode]")).toHaveLength(0);
 });
 
 test("pause stops after the current document, continue runs only the rest, failed ones retry alone", async () => {
@@ -176,15 +174,11 @@ test("the list can be searched and filtered without changing what the run-all bu
   expect(document.querySelector(".queue-status.error").textContent).toBe("Lỗi");
 });
 
-test("a row selects or removes its document; another method than the usual one is written on it", async () => {
+test("a row selects or removes its document", async () => {
   const user = await chooseFolder([folderFile("d/1.pdf"), folderFile("d/2.pdf"), folderFile("d/3.pdf")]);
   const row = index => document.querySelectorAll(".input-queue li")[index];
-  expect(row(0).querySelector(".queue-tag")).toBeNull();
   await user.click(row(1).querySelector(".select-queued-file"));
   expect(row(1).className).toBe("active");
-  await user.click(document.querySelector("input[name=mode][value=vietocr_ocr]"));
-  expect(modes()).toEqual(["metadata_fast", "vietocr_ocr", "metadata_fast"]);
-  expect(row(1).querySelector(".queue-tag").textContent).toBe("OCR");
   await user.click(screen.getByRole("button", {name: "Xóa tài liệu 3: 3.pdf"}));
   expect(queued()).toEqual(["1. 1.pdf", "2. 2.pdf"]);
   expect(row(1).className).toBe("active");

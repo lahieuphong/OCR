@@ -67,15 +67,11 @@ Bản phát hành hiện **chưa có chữ ký số** (UNSIGNED). Khi mở, Wind
 ## 7. Sử dụng
 
 1. Bấm chọn tệp, kéo thả tệp hoặc chọn cả thư mục (PDF, PNG, JPG).
-2. Chọn cách xử lý:
-   - **Bóc tách nhanh**: đọc 22 trường thông tin từ trang 1 (mặc định).
-   - **Text có sẵn**: lấy lớp chữ có sẵn của PDF, không OCR.
-   - **Nhận dạng OCR**: cho ảnh chụp và bản scan.
-   - **PDF + OCR**: thử nghiệm, kết hợp lớp chữ của PDF với OCR. Cần đối chiếu trước khi dùng.
+2. Bấm **Bóc tách nhanh văn bản này**, hoặc **Bóc tách tất cả** khi có nhiều tệp. Ứng dụng đọc 22 trường thông tin từ trang 1: dùng lớp chữ của PDF điện tử khi có, còn bản scan và ảnh chụp thì OCR phần đầu trang.
 3. Kiểm tra kết quả. Ô nào ghi **Cần kiểm tra** phải được người dùng xác nhận.
-4. Xuất TXT, JSON hoặc Excel (nhiều văn bản trong một bảng).
+4. Xuất JSON 22 trường hoặc Excel (nhiều văn bản trong một bảng). Nội dung phần đầu trang đã đọc có thể tải dạng TXT hoặc JSON.
 
-Giới hạn: tối đa 15 MB mỗi tệp; Nhận dạng OCR tối đa 6 trang mỗi PDF; ảnh tối đa 12 megapixel. OCR chạy bằng CPU nên mỗi trang scan có thể mất vài chục giây.
+Giới hạn: tối đa 15 MB mỗi tệp; chỉ đọc trang 1 của PDF; ảnh tối đa 12 megapixel. OCR chạy bằng CPU nên mỗi bản scan có thể mất vài giây đến vài chục giây.
 
 ## 8. Quyền riêng tư
 

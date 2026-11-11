@@ -5,9 +5,9 @@
 //   node scripts/check-smoke-report.js <smoke_report.json> --expect=no-models|ocr [--with-pdf] [--with-fast] [--with-subject-review]
 //
 // no-models: the frozen recognizer/detector are absent, so OCR must be refused (CI, no downloads).
-// ocr:       the models verified, so OCR must run through the UI (local DEV run; compare the export
-//            with the A0 baseline separately). Screenshots and the PDF preview pixels are evidence
-//            only: their failures are reported as warnings, never as a pass or a fail.
+// ocr:       the models verified, so the fast header extraction must run through the UI (local DEV run).
+//            Screenshots and the PDF preview pixels are evidence only: their failures are reported as
+//            warnings, never as a pass or a fail.
 const fs = require('node:fs');
 
 function checkReport(report, { expect = 'no-models', withPdf = false, withFast = false, withSubjectReview = false } = {}) {
@@ -43,29 +43,30 @@ function checkReport(report, { expect = 'no-models', withPdf = false, withFast =
 
   if (withPdf) {
     need(Boolean(c.ui_file_selected), 'the PDF was not selected through the file input');
-    need(c.ui_native_text && c.ui_native_text.ok, `text-layer extraction failed: ${JSON.stringify(c.ui_native_text)}`);
-    need(c.export && c.export.both_saved && c.export.txt_equals_json_text && c.export.json_method === 'native_text',
-      `TXT/JSON export of the text layer: ${JSON.stringify(c.export)}`);
+    const only = c.ui_fast_only || {};
+    need(only.mode_inputs === 0 && only.bulk_mode === false && only.queued_mode === 'metadata_fast' && only.run_fast === true,
+      `the app must offer the fast header mode only, with no method choice: ${JSON.stringify(c.ui_fast_only)}`);
     need(c.ocr_allowed === ocr, `UI-side ocr_allowed should be ${ocr}`);
+    const first = c.ui_fast_pdf || {};
     if (ocr) {
-      need(c.ui_ocr_run_button_disabled === false, 'the OCR button is disabled although OCR is allowed');
-      need(c.ui_vietocr_ocr && c.ui_vietocr_ocr.ok, `OCR through the UI failed: ${JSON.stringify(c.ui_vietocr_ocr)}`);
-      const e = c.ocr_export || {};
-      need(e.both_saved && e.txt_equals_json_text && e.json_method === 'vietocr_ocr' && e.decoder_limit_hits === 0
-        && e.model === 'phase4_exp_b_width1024', `OCR export: ${JSON.stringify(e)}`);
-      // Copy button: an error shown by the UI fails the run. What the main process reads back from the clipboard
-      // is evidence only: on Windows that read-back proved unreliable (empty or stale while another process saw the
-      // copied text), so a mismatch is a warning; verify the clipboard from outside (clipboard_watch) instead.
-      const copy = c.ocr_copy || {};
-      need(c.ocr_copy && !copy.ui_error, `copy button: ${JSON.stringify(copy)} (the UI reported a copy error or never ran the check)`);
-      if (!(copy.copied && (copy.equals_full_text || copy.equals_page_text))) {
-        warnings.push(`copy button: clipboard read-back not confirmed in-process (evidence only): ${JSON.stringify(copy)}`);
-      }
+      need(first.ok === true, `fast extraction through the UI failed: ${JSON.stringify(c.ui_fast_pdf)}`);
     } else {
-      need(c.ui_ocr_run_button_disabled === true, 'the OCR button is enabled although models are missing');
+      // Without models the smoke PDF is read from a genuine header in its text layer, or refused (never OCRed,
+      // nothing downloaded); the form and export checks then ran on the text-layer fixture.
+      // The packaged backend refuses with "Bản desktop chặn OCR: …", a source checkout with the missing-ONNX message.
+      need(first.ok === true || /chặn OCR|Missing\/invalid ONNX/.test(first.error || ''),
+        `fast extraction without models: ${JSON.stringify(c.ui_fast_pdf)} (a result or a missing-model refusal expected)`);
+      need(first.ok === true || (c.ui_fast_flow && c.ui_fast_flow.ok === true),
+        `fast extraction of the text-layer fixture: ${JSON.stringify(c.ui_fast_flow)}`);
       need(c.api_vietocr_ocr && c.api_vietocr_ocr.status === 503 && /chặn OCR/.test(c.api_vietocr_ocr.detail || ''),
         `OCR request without models: ${JSON.stringify(c.api_vietocr_ocr)} (503 "chặn OCR" expected)`);
     }
+    const m = c.metadata || {};
+    need(m.fields === 22 && m.export_exact_schema === true && m.manual_edits_and_reset === true,
+      `22-field form and JSON export: ${JSON.stringify(c.metadata)}`);
+    const e = c.export || {};
+    need(e.both_saved && e.txt_labels_partial_and_keeps_text === true && e.json_method === 'metadata_fast' && e.partial_result === true,
+      `partial TXT/JSON export of the header: ${JSON.stringify(c.export)}`);
     if (!(c.ui_preview && c.ui_preview.rendered)) warnings.push('PDF preview pixels not confirmed (evidence only)');
     // 0: the test document fits without scrolling. null: the style did not reach the PDF viewer.
     if (c.ui_preview && c.ui_preview.scrollbar_px === null) warnings.push('PDF preview has the default scrollbar (evidence only)');

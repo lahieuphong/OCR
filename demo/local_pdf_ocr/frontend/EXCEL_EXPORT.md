@@ -5,20 +5,20 @@ hiện có. **Đổi tệp** chỉ thay thế tài liệu đang chọn. Tên tr�
 biệt bằng STT và UUID trong phiên. Xóa/đổi/chạy lại tài liệu có chỉnh sửa cần
 xác nhận; thêm tài liệu không làm mất bản nháp khác.
 
-Mỗi tài liệu có lựa chọn phương pháp riêng. **Bóc tách tất cả tài liệu chưa xử
-lý** chờ từng `/api/ocr` hoàn tất trước khi gửi tài liệu tiếp theo, kể cả khi
-một tài liệu lỗi. Không tự chuyển phương pháp. PDF không có lớp chữ được báo
-để người dùng tự chọn OCR. **Thử lại** trong bảng chỉ xử lý tài liệu lỗi đó.
-Giới hạn và khóa xử lý của backend được giữ nguyên.
+Mọi tài liệu được xử lý bằng **Bóc tách nhanh** (`metadata_fast`, header trang
+1); giao diện không có lựa chọn phương pháp khác. **Bóc tách tất cả** chờ từng
+`/api/ocr` hoàn tất trước khi gửi tài liệu tiếp theo, kể cả khi một tài liệu
+lỗi. **Thử lại** trong bảng chỉ xử lý tài liệu lỗi đó. Giới hạn và khóa xử lý
+của backend được giữ nguyên.
 
 Tab **Danh sách văn bản** mở form tương ứng khi nhấn mã/tên tài liệu. Raw result,
-bản nháp, lỗi và xác nhận nằm trong bộ nhớ theo UUID và phương pháp; chuyển
+bản nháp, lỗi và xác nhận nằm trong bộ nhớ theo UUID của tài liệu; chuyển
 tài liệu/tab không trộn hoặc mất chỉnh sửa. Xác nhận toàn tài liệu không điền
 trường thiếu. Sửa metadata sẽ hủy trạng thái xác nhận đó. Không ghi tài liệu vào
 localStorage, telemetry hay dịch vụ ngoài.
 
-**Xuất danh sách Excel** dùng các checkbox của bảng và phương pháp đang chọn
-trên từng tài liệu. Nút bị khóa khi chưa có kết quả hợp lệ hoặc đang xử lý.
+**Xuất danh sách Excel** dùng các checkbox của bảng và kết quả bóc tách nhanh
+của từng tài liệu. Nút bị khóa khi chưa có kết quả hợp lệ hoặc đang xử lý.
 Tài liệu chưa xử lý, lỗi hoặc có giá trị sai schema/ngày không hợp lệ bị loại.
 Xuất thiếu tài liệu, bản nháp còn thiếu/cần kiểm tra hoặc mã chế độ sử dụng
 chưa phân loại đều cần xác nhận rõ; giá trị chưa xác định vẫn rỗng. STT được

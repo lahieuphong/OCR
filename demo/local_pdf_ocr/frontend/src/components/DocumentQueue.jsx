@@ -4,8 +4,7 @@ import {Button} from "@/components/ui/button";
 import {BATCH_STATUS_LABELS} from "@/lib/documentBatch.js";
 import {QUEUE_FILTERS, queueCounts, queueRows, subfolder, visibleRows} from "@/lib/documentQueue.js";
 
-// Only what differs from the usual fast mode is written on a row, so a long list stays quiet.
-const MODE_TAGS = {native_text:"Text có sẵn",vietocr_ocr:"OCR",hybrid_h1:"PDF + OCR"};
+// Only a running or failed document is marked on its row, so a long list stays quiet.
 const STATUS_ON_ROW = new Set(["processing", "error"]);
 
 // Memo plus the single click handler on the list: the timer re-renders the app while a document runs,
@@ -19,7 +18,6 @@ const QueueRow = memo(function QueueRow({doc, index, status, active, working}) {
       <span className="queue-name">{doc.name}</span>
       {folder && <small className="queue-folder">{folder}</small>}
       <span className="queue-marks">
-        {MODE_TAGS[doc.mode] && <span className="queue-tag">{MODE_TAGS[doc.mode]}</span>}
         {STATUS_ON_ROW.has(status) && <span className={"queue-status " + status}>{label}</span>}
       </span>
     </button>

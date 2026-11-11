@@ -2,14 +2,13 @@ import {useEffect, useRef, useState} from "react";
 import {
   ScanText, FileText, FileImage, UploadCloud, ShieldCheck, ArrowRight,
   Download, Copy, Check, AlertTriangle, LoaderCircle, Clock3, FileJson,
-  ScanLine, CircleCheck, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, RefreshCw, LockKeyhole, FolderOpen, Pause, RotateCcw, ListChecks,
+  CircleCheck, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, RefreshCw, LockKeyhole, FolderOpen, Pause, RotateCcw, ListChecks,
 } from "lucide-react";
 import {Button} from "@/components/ui/button";
 import {Card} from "@/components/ui/card";
 import {Badge} from "@/components/ui/badge";
 import {Tabs, TabsList, TabsTrigger, TabsContent} from "@/components/ui/tabs";
 import {Alert, AlertTitle, AlertDescription} from "@/components/ui/alert";
-import Select from "@/components/ui/select.jsx";
 import {Tooltip, TooltipContent, TooltipProvider, TooltipTrigger} from "@/components/ui/tooltip";
 import {Progress} from "@/components/ui/progress";
 import DocumentMetadata from "@/components/DocumentMetadata.jsx";
@@ -21,8 +20,7 @@ import DocumentQueue from "@/components/DocumentQueue.jsx";
 import useDocumentBatch from "@/hooks/useDocumentBatch.js";
 import {EXCEL_FILENAME} from "@/lib/excelExport.js";
 import {editDocumentField, confirmDocumentField} from "@/lib/documentFields.js";
-import {FAST_MODE_DESCRIPTION, PROCESSING_LABELS, RERUN_ONE_LABEL, RERUN_THIS_LABEL, RESUME_LABEL, RUN_ONE_FAST_LABEL, RUN_ONE_LABEL,
-  partialScope, rerunAllLabel, resultTextExport, resumeLabel, runAllLabel} from "@/lib/processingModes.js";
+import {FAST_MODE_DESCRIPTION, RERUN_ONE_LABEL, RERUN_THIS_LABEL, RESUME_LABEL, RUN_ONE_FAST_LABEL, partialScope, rerunAllLabel, resultTextExport, resumeLabel, runAllLabel} from "@/lib/processingModes.js";
 import {dropHasFolder, filesFromDrop} from "@/lib/folderImport.js";
 
 function formatTime(ms) {
@@ -60,16 +58,15 @@ function ActionButton({title, disabled, onClick, children}) {
   </Tooltip>;
 }
 
-function EmptyResult({working, documentSelected, nativeText, fast}) {
+function EmptyResult({working, documentSelected}) {
   return <div className="result-placeholder">
     <span className={"result-icon " + (working ? "active-icon" : "")}>
       {working ? <LoaderCircle className="spin" size={30}/> : <ScanText size={30} strokeWidth={1.5}/>}
     </span>
     <h3>{working ? "Đang bóc tách văn bản" : "Văn bản sẽ xuất hiện tại đây"}</h3>
-    <p>{working
-      ? fast ? "Đang xét vùng header cần thiết; không OCR toàn bộ tài liệu." : nativeText ? "Đang trích xuất văn bản có sẵn trong PDF." : "Đang nhận dạng văn bản từ các trang tài liệu."
-      : documentSelected ? "Chọn phương pháp, sau đó nhấn “Bóc tách văn bản này” để bắt đầu." : "Chọn một tài liệu ở bên trái để bắt đầu."}</p>
-    {!working && <span className="empty-result-note"><FileText size={14}/> {fast ? "Header một phần và metadata 22 trường" : "Toàn văn, theo trang và xuất kết quả"}</span>}
+    <p>{working ? "Đang xét vùng header cần thiết; không OCR toàn bộ tài liệu."
+      : documentSelected ? `Nhấn “${RUN_ONE_FAST_LABEL}” để bắt đầu.` : "Chọn một tài liệu ở bên trái để bắt đầu."}</p>
+    {!working && <span className="empty-result-note"><FileText size={14}/> Header một phần và metadata 22 trường</span>}
   </div>;
 }
 
@@ -85,8 +82,8 @@ export default function App() {
   const [healthAttempt, setHealthAttempt] = useState(0);
   const {documents,activeId,document,preview,selectedMode,resultsByMode,metadataByMode,setMetadataByMode,
     pendingDiscard,setPendingDiscard,working,elapsed,error,setError,activeView,setActiveView,canRun,canRunBatch,
-    batchProgress,chooseFiles,selectDocument,removeDocument,changeMode,restoreMetadata,runOcr,runBatch,confirmDocument,setIncluded,
-    failedCount,canRunFailed,runFailed,changeModeForAll,pause,pausing,notice,dismissNotice,resumeCount,resume} = useDocumentBatch(health);
+    batchProgress,chooseFiles,selectDocument,removeDocument,restoreMetadata,runOcr,runBatch,confirmDocument,setIncluded,
+    failedCount,canRunFailed,runFailed,pause,pausing,notice,dismissNotice,resumeCount,resume} = useDocumentBatch(health);
   function dropDocuments(dataTransfer) {
     // Plain files are added at once; a dropped folder is read (with subfolders) first.
     if (!dropHasFolder(dataTransfer)) {chooseFiles(dataTransfer.files); return;}
@@ -106,10 +103,10 @@ export default function App() {
     return () => {cancelled = true;};
   }, [healthAttempt]);
   useEffect(() => {setPage(1); setCopied(false);}, [activeId,selectedMode]);
+  // Every document is processed with the fast header mode (22 fields from page 1); the app offers no other method.
   const result = resultsByMode[selectedMode] || null;
-  const fast = selectedMode === "metadata_fast";
-  // The selected document already has a result for the selected method: nothing is left to run, so the run button
-  // steps back (a "done" line and a secondary "Bóc tách lại"); switching to a method without a result brings it back.
+  // The selected document already has a result: nothing is left to run, so the run button
+  // steps back (a "done" line and a secondary "Bóc tách lại").
   const done = Boolean(result) && !working;
   const allDone = documents.length > 1 && documents.every(doc => doc.resultsByMode[doc.mode]);
   useEffect(() => {
@@ -119,10 +116,7 @@ export default function App() {
   const shownText = activeView === "page" ? (currentPage?.text || "") : (result?.text || "");
   const isPDF = document && /\.pdf$/i.test(document.name);
   const FileIcon = isPDF ? FileText : FileImage;
-  const comparisonResult = selectedMode === "hybrid_h1" ? resultsByMode.hybrid_h1 : resultsByMode.native_text;
-  const comparisonOcr = selectedMode === "hybrid_h1" ? comparisonResult?.ocr_result : resultsByMode.vietocr_ocr;
-  const bothReady = !fast && Boolean(isPDF && comparisonResult && comparisonOcr);
-  const stateLabel = working ? fast ? "Đang bóc tách header" : "Đang bóc tách" : error ? "Cần kiểm tra" : result ? fast ? "Header một phần" : "Hoàn tất" : document ? "Đã chọn tài liệu" : "Chưa chọn tài liệu";
+  const stateLabel = working ? "Đang bóc tách header" : error ? "Cần kiểm tra" : result ? "Header một phần" : document ? "Đã chọn tài liệu" : "Chưa chọn tài liệu";
 
   async function copyText() {
     if (!result) return;
@@ -136,15 +130,6 @@ export default function App() {
   }
 
   const openFiles = (intent = "add") => {pickerIntent.current = intent; fileInput.current?.click();};
-  const modeOptions = [
-    {mode:"metadata_fast", icon:ScanText, name:"Bóc tách nhanh", hint:"22 trường từ trang 1", pdfOnly:false},
-    {mode:"native_text", icon:FileText, name:"Text có sẵn", hint:"PDF chọn được chữ", pdfOnly:true},
-    {mode:"vietocr_ocr", icon:ScanLine, name:"Nhận dạng OCR", hint:"Ảnh chụp, bản scan", pdfOnly:false},
-    {mode:"hybrid_h1", icon:ScanText, name:"PDF + OCR", hint:"Thử nghiệm", pdfOnly:true},
-  ];
-  const modeNote = fast ? FAST_MODE_DESCRIPTION : selectedMode === "native_text" ? "Đọc lớp chữ có sẵn trong PDF; không tự chuyển sang OCR."
-    : selectedMode === "hybrid_h1" ? "Thử nghiệm: dùng chữ có sẵn khi đủ điều kiện; dòng còn lại giữ OCR. Đối chiếu trước khi xuất dữ liệu."
-    : "Nhận dạng trực tiếp từ hình ảnh; giữ nguyên kết quả nhận dạng.";
 
   return <TooltipProvider delayDuration={250}>
     <div className="app-shell">
@@ -201,7 +186,7 @@ export default function App() {
                   <Button size="sm" onClick={() => openFiles("add")}>Chọn tài liệu</Button>
                   <Button size="sm" variant="outline" onClick={() => folderInput.current?.click()}><FolderOpen size={15}/> Chọn thư mục</Button>
                 </div>
-                <p className="file-limits">Tối đa 15 MB/tệp · PDF tối đa 6 trang (Bóc tách nhanh: chỉ đọc trang 1) · Ảnh tối đa 12 MP</p>
+                <p className="file-limits">Tối đa 15 MB/tệp · PDF: chỉ đọc trang 1 · Ảnh tối đa 12 MP</p>
               </div> : <>
                 {notice && <Alert className="import-notice" role="status"><FolderOpen size={16}/><AlertTitle>Kết quả thêm tài liệu</AlertTitle>
                   <AlertDescription>{notice}<Button variant="ghost" size="sm" onClick={dismissNotice}>Đóng</Button></AlertDescription></Alert>}
@@ -225,35 +210,19 @@ export default function App() {
             </div>
 
             <div className="pane-footer">
-              <fieldset className="ocr-mode-selector" disabled={!document || working}>
-                <legend>Phương pháp xử lý</legend>
-                {documents.length > 1 && <label className="queue-bulk-mode"><span>Áp dụng cho cả {documents.length} tài liệu</span>
-                  <Select ariaLabel="Phương pháp cho tất cả tài liệu" value="" placeholder="Chọn…" disabled={working} popupMinWidth={250} onChange={changeModeForAll}
-                    options={["metadata_fast","native_text","vietocr_ocr","hybrid_h1"].map(mode => ({value:mode,label:PROCESSING_LABELS[mode]}))}/></label>}
-                <div className="mode-grid">
-                  {modeOptions.filter(option => !(option.mode === "hybrid_h1" && !isPDF)).map(({mode, icon: Icon, name, hint, pdfOnly}) => {
-                    const unavailable = pdfOnly && !isPDF;
-                    return <label key={mode} className={"mode-option " + (mode === "metadata_fast" ? "fast-mode-option " : "") + (selectedMode === mode ? "selected" : "") + (unavailable ? " unavailable" : "")} title={hint}>
-                      <input type="radio" name="mode" value={mode} checked={selectedMode === mode} onChange={() => changeMode(mode)} disabled={unavailable || working}/>
-                      <Icon size={15}/><span className="mode-name">{name}</span>
-                      {resultsByMode[mode] && <Check className="mode-done" size={14} aria-label="Đã có kết quả"/>}
-                    </label>;
-                  })}
-                </div>
-              </fieldset>
-              <p className="mode-note" title={modeNote}>{modeNote}</p>
+              <p className="mode-note" title={FAST_MODE_DESCRIPTION}>{FAST_MODE_DESCRIPTION}</p>
               {health === "not-ready" && <p className="model-alert" role="status"><AlertTriangle size={14}/> Thiếu model OCR: PDF có sẵn chữ vẫn bóc tách được; ảnh và bản scan cần model.</p>}
 
               <div className="input-actions">
                 <div className={"run-buttons" + (documents.length > 1 ? " two" : "")}>
                   {/* With several documents the whole-list button is the main action; the selected one is secondary. */}
                   {done && documents.length < 2 ? <div className="run-done">
-                    <span className="run-done-text" role="status"><CircleCheck size={16}/><span><strong>{fast ? "Đã bóc tách nhanh xong" : "Đã bóc tách xong"}</strong> · {formatTime(result.elapsed_ms)}</span></span>
+                    <span className="run-done-text" role="status"><CircleCheck size={16}/><span><strong>Đã bóc tách nhanh xong</strong> · {formatTime(result.elapsed_ms)}</span></span>
                     <Button className="run-button rerun-button" size="sm" variant="outline" onClick={() => runOcr()} disabled={!canRun}
-                      title="Chạy lại phương pháp đang chọn cho văn bản này"><RotateCcw size={14}/>{RERUN_ONE_LABEL}</Button>
+                      title="Bóc tách lại văn bản này"><RotateCcw size={14}/>{RERUN_ONE_LABEL}</Button>
                   </div> : <Button className="run-button" size="lg" variant={documents.length > 1 ? "outline" : "default"} onClick={() => runOcr()} disabled={!document || working || !canRun}>
                     {working && batchProgress?.total === 1 ? <LoaderCircle className="spin" size={18}/> : done ? <RotateCcw size={16}/> : <ScanText size={18}/>}
-                    {working && batchProgress?.total === 1 ? "Đang bóc tách…" : done ? RERUN_THIS_LABEL : fast ? RUN_ONE_FAST_LABEL : RUN_ONE_LABEL}{!working && !done && <ArrowRight size={17}/>}
+                    {working && batchProgress?.total === 1 ? "Đang bóc tách…" : done ? RERUN_THIS_LABEL : RUN_ONE_FAST_LABEL}{!working && !done && <ArrowRight size={17}/>}
                   </Button>}
                   {documents.length > 1 && (working && batchProgress?.total > 1
                     ? <Button className="batch-pause-button" size="lg" variant="outline" onClick={pause} disabled={pausing}><Pause size={15}/>{pausing ? "Sẽ dừng sau tài liệu đang xử lý…" : "Tạm dừng hàng chờ"}</Button>
@@ -277,7 +246,7 @@ export default function App() {
           <Card className="right-pane" aria-busy={working}>
             <div className="pane-header">
               <span className="pane-number">2</span>
-              <div className="pane-title"><h2>Kết quả</h2><p>{fast ? "Metadata và nội dung header một phần" : "Đọc, sao chép hoặc lưu văn bản"}</p></div>
+              <div className="pane-title"><h2>Kết quả</h2><p>Metadata và nội dung header một phần</p></div>
               <Badge variant="outline" className={"document-state " + (result ? "complete" : "")} role="status">
                 {result && <CircleCheck size={12}/>}{stateLabel}
               </Badge>
@@ -287,36 +256,32 @@ export default function App() {
                 <TabsList aria-label="Cách xem kết quả">
                   <TabsTrigger value="list">Danh sách văn bản</TabsTrigger>
                   <TabsTrigger value="metadata" disabled={!result}>Thông tin văn bản</TabsTrigger>
-                  <TabsTrigger value="text">{fast ? "Header (một phần)" : "Toàn văn"}</TabsTrigger>
-                  <TabsTrigger value="page">{fast ? "Theo trang đã xét" : "Theo trang"}</TabsTrigger>
-                  {bothReady && <TabsTrigger value="compare">So sánh</TabsTrigger>}
+                  <TabsTrigger value="text">Header (một phần)</TabsTrigger>
+                  <TabsTrigger value="page">Theo trang đã xét</TabsTrigger>
                 </TabsList>
                 <div className="toolbar-actions">
-                  <ActionButton title={fast ? "Sao chép header (một phần)" : "Sao chép văn bản"} disabled={!result} onClick={copyText}>{copied ? <Check size={16}/> : <Copy size={16}/>}</ActionButton>
-                  <ActionButton title={fast ? "Tải TXT header (một phần)" : "Tải TXT"} disabled={!result} onClick={() => downloadText(shortName(document.name) + "_" + result.method + (fast ? "_partial" : "") + ".txt", resultTextExport(result))}><Download size={16}/></ActionButton>
-                  <ActionButton title={fast ? "Tải JSON header (một phần)" : "Tải báo cáo JSON"} disabled={!result} onClick={() => downloadText(shortName(document.name) + "_" + result.method + (fast ? "_partial" : "") + ".json", JSON.stringify(result, null, 2), "application/json;charset=utf-8")}><FileJson size={16}/></ActionButton>
+                  <ActionButton title="Sao chép header (một phần)" disabled={!result} onClick={copyText}>{copied ? <Check size={16}/> : <Copy size={16}/>}</ActionButton>
+                  <ActionButton title="Tải TXT header (một phần)" disabled={!result} onClick={() => downloadText(shortName(document.name) + "_" + result.method + "_partial.txt", resultTextExport(result))}><Download size={16}/></ActionButton>
+                  <ActionButton title="Tải JSON header (một phần)" disabled={!result} onClick={() => downloadText(shortName(document.name) + "_" + result.method + "_partial.json", JSON.stringify(result, null, 2), "application/json;charset=utf-8")}><FileJson size={16}/></ActionButton>
                 </div>
               </div>
               {copied && <span className="copy-feedback" role="status"><Check size={14}/> Đã sao chép văn bản</span>}
               {activeView !== "list" && <DocumentNavigator documents={documents} activeId={activeId} onSelect={id => {
-                // Stay on the same tab; a document without metadata (or a comparison) falls back to its text.
+                // Stay on the same tab; a document without metadata falls back to its text.
                 const target = documents.find(doc => doc.id === id);
-                const view = activeView === "compare" || (activeView === "metadata" && !target?.metadataByMode[target.mode]) ? (target?.metadataByMode[target.mode] ? "metadata" : "text") : activeView;
+                const view = activeView === "metadata" && !target?.metadataByMode[target.mode] ? "text" : activeView;
                 selectDocument(id, view);
               }}/>}
 
               {result && activeView !== "list" && <div className="result-meta">
-                <div className={"result-origin " + (fast ? "fast-origin " : "") + (result.used_ocr ? "ocr-origin" : "native-origin")}>
-                  <ShieldCheck size={14}/><span>{fast ? "Bóc tách nhanh · chỉ header trang 1"
-                    : result.method === "hybrid_h1" ? "Kết hợp PDF + OCR · Thử nghiệm, cần đối chiếu"
-                    : result.used_ocr ? "Nhận dạng từ ảnh · PaddleOCR + VietOCR B1024" : "Trích xuất văn bản có sẵn trong PDF · Không chạy OCR"}</span>
-                  {fast && <span className="partial-result-notice" role="status" title="Nội dung các trang chưa xét vẫn thuộc tài liệu nguồn.">{partialScope(result)}</span>}
+                <div className={"result-origin fast-origin " + (result.used_ocr ? "ocr-origin" : "native-origin")}>
+                  <ShieldCheck size={14}/><span>Bóc tách nhanh · chỉ header trang 1</span>
+                  <span className="partial-result-notice" role="status" title="Nội dung các trang chưa xét vẫn thuộc tài liệu nguồn.">{partialScope(result)}</span>
                 </div>
                 <div className="results-stats">
-                  <span><b>{fast ? result.source_page_count : result.page_count}</b> {fast ? "trang nguồn" : "trang"}</span><span><b>{result.line_count}</b> {fast ? "dòng header" : "dòng"}</span>
+                  <span><b>{result.source_page_count}</b> trang nguồn</span><span><b>{result.line_count}</b> dòng header</span>
                   <span><Clock3 size={14}/><b>{formatTime(result.elapsed_ms)}</b></span>
                   {result.used_ocr && <span className={result.decoder_limit_hits > 0 ? "truncated-lines" : ""}><b>{result.decoder_limit_hits ?? "—"}</b> dòng bị cắt</span>}
-                  {result.method === "hybrid_h1" && <><span><b>{result.h1?.native_lines ?? 0}</b> dòng dùng chữ PDF</span><span><b>{result.h1?.ocr_lines ?? 0}</b> dòng giữ OCR</span></>}
                 </div>
               </div>}
 
@@ -333,11 +298,8 @@ export default function App() {
                   onEdit={(key, value) => setMetadataByMode(previous => ({...previous, [selectedMode]: editDocumentField(previous[selectedMode], key, value)}))}
                   onConfirmField={key => setMetadataByMode(previous => ({...previous, [selectedMode]: confirmDocumentField(previous[selectedMode], key)}))}
                   onReset={restoreMetadata} onExport={json => downloadText(shortName(document.name) + "_" + selectedMode + "_metadata.json", json, "application/json;charset=utf-8")}/></fieldset>
-                  : result && activeView === "compare" && bothReady ? <div className="comparison-columns">
-                  <section><h3>{selectedMode === "hybrid_h1" ? "Kết hợp PDF + OCR (thử nghiệm)" : "Văn bản có sẵn trong PDF"}</h3><pre>{comparisonResult.text}</pre></section>
-                  <section><h3>Nhận dạng từ ảnh/PDF</h3><pre>{comparisonOcr.text}</pre></section>
-                </div> : result ? <pre>{shownText || "Không phát hiện được dòng văn bản. Hãy kiểm tra ảnh/PDF gốc."}</pre>
-                  : <EmptyResult working={working} documentSelected={Boolean(document)} nativeText={selectedMode === "native_text"} fast={fast}/>}
+                  : result ? <pre>{shownText || "Không phát hiện được dòng văn bản. Hãy kiểm tra ảnh/PDF gốc."}</pre>
+                  : <EmptyResult working={working} documentSelected={Boolean(document)}/>}
               </TabsContent>
             </Tabs>
           </Card>

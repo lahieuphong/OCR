@@ -56,10 +56,13 @@ containing the three synthetic metadata PDFs (`officialLetter`, `decision`,
 python scripts\check_excel_export.py "<output dir>\downloads\Danh_sach_van_ban.xlsx" --rows=3 --expected-json="<output dir>\batch_expected.json"
 ```
 
-Without models it checks that OCR is refused. When the frozen models and the detector verify, it
-runs real OCR through the UI and saves the UI's TXT/JSON export, to compare line by line with the
-A0 baseline (`demo/local_pdf_ocr/README.md`). The watchdog stops a run after `--smoke-timeout`
-seconds (default 300; a 6-page PDF needs about 900).
+The app has one method, the fast header extraction (22 fields from page 1); the smoke checks that
+no method choice is offered, runs it on the PDF through the UI, then checks the 22-field form, its
+JSON export and the partial TXT/JSON exports. Without models a PDF whose text layer has no
+administrative header must be refused (the synthetic CI PDF is), and the form checks then use
+`officialLetter.pdf` from `--smoke-batch-dir`; the full-text OCR API must answer 503 too. With the
+frozen models and the detector verified, the PDF itself must be extracted. The watchdog stops a run
+after `--smoke-timeout` seconds (default 300).
 
 The smoke test only records what it saw; `scripts/check-smoke-report.js` decides PASS/FAIL
 (screenshots and preview pixels are warnings only):

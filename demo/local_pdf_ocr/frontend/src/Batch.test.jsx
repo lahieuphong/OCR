@@ -4,9 +4,7 @@ import {afterEach, beforeEach, expect, test, vi} from "vitest";
 import {fireEvent, render, screen, waitFor, within} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import App from "./App.jsx";
-import {syntheticDocument} from "./test/fixtures/administrativeDocuments.js";
 import {fastMetadataDocument} from "./test/fixtures/fastMetadata.js";
-import {pick} from "./test/select.js";
 
 const file=name=>new File(["%PDF synthetic"],name,{type:"application/pdf"});
 const field=key=>document.getElementById(`metadata-${key}`);
@@ -18,8 +16,7 @@ beforeEach(()=>{
     if(url==="/api/health")return {ok:true,json:async()=>({state:"ready_to_initialize"})};
     const name=options.body.get("file").name,mode=options.body.get("mode"); calls.push({name,mode});
     const failed=failures.delete(name);
-    return {ok:!failed,json:async()=>failed ? {detail:`Lỗi thử nghiệm ${name}`} : mode === "metadata_fast"
-      ? fastMetadataDocument({code:`00${name[0]}/FAST`}) : syntheticDocument({method:mode,code:`00${name[0]}/${mode === "native_text" ? "NATIVE" : "OCR"}`})};
+    return {ok:!failed,json:async()=>failed ? {detail:`Lỗi thử nghiệm ${name}`} : fastMetadataDocument({code:`00${name[0]}/FAST`})};
   }));
   URL.createObjectURL=vi.fn(()=>"blob:http://127.0.0.1/synthetic"); URL.revokeObjectURL=vi.fn();
   vi.spyOn(HTMLAnchorElement.prototype,"click").mockImplementation(()=>{});
@@ -28,9 +25,8 @@ afterEach(()=>{vi.restoreAllMocks();vi.unstubAllGlobals();});
 async function setup(names=["1.pdf","2.pdf","3.pdf"]){
   const user=userEvent.setup(); render(<App/>);
   await user.upload(screen.getByLabelText("Chọn tài liệu PDF hoặc ảnh"),names.map(file));
-  // New documents start in the fast header mode; one choice switches every pending document.
+  // Every document is processed with the fast header mode; there is no method to choose.
   expect(Array.from(document.querySelectorAll(".input-queue li"),row=>row.dataset.mode).every(mode=>mode==="metadata_fast")).toBe(true);
-  await pick(user,screen.getByLabelText("Phương pháp cho tất cả tài liệu"),"native_text");
   await waitFor(()=>expect(document.querySelector(".run-button").disabled).toBe(false));
   return user;
 }
@@ -51,22 +47,20 @@ test("picker accepts duplicate names independently, add/drop/remove works before
   expect(document.querySelectorAll(".batch-table tbody tr")).toHaveLength(3);
   expect(calls).toEqual([]);
 });
-test("three PDF results retain per-file modes and manual metadata across documents and tabs",async()=>{
+test("three PDF results retain manual metadata across documents and tabs",async()=>{
   const user=await setup();
-  await user.click(document.querySelectorAll(".input-queue .select-queued-file")[1]);
-  await user.click(document.querySelector("input[name=mode][value=vietocr_ocr]"));
   await runBatch(user);
-  expect(calls).toEqual([{name:"1.pdf",mode:"native_text"},{name:"2.pdf",mode:"vietocr_ocr"},{name:"3.pdf",mode:"native_text"}]);
+  expect(calls).toEqual(["1.pdf","2.pdf","3.pdf"].map(name=>({name,mode:"metadata_fast"})));
   expect(document.querySelectorAll(".batch-table tbody tr")).toHaveLength(3);
-  // The type column shows code and name the same way as the form ("VBHN – Văn bản hợp nhất (mã tạm)").
-  expect(document.querySelector(".batch-table tbody tr").cells[3].textContent).toBe("22 – Công văn");
+  // The type column shows code and name the same way as the form (a provisional code says so).
+  expect(document.querySelector(".batch-table tbody tr").cells[3].textContent).toBe("NĐ – Nghị định (mã tạm)");
   await user.click(screen.getByRole("button",{name:"Mở thông tin tài liệu 1: 1.pdf"}));
   await user.clear(field("subject")); await user.type(field("subject"),"Chỉnh riêng tài liệu một");
   await user.click(list()); await user.click(screen.getByRole("button",{name:"Mở thông tin tài liệu 2: 2.pdf"}));
-  expect(field("arcDocCode").value).toBe("002/OCR"); expect(field("subject").value).not.toBe("Chỉnh riêng tài liệu một");
+  expect(field("arcDocCode").value).toBe("002/FAST"); expect(field("subject").value).not.toBe("Chỉnh riêng tài liệu một");
   await user.click(list()); await user.click(screen.getByRole("button",{name:"Mở thông tin tài liệu 1: 1.pdf"}));
   expect(field("subject").value).toBe("Chỉnh riêng tài liệu một");
-  await user.click(screen.getByRole("tab",{name:"Toàn văn"}));
+  await user.click(screen.getByRole("tab",{name:"Header (một phần)"}));
   expect(document.querySelector(".text-output pre").textContent).not.toContain("Chỉnh riêng tài liệu một");
   await user.click(list()); await user.click(screen.getByRole("button",{name:"Xác nhận tài liệu 1"}));
   await user.click(within(screen.getByRole("alertdialog")).getByRole("button",{name:"Đã kiểm tra"}));
@@ -75,12 +69,11 @@ test("three PDF results retain per-file modes and manual metadata across documen
   await user.type(field("subject")," sửa tiếp"); await user.click(list());
   expect(document.querySelector(".batch-table tbody tr .batch-status").textContent).toBe("Cần kiểm tra");
 });
-test.each(["native_text","metadata_fast"])("%s middle failure keeps results one/three, warns on partial export, retries only failed file",async mode=>{
+test("a middle failure keeps results one/three, warns on partial export, retries only the failed file",async()=>{
   failures.add("2.pdf"); const user=await setup();
-  if(mode==="metadata_fast") await pick(user,screen.getByLabelText("Phương pháp cho tất cả tài liệu"),mode);
   await runBatch(user);
   expect(calls).toHaveLength(3);
-  expect(calls.every(call=>call.mode===mode)).toBe(true);
+  expect(calls.every(call=>call.mode==="metadata_fast")).toBe(true);
   const rows=Array.from(document.querySelectorAll(".batch-table tbody tr"));
   expect(rows.map(row=>row.querySelector(".batch-status").textContent)).toEqual(["Cần kiểm tra","Lỗi","Cần kiểm tra"]);
   expect(within(rows[1]).getByRole("checkbox").disabled).toBe(true);
@@ -90,11 +83,11 @@ test.each(["native_text","metadata_fast"])("%s middle failure keeps results one/
   expect(dialog.textContent).toContain("01 – Công khai");
   await user.click(within(dialog).getByRole("button",{name:"Hủy"}));
   await user.click(screen.getByRole("button",{name:"Mở thông tin tài liệu 1: 1.pdf"}));
-  if(mode==="metadata_fast")expect(field("numberOfPage").value).toBe("6");
+  expect(field("numberOfPage").value).toBe("6");
   await user.clear(field("subject")); await user.type(field("subject"),"Bản sửa riêng được giữ sau retry");
   await user.click(list());
   await user.click(screen.getByRole("button",{name:"Thử lại"}));
-  await waitFor(()=>expect(field("arcDocCode")?.value).toBe(mode==="metadata_fast" ? "002/FAST" : "002/NATIVE"));
+  await waitFor(()=>expect(field("arcDocCode")?.value).toBe("002/FAST"));
   expect(calls.map(call=>call.name)).toEqual(["1.pdf","2.pdf","3.pdf","2.pdf"]);
   await user.click(list()); expect(document.querySelectorAll(".batch-status.error")).toHaveLength(0);
   expect(document.querySelectorAll(".batch-table tbody tr")).toHaveLength(3);
@@ -103,8 +96,8 @@ test.each(["native_text","metadata_fast"])("%s middle failure keeps results one/
 });
 test("unprocessed PDF cannot become an export row; invalid dates disable export",async()=>{
   const user=await setup(["1.pdf","2.pdf"]);
-  await user.click(screen.getByRole("button",{name:"Bóc tách văn bản này"}));
-  await waitFor(()=>expect(field("arcDocCode")?.value).toBe("001/NATIVE"));
+  await user.click(screen.getByRole("button",{name:"Bóc tách nhanh văn bản này"}));
+  await waitFor(()=>expect(field("arcDocCode")?.value).toBe("001/FAST"));
   await user.click(list()); await user.click(screen.getByRole("button",{name:"Xuất danh sách Excel"}));
   expect(screen.getByRole("alertdialog").textContent).toContain("Xuất 1/2");
   await user.click(within(screen.getByRole("alertdialog")).getByRole("button",{name:"Hủy"}));
@@ -115,21 +108,21 @@ test("unprocessed PDF cannot become an export row; invalid dates disable export"
 test("the result panel switches between documents with previous/next and a file picker, keeping the tab",async()=>{
   const user=await setup(); await runBatch(user);
   await user.click(screen.getByRole("button",{name:"Mở thông tin tài liệu 1: 1.pdf"}));
-  expect(field("arcDocCode").value).toBe("001/NATIVE");
+  expect(field("arcDocCode").value).toBe("001/FAST");
   expect(screen.getByRole("button",{name:"Tài liệu trước"}).disabled).toBe(true);
   await user.click(screen.getByLabelText("Chọn tài liệu"));
   expect(screen.getAllByRole("option").map(option=>option.getAttribute("aria-label"))).toEqual(["File 1/3 · 1.pdf · Cần kiểm tra","File 2/3 · 2.pdf · Cần kiểm tra","File 3/3 · 3.pdf · Cần kiểm tra"]);
   await user.keyboard("{Escape}");
   await user.click(screen.getByRole("button",{name:"Tài liệu sau"}));
-  expect(field("arcDocCode").value).toBe("002/NATIVE");
+  expect(field("arcDocCode").value).toBe("002/FAST");
   expect(screen.getByRole("tab",{name:"Thông tin văn bản",selected:true})).toBeTruthy();
   await user.click(screen.getByLabelText("Chọn tài liệu"));
   await user.click(screen.getByRole("option",{name:/^File 3\/3/}));
-  expect(field("arcDocCode").value).toBe("003/NATIVE");
+  expect(field("arcDocCode").value).toBe("003/FAST");
   expect(screen.getByRole("button",{name:"Tài liệu sau"}).disabled).toBe(true);
-  await user.click(screen.getByRole("tab",{name:"Toàn văn"}));
+  await user.click(screen.getByRole("tab",{name:"Header (một phần)"}));
   await user.click(screen.getByRole("button",{name:"Tài liệu trước"}));
-  expect(screen.getByRole("tab",{name:"Toàn văn",selected:true})).toBeTruthy();
+  expect(screen.getByRole("tab",{name:"Header (một phần)",selected:true})).toBeTruthy();
   expect(screen.getByLabelText("Chọn tài liệu").textContent).toMatch(/^File 2\/3\s*2\.pdf/);
   expect(document.querySelector(".input-queue li.active").textContent).toContain("2.pdf");
   await user.click(list()); expect(screen.queryByLabelText("Chọn tài liệu")).toBeNull();

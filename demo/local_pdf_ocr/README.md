@@ -16,7 +16,9 @@ in Git; they live in the ignored `models/` folder and are checked by SHA-256.
 - React/Vite at http://127.0.0.1:5175.
 - FastAPI at http://127.0.0.1:8765; Vite proxies /api.
 - PDF/PNG/JPEG upload (15MB maximum, 6 PDF pages, 12MP/page).
-- **Explicit extraction method**: for PDFs, select:
+- **Extraction methods** (backend `mode`). The app UI offers metadata_fast only
+  (no method choice, since 2026-11-11); the other modes stay in the backend API
+  for tests, evaluation and the release checks:
   - native_text: PyMuPDF reads the embedded PDF text layer, without
     loading/using any PaddleOCR, VietOCR, or other OCR model.
   - vietocr_ocr: PyMuPDF renders every PDF page (up to 2x, pixel cap),
@@ -35,21 +37,18 @@ in Git; they live in the ignored `models/` folder and are checked by SHA-256.
     pages). Number, date and agency then come from that block, for review.
 - **Folders and long lists**: "Chọn thư mục" (or dropping a folder) adds every
   PDF/PNG/JPG of the folder and its subfolders, in folder order, with the fast
-  header mode preselected; other, empty, >15 MB or already listed files are
-  reported as skipped. One method can be applied to all unprocessed documents.
+  header mode; other, empty, >15 MB or already listed files are
+  reported as skipped.
   The queue still sends ONE document at a time to the backend (no parallel OCR):
   it shows progress and remaining time, can pause after the current document and
   continue later, and retries only failed documents. Up to 1000 documents per list.
   metadata_fast accepts PDFs up to 1000 pages (it reads only page 1, plus the
   authentication block of a consolidated text described above); the other
   modes keep the 6-page limit.
-- PNG/JPEG support full vietocr_ocr or the explicit metadata_fast header mode.
+- PNG/JPEG are read with the metadata_fast header mode (OCR of the header region).
   A missing model blocks required OCR; it never authorizes guessing text.
-- Each mode is cached separately per selected file in the frontend;
-  after running native_text and vietocr_ocr on the same PDF, click So sánh
-  to inspect their texts side-by-side. Fast partial output is kept separate.
-- JSON/TXT exports include the selected mode in the filename; JSON
-  explicitly reports method, source, engine, and used_ocr.
+- JSON/TXT exports of the header are labelled partial (`_metadata_fast_partial`);
+  JSON explicitly reports method, source, scope and used_ocr.
 - PaddleOCR TextDetection model PP-OCRv6_medium_det finds line quadrilaterals.
 - PaddleX CropByPolys rectifies line crops as in frozen bake-off.
 - RGB/PIL LANCZOS, width round-up-to-10 -> VietOCR B float32 NCHW.
@@ -226,13 +225,15 @@ Restart the FastAPI process (Ctrl+C, run the uvicorn command again) and
 `npm run dev` (or Ctrl+Shift+R in Chrome) if the UI is stale.
 Neither model checkpoint nor ONNX graph needs to be regenerated.
 
+The steps below date from the multi-method UI; today they need the backend API
+(`POST /api/ocr` with `mode=native_text` / `mode=vietocr_ocr`), not the app.
 For sample 10333_vpcp-cn_09102026_1-signed.signed.pdf:
-1. Select "Text có sẵn trong PDF" and run extraction. This should
+1. Run the text-layer mode (native_text). This should
    preserve embedded Unicode such as "triển khai thực hiện", "khóa XIII",
    "biến đổi khí hậu", and the signed timestamp ending "+07:00".
-2. Switch to "OCR bằng VietOCR B" and run again; this is the independent
+2. Run vietocr_ocr on the same file; this is the independent
    recognizer baseline. Expect much longer execution than text extraction.
-3. Click "So sánh" once both results exist. Compare the footer
+3. Compare the two texts side by side. Compare the footer
    "Nơi nhận" and signature blocks as well as the Vietnamese diacritics.
 4. Download the JSON of each mode, check method/source/used_ocr fields.
 5. Test a **real scan-only** PDF with the text mode: it must fail clearly

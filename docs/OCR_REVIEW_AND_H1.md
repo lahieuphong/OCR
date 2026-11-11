@@ -1,5 +1,7 @@
 # Đối chiếu số/ký hiệu và PDF + OCR thử nghiệm
 
+> **Cập nhật 2026-11-11:** giao diện ứng dụng chỉ còn **Bóc tách nhanh**. Các nút Text có sẵn, Nhận dạng OCR và PDF + OCR đã được gỡ khỏi giao diện, nên hai tính năng dưới đây hiện không mở được từ app: Bóc tách nhanh không có nút **Xem ảnh đối chiếu** và hướng dẫn người dùng đối chiếu với tài liệu gốc ở khung xem trước. Backend vẫn giữ các chế độ `native_text`, `vietocr_ocr`, `hybrid_h1` và API ảnh đối chiếu cho kiểm thử và đánh giá. Nội dung bên dưới mô tả hành vi trước thay đổi này.
+
 ## Đối chiếu dữ liệu trước khi xuất
 
 Sau khi nhận dạng, mở **Thông tin văn bản → Mã văn bản**. Phần **Đối chiếu số/ký hiệu** cảnh báo chữ lẫn trong số, chữ số bị cách hoặc thiếu tiền tố ở vùng đầu trang. Đây là dấu hiệu cần kiểm tra, không phải kết luận dữ liệu sai hay điểm tin cậy OCR.

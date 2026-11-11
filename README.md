@@ -13,13 +13,13 @@ Hai bản đều có sẵn model OCR, không cần Python, Node.js hay Git. Ki�
 
 **macOS 15+ (Apple Silicon):** chỉ có bản test không kèm model, build qua workflow [Mac](https://github.com/lahieuphong/OCR/actions/workflows/vietdoc-macos.yml) (cần chép model riêng, xem [packaging/macos/README.md](packaging/macos/README.md)).
 
-Chọn file, dùng **Bóc tách nhanh**, **Text có sẵn** hoặc **Nhận dạng OCR**, kiểm tra kết quả rồi xuất TXT, JSON hoặc Excel. Tài liệu được xử lý trên máy, không gửi tới dịch vụ OCR bên ngoài.
+Chọn file hoặc cả thư mục, bấm **Bóc tách nhanh** để lấy 22 trường thông tin từ trang 1, kiểm tra kết quả rồi xuất JSON hoặc Excel. Tài liệu được xử lý trên máy, không gửi tới dịch vụ OCR bên ngoài.
 
 ## Mã nguồn và phát triển
 
 Code ứng dụng hiện hành ở nhánh **`main`**:
 
-Source đã có **Đối chiếu số/ký hiệu → Xem ảnh đối chiếu** và **Kết hợp PDF + OCR (thử nghiệm)**. H1 cần model, chỉ chạy khi chọn riêng và giữ OCR gốc để so sánh. [Hướng dẫn tính năng mới](docs/OCR_REVIEW_AND_H1.md).
+Giao diện chỉ còn **Bóc tách nhanh**. Backend vẫn giữ các chế độ đọc lớp chữ PDF, OCR toàn văn và **Kết hợp PDF + OCR (thử nghiệm)** để kiểm thử và đánh giá, nhưng giao diện không gọi tới chúng ([ghi chú](docs/OCR_REVIEW_AND_H1.md)).
 
 - [Frontend/backend](demo/local_pdf_ocr/README.md) — giao diện, xử lý tài liệu và OCR.
 - [Electron](desktop/README.md) — chạy ứng dụng từ source, cấu hình và kiểm thử.

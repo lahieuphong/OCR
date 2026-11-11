@@ -69,9 +69,8 @@ async function runFastSmoke({wc, js, clickResultTab, setInputFile, waitFor, scre
   })()`);
   try {
     await setInputFile(wc, pdf);
-    await wait(() => js(`Boolean(document.querySelector('input[name=mode][value=metadata_fast]'))`), 'fast mode is missing');
-    assert.equal(await js(`document.querySelector('input[name=mode]:checked').value`), 'metadata_fast', 'a new PDF must default to the fast header mode');
-    await js(`document.querySelector('input[name=mode][value=metadata_fast]').click(); true`);
+    await wait(() => js(`document.querySelector('.input-queue li.active')?.dataset.mode === 'metadata_fast'`), 'a new PDF must be queued for the fast header mode');
+    assert.equal(await js(`document.querySelectorAll('input[name=mode]').length`), 0, 'the app offers no other method');
     await wait(() => js(`document.querySelector('.run-button').textContent.includes('Bóc tách nhanh văn bản này')`), 'fast action must be explicit');
     const started = Date.now();
     await js(`document.querySelector('.run-button').click(); true`);
@@ -201,7 +200,7 @@ async function runFastSmoke({wc, js, clickResultTab, setInputFile, waitFor, scre
     await clickResultTab('Danh sách văn bản');
     await screenshot('08_fast_batch.png');
     const workbook = path.join(downloads, 'Danh_sach_van_ban.xlsx');
-    if (fs.existsSync(workbook)) fs.renameSync(workbook, path.join(downloads, 'Danh_sach_van_ban_native.xlsx'));
+    if (fs.existsSync(workbook)) fs.renameSync(workbook, path.join(downloads, 'Danh_sach_van_ban_batch.xlsx'));
     await js(`document.querySelector('.excel-export-button').click(); true`);
     await wait(() => js(`Boolean(document.querySelector('dialog[open]'))`), 'fast draft Excel export must confirm');
     await acceptDialog();

@@ -448,18 +448,16 @@ async function runSmoke() {
   const pdf = ARGS['smoke-pdf'];
   smoke.step = 'document-flow';
   if (pdf) {
-    // Real UI path: choose the file, run "Text có sẵn trong PDF", export TXT and JSON with the UI buttons.
+    // Real UI path: choose the file and run the app's only method, the fast header extraction (22 fields from
+    // page 1), then the metadata form, its JSON export and the partial TXT/JSON exports with the UI buttons.
     await setInputFile(wc, pdf);
     c.ui_file_selected = await waitFor(() => js(`document.querySelector('.selected-file strong')?.textContent || null`), 10_000);
-    // A new document starts with the fast header mode (22 fields); this path then picks the text layer explicitly.
-    assert.equal(await js(`document.querySelector('input[name=mode]:checked').value`), 'metadata_fast', 'a new PDF must visibly default to metadata_fast');
-    c.ui_hybrid_choice = await js(`(() => { const h = document.querySelector('input[name=mode][value=hybrid_h1]');
-      return { present: Boolean(h), selected: Boolean(h?.checked) }; })()`);
-    assert.deepEqual(c.ui_hybrid_choice, { present: true, selected: false }, 'experimental H1 must be available for PDF and off by default');
-    await js(`document.querySelector('input[name=mode][value=hybrid_h1]').closest('label').scrollIntoView({block: 'center'}); true`);
-    await screenshot('02a_ui_hybrid_option.png');
-    await js(`document.querySelector('input[name=mode][value=native_text]').click(); true`);
-    await sleep(1000);
+    c.ui_fast_only = await js(`({ mode_inputs: document.querySelectorAll('input[name=mode]').length,
+      bulk_mode: Boolean(document.querySelector('.queue-bulk-mode')),
+      queued_mode: document.querySelector('.input-queue li.active')?.dataset.mode || null,
+      run_fast: document.querySelector('.run-button').textContent.includes('Bóc tách nhanh văn bản này') })`);
+    assert.deepEqual(c.ui_fast_only, { mode_inputs: 0, bulk_mode: false, queued_mode: 'metadata_fast', run_fast: true },
+      'the app must offer the fast header mode only, with no method choice');
     // PDF preview: scroll the iframe into view and measure how much of it is light (a rendered page) versus
     // the dark empty frame. The page's own scripts cannot see into Chromium's PDF viewer, so pixels decide.
     const rect = await js(`(() => { const f = document.querySelector('iframe.pdf-view'); if (!f) return null; f.scrollIntoView({block: 'center'});
@@ -481,36 +479,50 @@ async function runSmoke() {
     }
     await screenshot('02_ui_pdf_preview.png');
     await js(`window.scrollTo(0, 0); true`);
-    const t0 = Date.now();
-    // Pause the real request briefly to inspect the busy state without fabricating progress or OCR output.
-    wc.debugger.attach('1.3');
-    try {
-      await wc.debugger.sendCommand('Fetch.enable', { patterns: [{ urlPattern: '*/api/ocr', requestStage: 'Request' }] });
-      const paused = new Promise((resolve) => {
-        const onMessage = (_event, method, params) => {
-          if (method === 'Fetch.requestPaused') { wc.debugger.off('message', onMessage); resolve(params); }
-        };
-        wc.debugger.on('message', onMessage);
-      });
-      await js(`document.querySelector('.run-button').click(); true`);
-      const request = await Promise.race([paused, sleep(5000).then(() => null)]);
-      assert.ok(request, 'processing request was not sent');
-      c.ui_working = await js(`({ run_disabled: document.querySelector('.run-button').disabled,
-        file_disabled: document.querySelector('input[type=file]').disabled,
-        modes_disabled: document.querySelector('.ocr-mode-selector').disabled,
-        busy: document.querySelector('.right-pane').getAttribute('aria-busy'),
-        indeterminate: document.querySelector('[role=progressbar]')?.getAttribute('data-state'),
-        progress_value: document.querySelector('[role=progressbar]')?.getAttribute('aria-valuenow') })`);
-      assert.deepEqual(c.ui_working, { run_disabled: true, file_disabled: true, modes_disabled: true,
-        busy: 'true', indeterminate: 'indeterminate', progress_value: null });
-      await screenshot('02b_ui_processing.png');
-      await wc.debugger.sendCommand('Fetch.continueRequest', { requestId: request.requestId });
-    } finally {
-      wc.debugger.detach();
+    const runAndWait = async () => {
+      const started = Date.now();
+      // Pause the real request briefly to inspect the busy state without fabricating progress or OCR output.
+      wc.debugger.attach('1.3');
+      try {
+        await wc.debugger.sendCommand('Fetch.enable', { patterns: [{ urlPattern: '*/api/ocr', requestStage: 'Request' }] });
+        const paused = new Promise((resolve) => {
+          const onMessage = (_event, method, params) => {
+            if (method === 'Fetch.requestPaused') { wc.debugger.off('message', onMessage); resolve(params); }
+          };
+          wc.debugger.on('message', onMessage);
+        });
+        await js(`document.querySelector('.run-button').click(); true`);
+        const request = await Promise.race([paused, sleep(5000).then(() => null)]);
+        assert.ok(request, 'processing request was not sent');
+        c.ui_working = await js(`({ run_disabled: document.querySelector('.run-button').disabled,
+          file_disabled: document.querySelector('input[type=file]').disabled,
+          busy: document.querySelector('.right-pane').getAttribute('aria-busy'),
+          indeterminate: document.querySelector('[role=progressbar]')?.getAttribute('data-state'),
+          progress_value: document.querySelector('[role=progressbar]')?.getAttribute('aria-valuenow') })`);
+        assert.deepEqual(c.ui_working, { run_disabled: true, file_disabled: true, busy: 'true', indeterminate: 'indeterminate', progress_value: null });
+        await screenshot('02b_ui_processing.png');
+        await wc.debugger.sendCommand('Fetch.continueRequest', { requestId: request.requestId });
+      } finally {
+        wc.debugger.detach();
+      }
+      const outcome = await waitFor(() => js(`(() => { const s = document.querySelector('.results-stats'), e = document.querySelector('.error-box');
+        return s ? { ok: true, stats: s.textContent.replace(/\\s+/g, ' ').trim() } : e ? { ok: false, error: e.textContent.trim() } : null; })()`), 240_000);
+      return outcome && { ...outcome, elapsed_ms: Date.now() - started };
+    };
+    c.ocr_allowed = Boolean(lastStatus.desktop && lastStatus.desktop.ocr_allowed);
+    c.ui_fast_pdf = await runAndWait();
+    // Without models a PDF whose text layer holds no administrative header is refused (no fallback, no download);
+    // the form and export checks then use a permitted fixture whose genuine header is read from its text layer.
+    let flowPdf = pdf;
+    if (!(c.ui_fast_pdf && c.ui_fast_pdf.ok)) {
+      assert.ok(!c.ocr_allowed && ARGS['smoke-batch-dir'], `fast extraction of the smoke PDF failed: ${JSON.stringify(c.ui_fast_pdf)}`);
+      await screenshot('02c_ui_fast_refused.png');
+      flowPdf = path.join(ARGS['smoke-batch-dir'], 'officialLetter.pdf');
+      await setInputFile(wc, flowPdf);
+      assert.ok(await waitFor(() => js(`document.querySelector('.selected-file strong')?.textContent === ${JSON.stringify(path.basename(flowPdf))}`), 10_000));
+      c.ui_fast_flow = { file: path.basename(flowPdf), ...(await runAndWait()) };
+      assert.equal(c.ui_fast_flow.ok, true, `fast extraction of the text-layer fixture failed: ${JSON.stringify(c.ui_fast_flow)}`);
     }
-    c.ui_native_text = await waitFor(() => js(`(() => { const s = document.querySelector('.results-stats'), e = document.querySelector('.error-box');
-      return s ? { ok: true, stats: s.textContent.replace(/\\s+/g, ' ').trim() } : e ? { ok: false, error: e.textContent.trim() } : null; })()`), 120_000);
-    if (c.ui_native_text) c.ui_native_text.elapsed_ms = Date.now() - t0;
     assert.equal(await js(`document.querySelector('[role=tab][data-state=active]')?.textContent`), 'Thông tin văn bản', 'successful extraction must open metadata');
     c.metadata = await js(`({ fields: document.querySelectorAll('.metadata-field input, .metadata-field [role=combobox], .metadata-field textarea').length,
       doc_id: document.querySelector('#metadata-docId').value,
@@ -532,7 +544,8 @@ async function runSmoke() {
     await screenshot('03d_ui_metadata_compact.png');
     mainWindow.setBounds(metadataBounds);
     await sleep(350);
-    const metadataFile = path.join(downloads, path.basename(pdf).replace(/\.[^.]+$/, '').replace(/[\\/:*?"<>|]/g, '_') + '_native_text_metadata.json');
+    const stem = path.basename(flowPdf).replace(/\.[^.]+$/, '').replace(/[\\/:*?"<>|]/g, '_') + '_metadata_fast';
+    const metadataFile = path.join(downloads, stem + '_metadata.json');
     await js(`document.querySelector('button[title="Xuất JSON 22 trường"]').click(); true`);
     const exportDialog = await waitFor(() => js(`document.querySelector('dialog[open]')?.textContent || null`), 5000);
     assert.ok(exportDialog, 'a draft export must ask for confirmation');
@@ -552,7 +565,7 @@ async function runSmoke() {
     await js(`(() => { const field = document.querySelector('#metadata-subject');
       Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(field, ${JSON.stringify(manualSubject)});
       field.dispatchEvent(new Event('input', {bubbles:true})); })()`);
-    await clickResultTab('Toàn văn');
+    await clickResultTab('Header (một phần)');
     await clickResultTab('Thông tin văn bản');
     assert.equal(await js(`document.querySelector('#metadata-subject').value`), manualSubject, 'tabs must preserve manual edits');
     const clipboardBeforeMetadata = await clipboard.readText();
@@ -575,99 +588,53 @@ async function runSmoke() {
     await js(`document.querySelector('dialog .confirm-actions button:last-child').click(); true`);
     assert.equal(await js(`document.querySelector('#metadata-subject').value`), metadata.subject, 'accepted reset must restore automatic values');
     c.metadata.manual_edits_and_reset = true;
-    await clickResultTab('Toàn văn');
-    await screenshot('03_ui_native_text_result.png');
-    await js(`document.querySelector('button[title="Tải TXT"]').click(); true`);
+    await clickResultTab('Header (một phần)');
+    await screenshot('03_ui_fast_header.png');
+    await js(`document.querySelector('button[title="Tải TXT header (một phần)"]').click(); true`);
     await sleep(800);
-    await js(`document.querySelector('button[title="Tải báo cáo JSON"]').click(); true`);
-    const base = path.basename(pdf).replace(/\.[^.]+$/, '').replace(/[\\/:*?"<>|]/g, '_') + '_native_text';
-    const txt = path.join(downloads, `${base}.txt`);
-    const json = path.join(downloads, `${base}.json`);
+    await js(`document.querySelector('button[title="Tải JSON header (một phần)"]').click(); true`);
+    const txt = path.join(downloads, `${stem}_partial.txt`);
+    const json = path.join(downloads, `${stem}_partial.json`);
     const done = await waitFor(async () => fs.existsSync(txt) && fs.existsSync(json), 15_000);
     c.export = { txt_file: path.basename(txt), json_file: path.basename(json), both_saved: Boolean(done) };
     if (done) {
       await sleep(500);
       const report = JSON.parse(fs.readFileSync(json, 'utf8'));
       const text = fs.readFileSync(txt, 'utf8');
-      Object.assign(c.export, { txt_bytes: fs.statSync(txt).size, json_bytes: fs.statSync(json).size, txt_sha256: sha256(txt),
-        json_method: report.method, json_pages: report.pages?.length, txt_equals_json_text: text === report.text });
       const lf = (value) => value.replace(/\r\n/g, '\n');
-      c.ui_native_views = { full_text_exact: matchesTextView(await js(`document.querySelector('.text-output pre')?.textContent ?? null`), report.text) };
-      assert.equal(c.ui_native_views.full_text_exact, true, 'full text must match the unmodified API/export text');
-      assert.equal(await js(`Array.from(document.querySelectorAll('[role=tab]')).some(t => t.textContent === 'So sánh')`), false,
-        'comparison must only appear after both independent results exist');
+      // The TXT starts with a note that it is a partial header, then holds the unmodified text.
+      Object.assign(c.export, { txt_bytes: fs.statSync(txt).size, json_bytes: fs.statSync(json).size, txt_sha256: sha256(txt),
+        json_method: report.method, json_pages: report.pages?.length, used_ocr: report.used_ocr, partial_result: report.partial_result,
+        txt_labels_partial_and_keeps_text: text.endsWith(report.text) && /một phần/i.test(text) });
+      c.ui_header_views = { header_text_exact: matchesTextView(await js(`document.querySelector('.text-output pre')?.textContent ?? null`), report.text) };
+      assert.equal(c.ui_header_views.header_text_exact, true, 'the header view must match the unmodified API/export text');
+      assert.equal(await js(`Array.from(document.querySelectorAll('[role=tab]')).some(t => ['So sánh', 'Toàn văn'].includes(t.textContent))`), false,
+        'the fast-only app has no full-text or comparison view');
       mainWindow.focus();
       wc.focus();
       const clipboardBefore = await clipboard.readText();
       try {
-        await js(`document.querySelector('button[title="Sao chép văn bản"]').click(); true`);
-        c.native_copy = { full_text_exact: Boolean(await waitFor(async () => lf(await clipboard.readText()) === report.text, 5000)) };
-        assert.equal(c.native_copy.full_text_exact, true, 'copy must preserve full text and Unicode');
+        await js(`document.querySelector('button[title="Sao chép header (một phần)"]').click(); true`);
+        c.header_copy = { labelled_text: Boolean(await waitFor(async () => { const copied = lf(await clipboard.readText());
+          return copied.endsWith(report.text) && /một phần/i.test(copied); }, 5000)) };
+        assert.equal(c.header_copy.labelled_text, true, 'copy must keep the header text and Unicode, labelled as partial');
         for (const item of report.pages) {
-          await clickResultTab('Theo trang');
+          await clickResultTab('Theo trang đã xét');
           await sleep(150);
           await js(`Array.from(document.querySelectorAll('.page-tabs button')).find(b => b.textContent === ${JSON.stringify('Trang ' + item.page)}).click(); true`);
           await sleep(150);
           const exact = matchesTextView(await js(`document.querySelector('.text-output pre')?.textContent ?? null`), item.text);
-          (c.ui_native_views.pages ||= []).push({ page: item.page, exact });
+          (c.ui_header_views.pages ||= []).push({ page: item.page, exact });
           assert.equal(exact, true, 'page view must preserve page text');
         }
-        if (report.pages.length) {
-          const lastPage = report.pages.at(-1);
-          await js(`document.querySelector('button[title="Sao chép văn bản"]').click(); true`);
-          c.native_copy.page_text_exact = Boolean(await waitFor(async () => lf(await clipboard.readText()) === lastPage.text, 5000));
-          assert.equal(c.native_copy.page_text_exact, true, 'copy must use the selected page');
-          await screenshot('03c_ui_page_result.png');
-        }
-        await clickResultTab('Toàn văn');
+        await screenshot('03c_ui_page_result.png');
+        await clickResultTab('Header (một phần)');
       } finally {
         await clipboard.writeText(clipboardBefore);
       }
     }
-    await js(`document.querySelector('input[name=mode][value=vietocr_ocr]').click(); true`);
-    await sleep(300);
-    c.ocr_allowed = Boolean(lastStatus.desktop && lastStatus.desktop.ocr_allowed);
-    c.ui_ocr_run_button_disabled = await js(`document.querySelector('.run-button').disabled`);
-    if (c.ocr_allowed) {
-      // Real OCR through the UI, then the UI's own JSON/TXT export (compared with the A0 baseline offline).
-      const t2 = Date.now();
-      await js(`document.querySelector('.run-button').click(); true`);
-      c.ui_vietocr_ocr = await waitFor(() => js(`(() => { const o = document.querySelector('.result-origin.ocr-origin'), e = document.querySelector('.error-box');
-        return o ? { ok: true, stats: document.querySelector('.results-stats')?.textContent.replace(/\\s+/g, ' ').trim() }
-          : e ? { ok: false, error: e.textContent.trim() } : null; })()`), 30 * 60_000);
-      if (c.ui_vietocr_ocr) c.ui_vietocr_ocr.elapsed_ms = Date.now() - t2;
-      await screenshot('03b_ui_ocr_result.png');
-      await js(`document.querySelector('button[title="Tải TXT"]').click(); true`);
-      await sleep(800);
-      await js(`document.querySelector('button[title="Tải báo cáo JSON"]').click(); true`);
-      const ocrBase = path.basename(pdf).replace(/\.[^.]+$/, '').replace(/[\\/:*?"<>|]/g, '_') + '_vietocr_ocr';
-      const ocrTxt = path.join(downloads, `${ocrBase}.txt`);
-      const ocrJson = path.join(downloads, `${ocrBase}.json`);
-      const saved = await waitFor(async () => fs.existsSync(ocrTxt) && fs.existsSync(ocrJson), 15_000);
-      c.ocr_export = { txt_file: path.basename(ocrTxt), json_file: path.basename(ocrJson), both_saved: Boolean(saved) };
-      if (saved) {
-        await sleep(500);
-        const report = JSON.parse(fs.readFileSync(ocrJson, 'utf8'));
-        Object.assign(c.ocr_export, { json_sha256: sha256(ocrJson), json_method: report.method, pages: report.page_count,
-          lines: report.line_count, decoder_limit_hits: report.decoder_limit_hits, model: report.model,
-          txt_equals_json_text: fs.readFileSync(ocrTxt, 'utf8') === report.text });
-        // The UI's "copy text" button (navigator.clipboard, the session's only permission) copies the shown text:
-        // the current page or the whole document. The Windows clipboard returns that text with CRLF line ends,
-        // so it is compared with LF ends. The clipboard is overwritten by this test run.
-        const lf = (text) => text.replace(/\r\n/g, '\n');
-        const expected = [report.text, ...(report.pages || []).map((p) => p.text)];
-        await clipboard.writeText(`vietdoc-smoke-${Date.now()}`);
-        mainWindow.focus();
-        wc.focus();
-        await js(`document.querySelector('button[title="Sao chép văn bản"]').click(); true`);
-        let last = '';
-        const copied = await waitFor(async () => { last = lf(await clipboard.readText()); return expected.includes(last) ? last : null; }, 5_000);
-        c.ocr_copy = { copied: Boolean(copied), chars: last.length, equals_full_text: last === report.text,
-          equals_page_text: (report.pages || []).some((p) => p.text === last),
-          ui_error: await js(`document.querySelector('.error-box')?.textContent.trim() || null`) };
-      }
-    } else {
-      // Models missing: the UI disables the button; the same request straight to the API must be refused.
+    if (!c.ocr_allowed) {
+      // Models missing: the full-text OCR request straight to the API must be refused too.
       const form = new FormData();
       form.append('mode', 'vietocr_ocr');
       form.append('file', new Blob([fs.readFileSync(pdf)], { type: 'application/pdf' }), path.basename(pdf));
@@ -689,8 +656,7 @@ async function runSmoke() {
     c.images[name] = await waitFor(() => js(`(() => { const img = document.querySelector('.preview-layer.shown .image-view img');
       const name = document.querySelector('.selected-file strong')?.textContent;
       return img && img.complete && img.naturalWidth > 0 && name === ${JSON.stringify(name)}
-        ? { preview_px: [img.naturalWidth, img.naturalHeight], mode: document.querySelector('input[name=mode]:checked')?.value,
-            native_text_disabled: document.querySelector('input[name=mode][value=native_text]').disabled,
+        ? { preview_px: [img.naturalWidth, img.naturalHeight], mode: document.querySelector('.input-queue li.active')?.dataset.mode,
             run_disabled: document.querySelector('.run-button').disabled } : null; })()`), 10_000);
   }
   const big = path.join(inputs, 'oversize_16MB.pdf');
@@ -699,7 +665,7 @@ async function runSmoke() {
   c.ui_oversize = await waitFor(() => js(`document.querySelector('.error-box')?.textContent.trim() || null`), 5_000);
   fs.rmSync(big);  // our own 16 MB dummy; the PNG/JPG stay as evidence
   const form16 = new FormData();
-  form16.append('mode', 'native_text');
+  form16.append('mode', 'metadata_fast');
   form16.append('file', new Blob([Buffer.alloc(16 * 1024 * 1024, 0x20)], { type: 'application/pdf' }), 'oversize.pdf');
   const r16 = await backend.request('/api/ocr', { method: 'POST', body: form16 });
   c.api_oversize = { status: r16.status, detail: r16.data && r16.data.detail };
@@ -722,12 +688,6 @@ async function runSmoke() {
     await setInputFile(wc, batchFiles);
     assert.ok(await waitFor(() => js(`document.querySelectorAll('.input-queue li').length === 3`), 5000));
     assert.deepEqual(await js(`Array.from(document.querySelectorAll('.input-queue li'), row => row.dataset.mode)`), ['metadata_fast','metadata_fast','metadata_fast']);
-    // One choice for every pending document (the bulk method control), as a user would do for a full-text batch.
-    await js(`document.querySelector('.queue-bulk-mode [role=combobox]').click(); true`);
-    assert.ok(await waitFor(() => js(`Boolean(document.querySelector('[role=option][data-value=native_text]'))`), 5000), 'the bulk method dropdown must open');
-    await js(`document.querySelector('[role=option][data-value=native_text]').click(); true`);
-    assert.ok(await waitFor(() => js(`Array.from(document.querySelectorAll('.input-queue li'), row => row.dataset.mode).every(v => v === 'native_text')`), 5000),
-      'the bulk method must switch the three pending PDFs to native_text');
     await js(`(() => {
       const original = window.fetch;
       window.__vietdocBatchQA = {original, active:0, peak:0, requests:[]};
@@ -748,7 +708,7 @@ async function runSmoke() {
       const requests = await js(`window.__vietdocBatchQA.requests.map(({name,mode,status})=>({name,mode,status}))`);
       c.batch = {count:3, requests, max_concurrent:await js(`window.__vietdocBatchQA.peak`), progress:await js(`document.querySelector('.queue-progress').textContent`)};
       assert.equal(c.batch.max_concurrent, 1, 'batch requests must be sequential');
-      assert.deepEqual(requests, batchFiles.map(file => ({name:path.basename(file),mode:'native_text',status:200})));
+      assert.deepEqual(requests, batchFiles.map(file => ({name:path.basename(file),mode:'metadata_fast',status:200})));
       assert.ok(c.batch.progress.includes('3/3'));
       const keys = ['docId','arcDocCode','maintenance','typeName','codeNumber','codeNotation','issuedDate','organName','subject','language','numberOfPage','inforSign','keyword','mode','confidenceLevel','autograph','format','process','riskRecovery','riskRecoveryStatus','description','isCan'];
       const expected = [];
@@ -760,7 +720,7 @@ async function runSmoke() {
           Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(field,${JSON.stringify(editedSubject)});
           field.dispatchEvent(new Event('input',{bubbles:true})); })()`);
         expected.push(await js(`Object.fromEntries(${JSON.stringify(keys)}.map(key=>[key,document.querySelector('#metadata-'+key).value]))`));
-        await clickResultTab('Toàn văn');
+        await clickResultTab('Header (một phần)');
         assert.equal(await js(`document.querySelector('.text-output pre').textContent`), await js(`window.__vietdocBatchQA.requests[${index}].text`), 'metadata must not alter raw text');
         await clickResultTab('Danh sách văn bản');
       }
