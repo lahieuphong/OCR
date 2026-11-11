@@ -66,10 +66,24 @@ def check_folder(release_dir: Path, head: str) -> dict:
     return info
 
 
-def body(version: str, commit: str, repo: str) -> str:
+def whats_new(notes: Path) -> str:
+    """The "## Thay đổi mới" section of release/windows/RELEASE_NOTES_v<version>.md (empty if absent)."""
+    if not notes.is_file():
+        return ""
+    lines, keep = [], False
+    for line in notes.read_text(encoding="utf-8").splitlines():
+        if line.startswith("## "):
+            keep = line.strip() == "## Thay đổi mới"
+        elif keep:
+            lines.append(line)
+    return "\n".join(lines).strip()
+
+
+def body(version: str, commit: str, repo: str, changes: str = "") -> str:
     names = release_names(version, "public")
     tag = f"v{version}"
     return "\n".join([
+        *(["## Có gì mới", "", changes, ""] if changes else []),
         "## Tải về",
         "",
         f"- **Setup — khuyên dùng:** `{names['setup']}` — cài cho tài khoản hiện tại (không cần quyền quản trị), "
@@ -162,7 +176,7 @@ def main() -> int:
             raise BuildError(f"A release for {tag} already exists: {existing.get('html_url')}")
         tag_object = ensure_tag(tag, head, version)
         status, release = hub.call("POST", f"{API}/repos/{args.repo}/releases",
-                                   {"tag_name": tag, "name": f"VietDoc OCR {tag}", "body": body(version, head, args.repo),
+                                   {"tag_name": tag, "name": f"VietDoc OCR {tag}", "body": body(version, head, args.repo, whats_new(REPO / "release" / "windows" / f"RELEASE_NOTES_v{version}.md")),
                                     "draft": True, "prerelease": False})
         if status != 201:
             raise BuildError(f"Could not create the draft release: HTTP {status} {release}")

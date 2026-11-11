@@ -12,6 +12,7 @@ import build_release  # noqa: E402
 import publish_github_release as publish  # noqa: E402
 
 HEAD = "9" * 40
+REPO_NOTES = Path(__file__).resolve().parents[2] / "release" / "windows" / "RELEASE_NOTES_v0.1.1.md"
 
 
 def release_folder(channel="public", source=HEAD, version="0.1.0") -> Path:
@@ -65,6 +66,19 @@ class PublishChecksTest(unittest.TestCase):
                      "không tự cập nhật", "chưa được ký số", "SHA256SUMS.txt", f"commit/{HEAD}",
                      "blob/v0.1.0/release/windows/HUONG_DAN_CAI_DAT.md", "**Full Changelog**"):
             self.assertIn(text, page)
+        self.assertNotIn("## Có gì mới", page)
+
+    def test_the_page_starts_with_the_changes_of_the_release_notes(self):
+        notes = Path(tempfile.mkdtemp(), "RELEASE_NOTES_v0.1.1.md")
+        notes.write_text("# VietDoc OCR v0.1.1\n\nIntro.\n\n## Thay đổi mới\n\n- Chỉ còn Bóc tách nhanh.\n\n## Yêu cầu\n\nWindows.\n",
+                         encoding="utf-8")
+        changes = publish.whats_new(notes)
+        self.assertEqual(changes, "- Chỉ còn Bóc tách nhanh.")
+        self.assertEqual(publish.whats_new(notes.with_name("missing.md")), "")
+        page = publish.body("0.1.1", HEAD, "lahieuphong/OCR", changes)
+        self.assertTrue(page.startswith("## Có gì mới\n\n- Chỉ còn Bóc tách nhanh.\n\n## Tải về"))
+        self.assertNotIn("Windows.", page)
+        self.assertIn("Bóc tách nhanh", publish.whats_new(REPO_NOTES))   # the real notes of this release parse
 
 
 class EmbeddedArchiveTest(unittest.TestCase):
