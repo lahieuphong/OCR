@@ -114,6 +114,17 @@ def simple_yaml(path: Path) -> dict:
     return found
 
 
+def write_update_feed(resources: Path, package_name: str) -> Path:
+    """resources/app-update.yml, the feed electron-updater reads. electron-builder writes it only when it builds the NSIS
+    target itself; the release builds the folder app first (--win dir) and the Setup from it (--prepackaged), so the
+    file is written here, before the folder is scanned and packed. Same content electron-builder would write."""
+    path = resources / "app-update.yml"
+    path.write_text("".join(f"{key}: {value}\n" for key, value in (
+        ("owner", EXPECTED_FEED["owner"]), ("repo", EXPECTED_FEED["repo"]), ("provider", EXPECTED_FEED["provider"]),
+        ("releaseType", "release"), ("updaterCacheDirName", f"{package_name.lower()}-updater"))), encoding="utf-8", newline="\n")
+    return path
+
+
 def update_feed(app_update_yml: Path) -> dict:
     if not app_update_yml.is_file():
         return {}
@@ -439,6 +450,9 @@ class Builder:
         self.smoke_app = self.work / "app-smoke" / "win-unpacked"
         if not (self.app / EXE).is_file():
             raise BuildError(f"Folder app missing: {self.app / EXE}")
+        package_name = json.loads((DESKTOP / "package.json").read_text(encoding="utf-8"))["name"]
+        for app in (self.app, self.smoke_app):
+            write_update_feed(app / "resources", package_name)
 
     def checks(self) -> None:
         fuses = self.run("fuses", ["node", str(DESKTOP / "node_modules/@electron/fuses/dist/bin.js"), "read", "--app",

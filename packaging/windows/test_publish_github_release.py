@@ -94,6 +94,14 @@ class UpdateFeedTest(unittest.TestCase):
         self.assertEqual(build_release.update_feed(path), build_release.EXPECTED_FEED)
         self.assertEqual(build_release.update_feed(path.with_name("missing.yml")), {})
 
+    def test_writes_the_feed_electron_builder_would_write(self):
+        resources = Path(tempfile.mkdtemp())
+        path = build_release.write_update_feed(resources, "vietdoc-ocr-desktop")
+        self.assertEqual(path.read_text(encoding="utf-8"),
+                         "owner: lahieuphong\nrepo: OCR\nprovider: github\nreleaseType: release\n"
+                         "updaterCacheDirName: vietdoc-ocr-desktop-updater\n")
+        self.assertEqual(build_release.update_feed(path), build_release.EXPECTED_FEED)
+
 
 if __name__ == "__main__":
     unittest.main()
