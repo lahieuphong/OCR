@@ -4,6 +4,9 @@
        INPUTS_DIR   permitted QA documents named in sandbox_docs.txt                      read-only
        TOOLS_DIR    this folder (the scripts and sandbox_docs.txt)                         read-only
        OUT_DIR      an empty folder for the results                                        writable
+     Optional, for the ui_smoke stage (UI OCR and TXT/JSON/Excel exports through the internal smoke variant of the same
+     build): add two read-only folders, SMOKE_DIR = work\app-smoke\win-unpacked of the build at C:\vd\smoke and
+     FIXTURES_DIR = synthetic batch fixtures (desktop/scripts/make_metadata_fixtures.py) at C:\vd\fixtures.
      Networking is disabled: the whole run is offline. The sandbox shuts itself down at the end. -->
 <Configuration>
   <Networking>Disable</Networking>

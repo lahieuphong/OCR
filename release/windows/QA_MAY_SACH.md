@@ -79,7 +79,12 @@ Các script trong `packaging/windows/clean_machine/` tự làm các mục 3.1–
    python packaging\windows\clean_machine\compare_sandbox.py <thư mục kết quả> <thư mục tham chiếu của check_packaged_ocr.py --dev-python>
    ```
 
-Mục 3.5 (xuất file qua giao diện) và 3.14 (SmartScreen) vẫn cần người làm. Sandbox không thao tác giao diện ứng dụng, và file trong sandbox không mang dấu "tải từ Internet".
+Hai bước tùy chọn:
+
+- **`ui_smoke`**: làm mục 3.5 bằng biến thể smoke nội bộ của cùng bản build: OCR qua giao diện, xuất TXT, JSON, Excel. Cần gắn thêm `C:\vd\smoke` và `C:\vd\fixtures` (xem `vdqa.wsb.template`). Kiểm kết quả trên máy chủ bằng `desktop/scripts/check-smoke-report.js --expect=ocr --with-pdf --with-fast` và `desktop/scripts/check_excel_export.py`.
+  - Script chép ứng dụng sang một thư mục ghi được trước khi chạy, vì PaddleX ghi `temp`, `locks`, `func_ret` vào `resources\paddlex`.
+  - Nếu chạy trực tiếp từ thư mục chỉ đọc, OCR báo lỗi. Đây là giới hạn đã biết của bản hiện tại.
+- **`smartscreen_probe`**: gắn dấu "tải từ Internet" lên một bản sao Setup rồi mở, chụp hộp thoại SmartScreen. Sandbox tắt mạng, nên chỉ thấy hành vi khi offline. Mục 3.14 khi có mạng vẫn cần người làm.
 
 ## 5. Mẫu báo cáo
 

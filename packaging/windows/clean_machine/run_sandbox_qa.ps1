@@ -103,6 +103,46 @@ Stage 'vietnamese_account' {
   if (Test-Path $result) { Copy-Item -LiteralPath (Join-Path $pub 'vn_out') -Destination (Join-Path $Out 'vn_out') -Recurse -Force }
   [ordered]@{ account = $name; finished = $done; exit_code = $(if ($done) { $p.ExitCode } else { $null }); result_file = (Test-Path $result) }
 }
+# The internal smoke variant of the same build (mapped at C:\vd\smoke when present) drives the real UI: OCR, fast
+# extraction, TXT/JSON exports and the Excel list, on this clean machine. It never replaces the release app.
+Stage 'ui_smoke' {
+  if (-not (Test-Path -LiteralPath 'C:\vd\smoke\VietDoc OCR.exe')) { return 'not run: no smoke app mapped' }
+  # A writable copy: PaddleX writes temp/locks/func_ret under resources\paddlex, so a read-only app folder fails OCR.
+  $copy = Join-Path $env:LOCALAPPDATA 'vdqa-smoke\VietDoc OCR'
+  if (-not (Test-Path -LiteralPath $copy)) {
+    New-Item -ItemType Directory -Force (Split-Path -Parent $copy) | Out-Null
+    Copy-Item -LiteralPath 'C:\vd\smoke' -Destination $copy -Recurse
+  }
+  $exe = Join-Path $copy 'VietDoc OCR.exe'
+  $dir = Join-Path $Out 'ui_smoke'
+  New-Item -ItemType Directory -Force $dir | Out-Null
+  $smokeArgs = @("--user-data-dir=$dir\userData", "--smoke-test=$dir\smoke", "--smoke-pdf=$In\10333_born_digital.pdf",
+            "--smoke-fast-pdf=$In\9624_scan_colour_6p.pdf", '--smoke-batch-dir=C:\vd\fixtures', '--smoke-timeout=1800')
+  $t = Measure-Command { $p = Start-Process -FilePath $exe -ArgumentList $smokeArgs -PassThru; $exited = $p.WaitForExit(2100000) }
+  Start-Sleep -Seconds 3
+  [ordered]@{ exited = $exited; exit_code = $(if ($exited) { $p.ExitCode } else { $null }); seconds = [math]::Round($t.TotalSeconds, 1)
+              report = (Test-Path (Join-Path $dir 'smoke\smoke_report.json'))
+              downloads = [string[]]@(Get-ChildItem -LiteralPath (Join-Path $dir 'smoke\downloads') -Name -ErrorAction SilentlyContinue)
+              processes_left = @(Get-Process | Where-Object { $_.Path -and $_.Path.StartsWith($copy, [StringComparison]::OrdinalIgnoreCase) }).Count }
+}
+# Mark of the Web on a copy of the Setup, then open it like Explorer would. Offline, SmartScreen cannot reach its reputation
+# service, so this shows the offline behaviour only. The dialog is photographed and closed; nothing is installed.
+Stage 'smartscreen_probe' {
+  $copy = Join-Path ([Environment]::GetFolderPath('Desktop')) ([IO.Path]::GetFileName($setup))
+  Copy-Item -LiteralPath $setup -Destination $copy
+  Set-Content -LiteralPath $copy -Stream Zone.Identifier -Value "[ZoneTransfer]`r`nZoneId=3`r`nHostUrl=https://github.com/" -Encoding ASCII
+  $zone = Get-Content -LiteralPath $copy -Stream Zone.Identifier -ErrorAction SilentlyContinue
+  Start-Process -FilePath "$env:SystemRoot\explorer.exe" -ArgumentList ('"' + $copy + '"')
+  Start-Sleep -Seconds 20
+  Save-Screen (Join-Path $Out 'smartscreen_probe.png')
+  $smart = @(Get-Process -Name smartscreen -ErrorAction SilentlyContinue).Count
+  $setupRunning = @(Get-Process | Where-Object { $_.Path -eq $copy }).Count
+  Get-Process | Where-Object { $_.Path -eq $copy } | Stop-Process -Force -ErrorAction SilentlyContinue
+  Get-Process -Name smartscreen -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+  $sig = (Get-AuthenticodeSignature -LiteralPath $setup).Status.ToString()
+  [ordered]@{ zone_identifier = [string]($zone -join ' '); smartscreen_process = $smart; setup_started_without_prompt = ($setupRunning -gt 0 -and $smart -eq 0)
+              authenticode = $sig; screenshot = 'smartscreen_probe.png' }
+}
 Stage 'uninstall' {
   $t = Measure-Command { Start-Process -FilePath (Join-Path $installDir 'Uninstall VietDoc OCR.exe') -ArgumentList '/S' -Wait }
   for ($i = 0; $i -lt 120 -and (Test-Path -LiteralPath (Join-Path $installDir 'VietDoc OCR.exe')); $i++) { Start-Sleep -Milliseconds 500 }
