@@ -4,12 +4,13 @@
 const fs = require('node:fs');
 const net = require('node:net');
 const path = require('node:path');
-const { app, BrowserWindow, Menu, clipboard, ipcMain, protocol, session, shell, webFrameMain } = require('electron');
+const { app, BrowserWindow, Menu, clipboard, dialog, ipcMain, protocol, session, shell, webFrameMain } = require('electron');
 const { resolveConfig } = require('./lib/config');
 const { BackendProcess, describeExit } = require('./lib/backend');
 const security = require('./lib/security');
 const { smokeArgs, smokeAllowed } = require('./lib/smoke-gate');
 const { configureAppIdentity } = require('./lib/app-identity');
+const { updatesAllowed, startUpdates, checkNow } = require('./lib/updater');
 const { matchesTextView } = require('./lib/smoke-text');
 const { STATUS_SCHEME, STATUS_ORIGIN, STATUS_URL, STATUS_SCHEME_PRIVILEGES, statusHandler } = require('./lib/status-protocol');
 const { SPLASH_URL, statusWindowNeeded } = require('./lib/splash');
@@ -33,9 +34,18 @@ let quitting = false;
 let lastStatus = { state: 'starting', message: 'Đang khởi động…' };
 const smoke = { started_at: new Date().toISOString(), checks: {}, console: [] };
 
-configureAppIdentity(app, require('../package.json'));
+const IDENTITY = configureAppIdentity(app, require('../package.json'));
 if (SMOKE_DIR) app.setPath('userData', path.join(SMOKE_DIR, 'userData'));
 app.setAppLogsPath(path.join(app.getPath('userData'), 'logs'));
+// Only the installed release updates itself (lib/updater.js); electron-updater is loaded only then.
+const UPDATES = updatesAllowed({ packaged: app.isPackaged, smoke: Object.keys(ARGS).length > 0,
+  packageJson: require('../package.json'), execPath: process.execPath, resourcesPath: process.resourcesPath,
+  productName: app.getName(), portableDataDir: IDENTITY.portableDataDir });
+let updater = null;
+function getUpdater() {
+  if (!updater) updater = require('electron-updater').autoUpdater;
+  return updater;
+}
 
 // Main-process errors go to a log file instead of a modal dialog or a silent hang.
 function logMainError(kind, error) {
@@ -60,6 +70,19 @@ if (SMOKE_DIR) {
 
 function logDir() {
   return app.getPath('logs');
+}
+
+function logLine(kind, message) {
+  try {
+    fs.mkdirSync(app.getPath('logs'), { recursive: true });
+    fs.appendFileSync(path.join(app.getPath('logs'), 'main.log'), `${new Date().toISOString()} ${kind}: ${message}\n`, 'utf8');
+  } catch { /* nothing else to do */ }
+}
+
+async function checkUpdatesFromMenu() {
+  const answer = await checkNow({ updater: getUpdater(), currentVersion: app.getVersion() });
+  const parent = mainWindow && !mainWindow.isDestroyed() ? mainWindow : undefined;
+  await dialog.showMessageBox(parent, { title: 'Cập nhật VietDoc OCR', ...answer });
 }
 
 function sendStatus(update) {
@@ -225,6 +248,7 @@ function buildMenu() {
     { label: 'VietDoc', submenu: [
       { label: 'Trạng thái backend và model', click: showStatusWindow },
       { label: 'Mở thư mục log', click: () => shell.openPath(logDir()) },
+      ...(UPDATES.allowed ? [{ label: 'Kiểm tra cập nhật…', click: () => checkUpdatesFromMenu() }] : []),
       { type: 'separator' },
       { label: 'Thoát', role: 'quit' },
     ] },
@@ -863,6 +887,8 @@ if (SMOKE_REFUSED) {
       smoke.step = 'backend-started';
       await loadApp();
       smoke.step = 'main-window-loaded';
+      logLine('updates', `${UPDATES.allowed ? 'on' : 'off'} (${UPDATES.reason})`);
+      if (UPDATES.allowed) startUpdates({ updater: getUpdater(), log: logLine });
       if (SMOKE_DIR) {
         const visible = BrowserWindow.getAllWindows().filter((w) => w.isVisible());
         smoke.checks.startup = { visible_windows: visible.length, main_window_visible: visible.includes(mainWindow),

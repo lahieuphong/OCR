@@ -1,0 +1,24 @@
+﻿VIETDOC OCR - THÔNG BÁO PHÁT HÀNH
+
+VietDoc OCR nhận dạng chữ tiếng Việt trên máy tính của bạn. Bản phát hành:
+https://github.com/lahieuphong/OCR/releases - mã nguồn: https://github.com/lahieuphong/OCR
+
+1. Phần mềm được cung cấp "nguyên trạng", không kèm bất kỳ bảo đảm nào. Kết quả
+   OCR và 22 trường thông tin chỉ là gợi ý: hãy kiểm tra trước khi sử dụng, nhất
+   là các ô "Cần kiểm tra".
+
+2. Tài liệu được xử lý ngay trên máy và không bị gửi lên Internet. Bản cài đặt
+   (Setup) chỉ kết nối GitHub để kiểm tra và tải bản cập nhật của chính VietDoc OCR.
+   Bản Portable không kết nối Internet.
+
+3. Gói cài đặt có các thành phần của bên thứ ba, mỗi thành phần theo giấy phép
+   riêng của nó, trong đó có PyMuPDF (GNU AGPL v3.0), PaddlePaddle và PaddleOCR
+   (Apache 2.0), Electron và Chromium. Danh sách và văn bản giấy phép nằm trong
+   resources\licenses\THIRD_PARTY_NOTICES.txt của thư mục cài đặt.
+
+4. Gói cài đặt có model nhận dạng VietOCR B1024 (tinh chỉnh từ VietOCR) và model
+   phát hiện dòng chữ PP-OCRv6_medium_det. Model được kiểm tra SHA-256 trước khi
+   chạy OCR và không bao giờ được tải từ Internet.
+
+5. Bộ cài chưa được ký số. Chỉ dùng file tải từ trang phát hành ở trên, sau khi
+   SHA-256 khớp với SHA256SUMS.txt.

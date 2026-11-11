@@ -4,7 +4,7 @@
 
 <!-- Điền các ô <…> từ BUILD_INFO.txt và SHA256SUMS.txt của đúng bản build đã qua kiểm định, rồi xóa dòng này. -->
 
-VietDoc OCR nhận dạng chữ tiếng Việt trong PDF, PNG và JPG, đọc 22 trường thông tin văn bản hành chính và xuất TXT, JSON, Excel. Ứng dụng chạy hoàn toàn trên máy: không gửi tài liệu lên Internet, không tải model, không tự cập nhật. Không cần cài Python, Node.js hay Git.
+VietDoc OCR nhận dạng chữ tiếng Việt trong PDF, PNG và JPG, đọc 22 trường thông tin văn bản hành chính và xuất TXT, JSON, Excel. Ứng dụng xử lý tài liệu ngay trên máy: không gửi tài liệu lên Internet, không tải model. Bản Setup tự cập nhật từ GitHub Releases; bản Portable không. Không cần cài Python, Node.js hay Git.
 
 ## Tải về
 

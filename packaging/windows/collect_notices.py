@@ -108,10 +108,11 @@ def python_components(internal: Path, out: Path) -> list[dict]:
     return components
 
 
-def npm_components(frontend: Path, out: Path) -> list[dict]:
-    """Packages bundled into the production frontend build: the lockfile's non-development entries."""
+def npm_components(frontend: Path, out: Path, seen: set | None = None) -> list[dict]:
+    """Packages shipped from one npm project (the frontend build, the Electron app's runtime dependencies): the
+    lockfile's non-development entries."""
     lock = json.loads((frontend / "package-lock.json").read_text(encoding="utf-8"))
-    components, seen = [], set()
+    components, seen = [], (set() if seen is None else seen)
     # Top-level copies first, so a nested copy of the same version never replaces them.
     for key, entry in sorted(lock.get("packages", {}).items(), key=lambda item: (item[0].count("node_modules/"), item[0])):
         if not key.startswith("node_modules/") or entry.get("dev") or entry.get("devOptional"):
@@ -236,7 +237,10 @@ def collect(backend: Path, repo: Path, out: Path, detector_card: Path | None = N
     out.mkdir(parents=True, exist_ok=True)
     components = fixed_components(backend, repo, out, detector_card, vietocr_licence, electron_dist)
     components += python_components(internal, out)
-    components += npm_components(repo / "demo" / "local_pdf_ocr" / "frontend", out)
+    seen: set = set()
+    components += npm_components(repo / "demo" / "local_pdf_ocr" / "frontend", out, seen)
+    if (repo / "desktop" / "package-lock.json").is_file():   # runtime dependencies inside app.asar (electron-updater)
+        components += npm_components(repo / "desktop", out, seen)
     return write_report(components, out)
 
 

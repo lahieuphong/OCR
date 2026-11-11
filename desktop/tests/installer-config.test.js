@@ -58,18 +58,19 @@ test('internal smoke-test installer: only the smoke switch and its own name diff
   assert.deepEqual(keys, ['extends', 'extraMetadata', 'nsis']);
 });
 
-test('release: one per-user NSIS Setup with the bundled models and notices, no update feed, internal by default', () => {
+test('release: one per-user NSIS Setup with the bundled models and notices, GitHub update feed, internal by default', () => {
   const yml = settings('electron-builder.release.yml');
   assert.match(yml, /^extends: electron-builder\.yml$/m);
   assert.match(yml, /^appId: vn\.vietdoc\.ocr\.desktop$/m);
   assert.match(yml, /^productName: VietDoc OCR$/m);
-  assert.match(yml, /^publish: null$/m);
-  assert.match(yml, /^extraMetadata:\n {2}vietdocSmokeTest: false$/m);
-  assert.doesNotMatch(yml, /vietdocSmokeTest: true|nsis-web|appx|squirrel|electron-updater|autoUpdate|target: portable/i);
+  // The installed Setup updates itself from this repository's Releases (latest.yml + blockmap); nothing else is fetched.
+  assert.match(yml, /^publish:\n {2}provider: github\n {2}owner: lahieuphong\n {2}repo: OCR\n {2}releaseType: release$/m);
+  assert.match(yml, /^extraMetadata:\n {2}vietdocSmokeTest: false\n {2}vietdocUpdates: true$/m);
+  assert.doesNotMatch(yml, /vietdocSmokeTest: true|nsis-web|appx|squirrel|target: portable/i);
   assert.match(yml, /^win:\n {2}target:\n {4}- target: nsis\n {6}arch: \[x64\]$/m);
   for (const line of ['oneClick: false', 'perMachine: false', 'allowElevation: false', 'packElevateHelper: false',
     'allowToChangeInstallationDirectory: false', 'createStartMenuShortcut: true', 'createDesktopShortcut: false',
-    'deleteAppDataOnUninstall: false', 'differentialPackage: false', 'include: build-resources/installer.nsh',
+    'deleteAppDataOnUninstall: false', 'differentialPackage: true', 'include: build-resources/installer.nsh',
     'warningsAsErrors: true', 'shortcutName: VietDoc OCR']) {
     assert.match(yml, new RegExp(`^ {2}${line}$`, 'm'), line);
   }
@@ -99,7 +100,7 @@ test('public release: only the names, the licence page and the metadata change',
   assert.deepEqual(nsis, ['uninstallDisplayName', 'artifactName', 'license']);
   assert.match(yml, /^ {2}artifactName: VietDoc-OCR-v\$\{version\}-Windows-\$\{arch\}-Setup\.\$\{ext\}$/m);
   assert.match(yml, /^ {2}license: build-resources\/PUBLIC_LICENSE\.txt$/m);
-  assert.match(yml, /^ {2}vietdocSmokeTest: false$/m);
+  assert.match(yml, /^ {2}vietdocSmokeTest: false\n {2}vietdocUpdates: true$/m);
   assert.doesNotMatch(yml, /INTERNAL|vietdocSmokeTest: true/);
 });
 
@@ -112,11 +113,10 @@ test('release smoke-test variant: only the smoke switch and its internal names d
   assert.match(yml, /^ {2}artifactName: VietDoc-OCR-v\$\{version\}-INTERNAL-SMOKE-TEST-Windows-\$\{arch\}-Setup\.\$\{ext\}$/m);
 });
 
-test('installer script: the installer copy kept for an auto-updater is deleted after installing', () => {
+test('installer script: keeps the installer copy the auto-updater needs for a differential update', () => {
   const nsh = read('build-resources/installer.nsh');
-  const install = nsh.match(/!macro customInstall\n([\s\S]*?)!macroend/)[1];
-  assert.match(install, /!ifdef APP_INSTALLER_STORE_FILE\n[\s\S]*Delete "\$LOCALAPPDATA\\\$\{APP_INSTALLER_STORE_FILE\}"[\s\S]*RMDir "\$0"[\s\S]*!endif/);
-  // RMDir without /r: the folder goes only when it is empty.
+  const code = nsh.split('\n').filter((line) => !/^\s*;/.test(line)).join('\n');
+  assert.doesNotMatch(code, /APP_INSTALLER_STORE_FILE/);
   assert.doesNotMatch(nsh, /RMDir \/r/i);
 });
 

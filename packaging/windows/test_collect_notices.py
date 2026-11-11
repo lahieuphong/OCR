@@ -47,6 +47,13 @@ class CollectNoticesTest(unittest.TestCase):
             "node_modules/@scope/lib/node_modules/isarray": {"version": "1.0.0", "license": "MIT"},
         }}))
         write(front, "node_modules/react/LICENSE", "React MIT")
+        # The Electron app's runtime dependencies (inside app.asar) are listed too; its build tools are not.
+        write(self.repo, "desktop/package-lock.json", json.dumps({"packages": {
+            "": {"name": "desktop"},
+            "node_modules/electron-updater": {"version": "6.8.12", "license": "MIT"},
+            "node_modules/react": {"version": "19.1.1", "license": "MIT"},
+            "node_modules/electron": {"version": "44.6.0", "license": "MIT", "dev": True}}}))
+        write(self.repo, "desktop/node_modules/electron-updater/LICENSE", "MIT updater")
         write(front, "node_modules/@scope/lib/LICENSE.md", "MPL text")
         self.card = write(base, "card/README.md", "---\nlicense: apache-2.0\n---\nModel card")
         self.vietocr = write(base, "vietocr/LICENSE", "Apache text")
@@ -64,6 +71,8 @@ class CollectNoticesTest(unittest.TestCase):
         self.assertEqual(items["react"]["files"], ["npm/react/LICENSE"])
         self.assertEqual([c["name"] for c in summary["items"]].count("react"), 1)   # nested copy listed once
         self.assertEqual(items["isarray"]["review"], "no licence file in the package")
+        self.assertEqual(items["electron-updater"]["files"], ["npm/electron-updater/LICENSE"])
+        self.assertNotIn("electron", items)    # build tool of the desktop app, not shipped as a package
         self.assertNotIn("vite", items)        # development only: not in the frontend build
         self.assertNotIn("maybe", items)
         self.assertEqual((self.out / "npm/react/LICENSE").read_text(encoding="utf-8"), "React MIT")

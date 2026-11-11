@@ -3,8 +3,7 @@
 ;   - per-user only: the install-mode page is skipped and the installer never asks for elevation;
 ;   - a page that lets the user choose a Desktop shortcut (off by default; the Start Menu shortcut is
 ;     always created by electron-builder); a silent install (/S) creates no Desktop shortcut;
-;   - the uninstaller removes that shortcut. Application data (%APPDATA%\VietDoc OCR) is kept;
-;   - the installer copy electron-builder leaves for an auto-updater is deleted (the app has none).
+;   - the uninstaller removes that shortcut, except during an upgrade. Application data (%APPDATA%\VietDoc OCR) is kept.
 ; Nothing here downloads anything, writes outside the install folder and the user's shortcuts, or runs code.
 
 !ifndef BUILD_UNINSTALLER
@@ -52,16 +51,8 @@
 !macroend
 
 !macro customInstall
-  ; electron-builder keeps a copy of the installer in %LOCALAPPDATA%\<package>-updater\installer.exe for its
-  ; auto-updater. VietDoc OCR has no auto-update, so that copy (as large as the installer) is removed again; its
-  ; folder goes only if it is then empty.
-  !ifdef APP_INSTALLER_STORE_FILE
-    Push $0
-    Delete "$LOCALAPPDATA\${APP_INSTALLER_STORE_FILE}"
-    ${StdUtils.GetParentPath} $0 "$LOCALAPPDATA\${APP_INSTALLER_STORE_FILE}"
-    RMDir "$0"
-    Pop $0
-  !endif
+  ; electron-builder keeps a copy of the installer in %LOCALAPPDATA%\<package>-updater\installer.exe: the installed
+  ; release's auto-updater (electron-updater) uses it as the base of a differential (blockmap) download.
   ${If} $VietDocDesktopShortcut == "1"
     CreateShortCut "$DESKTOP\${SHORTCUT_NAME}.lnk" "$INSTDIR\${APP_EXECUTABLE_FILENAME}" "" "$INSTDIR\${APP_EXECUTABLE_FILENAME}" 0 "" "" "${APP_DESCRIPTION}"
     ClearErrors

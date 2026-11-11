@@ -2,26 +2,18 @@
 
 Ứng dụng desktop nhận dạng tiếng Việt từ PDF, PNG và JPG, hỗ trợ thông tin văn bản 22 trường và xuất Excel 23 cột. Tài liệu được xử lý trên máy, không gửi tới dịch vụ OCR bên ngoài.
 
-## Hai bản tải về
+## Tải về
 
-| Nền tảng | File cài đặt | Tải về |
-|---|---|---|
-| Windows 10/11 x64 | `VietDoc-OCR-0.1.0-Windows-x64-Setup.exe` | [Tải Windows (.zip)](https://github.com/lahieuphong/OCR/actions/runs/40294105270/artifacts/12637299322) |
-| macOS 15+ · Apple Silicon | `VietDoc-OCR-0.1.0-macOS-arm64.dmg` | [Tải Mac (.zip)](https://github.com/lahieuphong/OCR/actions/runs/40294105172/artifacts/12637792703) |
+**Windows 10 (1903 trở lên) / Windows 11, 64-bit:** vào [trang phát hành mới nhất](https://github.com/lahieuphong/OCR/releases/latest).
 
-**Cần đăng nhập GitHub bằng tài khoản có quyền truy cập repo.** Nút tải trả về ZIP; giải nén để lấy file cài đặt. Hai link còn hiệu lực đến **25/11/2026**.
+- **Setup (khuyên dùng):** `VietDoc-OCR-v<phiên bản>-Windows-x64-Setup.exe`. Cài cho tài khoản hiện tại, có lối tắt Start Menu, tự cập nhật từ GitHub Releases.
+- **Portable:** `VietDoc-OCR-v<phiên bản>-Windows-x64-Portable.zip`. Giải nén rồi chạy `VietDoc OCR\VietDoc OCR.exe`; không tự cập nhật.
 
-**Bản tải hiện tại:** commit [`8a56503`](https://github.com/lahieuphong/OCR/commit/8a56503bf88bf45dbfed55e975dd1c589d615939), ngày 26/10/2026. Chưa có tính năng đối chiếu số/ký hiệu và H1 mới trên `main`; chưa có gói cài mới build thành công.
+Hai bản đều có sẵn model OCR, không cần Python, Node.js hay Git. Kiểm tra file tải về bằng `SHA256SUMS.txt`. Bản build chưa ký số. Hướng dẫn: [release/windows/HUONG_DAN_CAI_DAT.md](release/windows/HUONG_DAN_CAI_DAT.md).
 
-Cả hai bản tải từ GitHub đều cần **chép model OCR riêng**. PDF có text và xuất Excel dùng được ngay khi chưa có model. Bản Mac không hỗ trợ Intel.
+**macOS 15+ (Apple Silicon):** chỉ có bản test không kèm model, build qua workflow [Mac](https://github.com/lahieuphong/OCR/actions/workflows/vietdoc-macos.yml) (cần chép model riêng, xem [packaging/macos/README.md](packaging/macos/README.md)).
 
-## Cài đặt và sử dụng
-
-- **Windows:** tải ZIP ở bảng trên, giải nén rồi chạy `.exe`. App có tên **VietDoc OCR Test**, cài đặt và lưu cấu hình riêng để giữ nguyên bản offline cũ có model.
-- **Mac:** tải và giải nén ZIP ở bảng trên. Mở DMG, kéo app vào **Applications**. Nếu macOS chặn bản test, chọn **Privacy & Security → Open Anyway**.
-- Chọn file, dùng **Text có sẵn trong PDF** hoặc **OCR bằng VietOCR B**, kiểm tra kết quả rồi xuất TXT, JSON hoặc Excel.
-
-Máy dùng bản cài đặt không cần cài Python hay Node.js. Hướng dẫn model: [Windows](packaging/windows/README.md) · [Mac](packaging/macos/README.md). Khi link hết hạn, cần build thành công gói mới từ workflow [Windows](https://github.com/lahieuphong/OCR/actions/workflows/vietdoc-packaging-ci.yml) / [Mac](https://github.com/lahieuphong/OCR/actions/workflows/vietdoc-macos.yml).
+Chọn file, dùng **Bóc tách nhanh**, **Text có sẵn** hoặc **Nhận dạng OCR**, kiểm tra kết quả rồi xuất TXT, JSON hoặc Excel. Tài liệu được xử lý trên máy, không gửi tới dịch vụ OCR bên ngoài.
 
 ## Mã nguồn và phát triển
 
@@ -33,4 +25,4 @@ Source đã có **Đối chiếu số/ký hiệu → Xem ảnh đối chiếu** 
 - [Electron](desktop/README.md) — chạy ứng dụng từ source, cấu hình và kiểm thử.
 - [Đóng gói](packaging/README.md) · [Build Mac](packaging/macos/README.md) · [Các nhánh nghiên cứu](docs/BRANCHES.md).
 
-Model, dữ liệu riêng tư và file cài đặt được giữ ngoài Git. Đây là các bản test nội bộ; [điều kiện phát hành cộng đồng](release/README.md) chưa hoàn tất.
+Model, dữ liệu riêng tư và file cài đặt được giữ ngoài Git. Quy trình phát hành và hồ sơ giấy phép (đang rà soát): [release/PHAT_HANH_WINDOWS.md](release/PHAT_HANH_WINDOWS.md), [release/GIAY_PHEP_PHUONG_AN.md](release/GIAY_PHEP_PHUONG_AN.md).

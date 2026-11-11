@@ -1,6 +1,6 @@
 # VietDoc OCR cho Windows: cài đặt và sử dụng
 
-VietDoc OCR nhận dạng chữ tiếng Việt trong PDF, PNG và JPG, đọc 22 trường thông tin văn bản và xuất TXT, JSON, Excel. Mọi xử lý chạy trên máy của bạn: ứng dụng không gửi tài liệu lên Internet, không tải model, không tự cập nhật. Máy không cần Python, Node.js hay Git.
+VietDoc OCR nhận dạng chữ tiếng Việt trong PDF, PNG và JPG, đọc 22 trường thông tin văn bản và xuất TXT, JSON, Excel. Mọi xử lý chạy trên máy của bạn: ứng dụng không gửi tài liệu lên Internet và không tải model. Bản Setup tự kiểm tra và cài bản mới từ GitHub Releases; bản Portable không tự cập nhật. Máy không cần Python, Node.js hay Git.
 
 ## 1. Chọn bản tải
 
@@ -10,6 +10,7 @@ VietDoc OCR nhận dạng chữ tiếng Việt trong PDF, PNG và JPG, đọc 22
 | Cách dùng | Cài cho tài khoản Windows hiện tại | Giải nén rồi chạy, không cài |
 | Quyền quản trị | Không cần | Không cần |
 | Lối tắt | Start Menu; Desktop nếu bạn chọn | Không tạo |
+| Cập nhật | Tự động từ GitHub Releases | Tải bản mới bằng tay |
 | Gỡ bỏ | Settings → Apps | Xóa thư mục |
 | Dữ liệu ứng dụng | `%APPDATA%\VietDoc OCR` | Thư mục `VietDoc OCR Data` cạnh ứng dụng |
 
@@ -50,7 +51,7 @@ Bản phát hành hiện **chưa có chữ ký số** (UNSIGNED). Khi mở, Wind
 
 Ứng dụng được cài vào `%LOCALAPPDATA%\Programs\VietDoc OCR`, chỉ cho tài khoản hiện tại.
 
-**Nâng cấp:** chạy Setup của phiên bản mới. Cài đặt và nhật ký trong `%APPDATA%\VietDoc OCR` được giữ lại.
+**Cập nhật:** khi có Internet, ứng dụng tự kiểm tra GitHub Releases sau khi mở, tải bản mới ở nền và cài khi bạn đóng ứng dụng. Bạn cũng có thể chọn menu **VietDoc → Kiểm tra cập nhật…**, hoặc tự chạy Setup của phiên bản mới. Cài đặt, nhật ký và lối tắt Desktop được giữ lại.
 
 **Gỡ bỏ:** Settings → Apps → Installed apps → **VietDoc OCR** → Uninstall. Thư mục `%APPDATA%\VietDoc OCR` vẫn được giữ; xóa thủ công nếu không cần nữa.
 
@@ -79,7 +80,7 @@ Giới hạn: tối đa 15 MB mỗi tệp; Nhận dạng OCR tối đa 6 trang m
 ## 8. Quyền riêng tư
 
 - Tài liệu chỉ được xử lý trên máy. Phần xử lý OCR chỉ nghe kết nối nội bộ (127.0.0.1) và từ chối mọi yêu cầu không mang mã của ứng dụng.
-- Không có thu thập dữ liệu sử dụng, không tự cập nhật, không tải model.
+- Không thu thập dữ liệu sử dụng, không tải model. Bản Setup chỉ kết nối GitHub để kiểm tra và tải bản cập nhật của chính VietDoc OCR (file `latest.yml`, kiểm tra SHA-512 trước khi cài). Bản Portable không kết nối Internet.
 - Kết quả chỉ được ghi ra đĩa khi bạn bấm xuất và chọn nơi lưu.
 
 ## 9. Khi gặp sự cố

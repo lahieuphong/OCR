@@ -2,7 +2,7 @@
 
 Tài liệu cho người phát hành. Hướng dẫn cho người dùng cuối nằm ở [windows/HUONG_DAN_CAI_DAT.md](windows/HUONG_DAN_CAI_DAT.md).
 
-**Trạng thái: phát hành công khai BLOCKED.** Bản build nội bộ (Setup và Portable có model) đã làm được trên máy build của chủ dự án. Bản công khai chỉ được build sau khi rà soát giấy phép hoàn tất ([LICENSING_AUDIT.md](LICENSING_AUDIT.md)) và có kết quả kiểm thử trên Windows sạch ([QA_MATRIX.md](QA_MATRIX.md)).
+**Trạng thái (11/11/2026):** chủ dự án quyết định phát hành công khai `v0.1.0` khi rà soát giấy phép ([GIAY_PHEP_PHUONG_AN.md](GIAY_PHEP_PHUONG_AN.md)) và kiểm thử Windows 10 vẫn còn mở. Các việc ở mục 9 vẫn phải hoàn tất.
 
 ## 1. Hai bản tải về
 
@@ -110,11 +110,13 @@ Chưa thêm workflow tạo release vì hai lý do: bản đầy đủ cần mode
 
 ## 7. Cập nhật tự động: lộ trình
 
-Bản hiện tại không có cập nhật tự động (`publish: null`, không có `app-update.yml`, bộ cài xóa bản sao installer mà electron-builder để lại cho updater).
+Theo quyết định của chủ dự án (11/11/2026), bản Setup **tự cập nhật** như các ứng dụng Electron thông thường. Mã ở `desktop/electron/lib/updater.js`, dùng `electron-updater`, nguồn là GitHub Releases của `lahieuphong/OCR`:
 
-1. **Trước hết:** Setup và Portable ổn định, kiểm thử nâng cấp từ bản cũ lên bản mới giữ nguyên dữ liệu.
-2. **Kiểm tra phiên bản (chỉ thông báo):** ứng dụng hỏi GitHub Releases API qua HTTPS khi người dùng bấm "Kiểm tra cập nhật", so sánh phiên bản và mở trang release trong trình duyệt. Không tải hay chạy file nào. Cần: repository phát hành công khai cố định, quyết định về quyền riêng tư (một yêu cầu mạng khi người dùng chủ động bấm).
-3. **Tự cập nhật (electron-updater):** chỉ sau khi có chứng chỉ ký mã, bản cập nhật được xác thực chữ ký (`publisherName`) và SHA-512, có kiểm thử nâng cấp và quay lại bản cũ. Không bao giờ tải hoặc chạy EXE từ nguồn chưa xác thực.
+- Chỉ bản Setup đã cài mới cập nhật: có trình gỡ cài đặt cạnh exe và có `app-update.yml`. Không cập nhật khi chạy Portable, chạy từ mã nguồn, chạy smoke test hay các bản test/nội bộ.
+- Kiểm tra một lần khoảng 10 giây sau khi mở, tải ở nền, cài khi đóng ứng dụng. Có thể kiểm tra tay qua menu **VietDoc → Kiểm tra cập nhật…**. Mọi sự kiện được ghi vào `main.log`.
+- File tải về được kiểm SHA-512 theo `latest.yml`. Cập nhật vi sai dùng blockmap và bản sao installer trong `%LOCALAPPDATA%\vietdoc-ocr-desktop-updater`.
+- **Rủi ro còn lại:** bản build chưa ký số, nên không kiểm được chữ ký nhà phát hành. Ai chiếm được quyền ghi Release của repository có thể đẩy bản cập nhật cho mọi máy đã cài. Cần bật xác thực hai lớp, bảo vệ tag, và ký số sớm (khi đó đặt `publisherName`).
+- Phát hành: `packaging/windows/build_release.py --channel public`, rồi `packaging/windows/publish_github_release.py --publish`.
 
 ## 8. Ký số
 

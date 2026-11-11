@@ -22,7 +22,9 @@ Every step stops the build when it fails:
   6. checks the folder app: Electron fuses, the bundle scan (no documents, keys, secrets or machine paths; model
      weights only the locked files), path lengths for a typical profile, signature status;
   7. makes the Setup from that exact folder (--prepackaged) and the Portable ZIP from the same folder, and reads the
-     whole ZIP back against the folder; with full 7-Zip installed it also compares the Setup's payload;
+     whole ZIP back against the folder; it also extracts the Setup's app payload (full 7-Zip, or the stored archive
+     carved out of the Setup and read with electron-builder's 7za) and compares it with the folder, and copies
+     latest.yml and the blockmap (the update feed of the installed Setup) after checking latest.yml's SHA-512;
   8. writes <out>/release/ (the two files, SHA256SUMS.txt, BUILD_INFO.txt, guide, release notes, notices) and
      <out>/reports/build_report.json.
 
@@ -96,6 +98,82 @@ def channel_gate(channel: str, dirty: bool, allow_dirty: bool, public_license: P
     if channel == "public" and not public_license.is_file():
         raise BuildError("BLOCKED: a public build needs desktop/build-resources/PUBLIC_LICENSE.txt, the licence "
                          "text approved by the owner (release/LICENSING_AUDIT.md).")
+
+
+EXPECTED_FEED = {"provider": "github", "owner": "lahieuphong", "repo": "OCR"}
+SEVEN_Z_SIGNATURE = bytes([0x37, 0x7A, 0xBC, 0xAF, 0x27, 0x1C])
+
+
+def simple_yaml(path: Path) -> dict:
+    """Top-level "key: value" pairs of a small YAML file written by electron-builder (no nesting needed here)."""
+    found = {}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if line and not line.startswith((" ", "-", "#")) and ":" in line:
+            key, value = line.split(":", 1)
+            found[key.strip()] = value.strip().strip("'\"")
+    return found
+
+
+def update_feed(app_update_yml: Path) -> dict:
+    if not app_update_yml.is_file():
+        return {}
+    data = simple_yaml(app_update_yml)
+    return {key: data.get(key) for key in EXPECTED_FEED}
+
+
+def check_latest_yml(latest: Path, setup: Path, version: str) -> dict:
+    """latest.yml must name this Setup, this version and the Setup's SHA-512 (base64), as electron-updater checks it."""
+    import base64
+    data = simple_yaml(latest)
+    digest = hashlib.sha512()
+    with setup.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1 << 20), b""):
+            digest.update(chunk)
+    expected = base64.b64encode(digest.digest()).decode()
+    problems = [k for k, ok in (("version", data.get("version") == version), ("path", data.get("path") == setup.name),
+                                ("sha512", data.get("sha512") == expected)) if not ok]
+    if problems:
+        raise BuildError(f"latest.yml does not match the Setup ({', '.join(problems)})")
+    return {"result": "PASS", "version": version, "path": setup.name}
+
+
+def find_embedded_7z(path: Path) -> tuple[int, int]:
+    """(offset, length) of the largest complete 7z archive stored inside a file (the NSIS app payload)."""
+    import mmap
+    import struct
+    with path.open("rb") as stream, mmap.mmap(stream.fileno(), 0, access=mmap.ACCESS_READ) as data:
+        size, position, best = len(data), 0, None
+        while True:
+            start = data.find(SEVEN_Z_SIGNATURE, position)
+            if start < 0:
+                break
+            next_offset, next_size = struct.unpack("<QQ", data[start + 12:start + 28])
+            total = 32 + next_offset + next_size
+            if next_size and start + total <= size and (best is None or total > best[1]):
+                best = (start, total)
+            position = start + 1
+    if best is None:
+        raise BuildError(f"No embedded 7z archive in {path.name}")
+    return best
+
+
+def carve_embedded_7z(setup: Path, target: Path) -> dict:
+    offset, length = find_embedded_7z(setup)
+    with setup.open("rb") as source, target.open("wb") as out:
+        source.seek(offset)
+        left = length
+        while left:
+            chunk = source.read(min(left, 1 << 24))
+            out.write(chunk)
+            left -= len(chunk)
+    return {"offset": offset, "bytes": length}
+
+
+def find_7za() -> Path | None:
+    """The 7za.exe electron-builder downloads into its cache (or the 7zip-bin package)."""
+    candidates = sorted(Path(os.environ.get("LOCALAPPDATA", "")).glob("electron-builder/Cache/7zip*/**/7za.exe"))
+    candidates += [DESKTOP / "node_modules" / "7zip-bin" / "win" / "x64" / "7za.exe"]
+    return next((p for p in candidates if p.is_file()), None)
 
 
 def has_utf8_code_page(exe: Path) -> bool:
@@ -351,7 +429,8 @@ class Builder:
             config = CONFIGS[self.args.channel]
             for name, cfg in (("app-release", config), ("app-smoke", SMOKE_CONFIG)):
                 self.run(f"electron-{name}", [self.npx, "electron-builder", "--win", "dir", "--x64", "--config", cfg,
-                                              f"--config.directories.output={self.work / name}"], DESKTOP)
+                                              "--publish", "never", f"--config.directories.output={self.work / name}"],
+                         DESKTOP)
         finally:
             for link in reversed(created):
                 if os.path.isjunction(link):
@@ -385,9 +464,12 @@ class Builder:
             rows = (line.rstrip("\n").split("\t") for line in stream)
             self.scanned = {path: digest for path, _, digest in rows}
         budget = path_budget(self.app, Path(self.names["portable"]).stem)
+        feed = update_feed(self.app / "resources" / "app-update.yml")
         self.report["checks"] = {"fuses": "PASS", "scan": {"result": scan["result"], "files": scan["files"],
                                                            "bytes": scan["bytes"], "locked_models": len(scan["locked_models"])},
-                                 "paths": budget}
+                                 "paths": budget, "update_feed": feed}
+        if feed != EXPECTED_FEED:
+            raise BuildError(f"app-update.yml does not point at {EXPECTED_FEED}: {feed}")
         if budget["result"] != "PASS":
             raise BuildError(f"Paths too long for a typical profile: {budget}")
         smoke_manifest = portable_zip.file_manifest(self.smoke_app)
@@ -401,27 +483,43 @@ class Builder:
     def setup(self) -> None:
         output = self.work / "setup"
         self.run("electron-setup", [self.npx, "electron-builder", "--win", "nsis", "--x64", "--prepackaged", str(self.app),
-                                    "--config", CONFIGS[self.args.channel], f"--config.directories.output={output}"], DESKTOP)
+                                    "--config", CONFIGS[self.args.channel], "--publish", "never",
+                                    f"--config.directories.output={output}"], DESKTOP)
         built = output / self.names["setup"]
         if not built.is_file():
             raise BuildError(f"Setup not found under its release name: {built}")
         self.release.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(built, self.release / self.names["setup"])
+        # The update feed beside the Setup: latest.yml (version, file name, SHA-512) and the blockmap.
+        for name in (self.names["setup"] + ".blockmap", "latest.yml"):
+            if not (output / name).is_file():
+                raise BuildError(f"electron-builder wrote no {name}: the update feed would be incomplete")
+            shutil.copyfile(output / name, self.release / name)
+        self.report["latest_yml"] = check_latest_yml(self.release / "latest.yml", self.release / self.names["setup"],
+                                                     self.report["version"])
+        inner = self.work / "setup-app"
         seven_zip = Path(os.environ.get("ProgramFiles", r"C:\Program Files")) / "7-Zip" / "7z.exe"
-        if not seven_zip.is_file() and self.args.channel == "public":
-            raise BuildError("A public build compares the Setup's payload with the checked app: install full 7-Zip.")
-        if not seven_zip.is_file():
-            self.report["setup_payload"] = {"result": "NOT RUN", "reason": "full 7-Zip is not installed; compare an install instead"}
-            return
-        outer, inner = self.work / "setup-unpacked", self.work / "setup-app"
-        self.run("setup-extract", [str(seven_zip), "x", str(built), f"-o{outer}", "-y"], self.work)
-        payload = list(outer.rglob("app-64.7z"))
-        if len(payload) != 1:
-            raise BuildError("Expected exactly one app-64.7z in the Setup")
-        self.run("setup-extract-app", [str(seven_zip), "x", str(payload[0]), f"-o{inner}", "-y"], self.work)
+        if seven_zip.is_file():
+            outer = self.work / "setup-unpacked"
+            self.run("setup-extract", [str(seven_zip), "x", str(built), f"-o{outer}", "-y"], self.work)
+            payload = list(outer.rglob("app-64.7z"))
+            if len(payload) != 1:
+                raise BuildError("Expected exactly one app-64.7z in the Setup")
+            archive, method = payload[0], "7-Zip"
+        else:
+            # No full 7-Zip: the app archive sits in the Setup uncompressed; carve it out and read it with 7za.
+            seven_zip = find_7za()
+            if seven_zip is None:
+                if self.args.channel == "public":
+                    raise BuildError("A public build compares the Setup's payload with the checked app: no 7-Zip or 7za.")
+                self.report["setup_payload"] = {"result": "NOT RUN", "reason": "no 7-Zip or 7za found"}
+                return
+            archive, method = self.work / "app-64.7z", "embedded archive carved from the Setup, read with 7za"
+            carve_embedded_7z(built, archive)
+        self.run("setup-extract-app", [str(seven_zip), "x", str(archive), f"-o{inner}", "-y"], self.work)
         sys.path.insert(0, str(HERE))
         from check_installer_payload import verify
-        result = verify(self.app, inner, EXE)
+        result = verify(self.app, inner, EXE) | {"method": method}
         self.report["setup_payload"] = result
         if result["result"] != "PASS":
             raise BuildError(f"Setup payload differs from the checked app: {result}")
@@ -470,7 +568,8 @@ class Builder:
                  "Models (offline, checked by SHA-256 before OCR):"]
         lines += [f"  {rel} {info['sha256']}" for rel, info in models.items() if info["locked"]]
         lines += ["Code signing: " + ("UNSIGNED" if all(s == "NotSigned" for s in signatures.values()) else json.dumps(signatures)),
-                  "Automatic updates: none. Model downloads: none.",
+                  "Automatic updates: the installed Setup checks GitHub Releases of lahieuphong/OCR (latest.yml, SHA-512); "
+                  "the Portable ZIP never updates itself. Model downloads: none.",
                   *[f"SHA-256 {sums[n]}  {n}" for n in files]]
         (self.release / "BUILD_INFO.txt").write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
         self.report.update({"release_files": {n: {"bytes": (self.release / n).stat().st_size, "sha256": sums[n]} for n in files},

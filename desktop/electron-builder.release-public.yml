@@ -6,6 +6,7 @@ extends: electron-builder.release.yml
 copyright: VietDoc OCR project
 extraMetadata:
   vietdocSmokeTest: false
+  vietdocUpdates: true
   author:
     name: VietDoc OCR project
   description: VietDoc OCR - offline Vietnamese OCR

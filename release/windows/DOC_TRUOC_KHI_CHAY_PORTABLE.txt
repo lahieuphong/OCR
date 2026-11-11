@@ -2,7 +2,8 @@
 =====================================================
 
 Không cần cài đặt. Không cần Python, Node.js hay Git. Toàn bộ OCR chạy trên máy,
-không tải model, không gửi tài liệu lên Internet, không tự cập nhật.
+không tải model, không gửi tài liệu lên Internet. Bản Portable không tự cập nhật:
+tải bản mới tại https://github.com/lahieuphong/OCR/releases.
 
 1. GIẢI NÉN TRƯỚC
    Đừng mở VietDoc OCR.exe ngay trong cửa sổ xem file ZIP: ứng dụng sẽ không chạy.

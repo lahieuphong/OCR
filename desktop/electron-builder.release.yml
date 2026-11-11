@@ -9,14 +9,16 @@
 # on the installer's licence page. electron-builder.release-public.yml changes only those, and the build script
 # refuses it until the owner has closed the licence review (release/LICENSING_AUDIT.md).
 #
-# The models are never committed, never in Git LFS, never a CI artifact. Nothing is downloaded at install or run
-# time: no web installer, no update feed (publish: null), no model download. The build is unsigned.
+# The models are never committed, never in Git LFS, never a CI artifact. Nothing is downloaded at install time and no
+# model is ever downloaded. The installed Setup updates itself from this repository's GitHub Releases (latest.yml,
+# blockmap; desktop/electron/lib/updater.js); the Portable ZIP does not. The build is unsigned.
 extends: electron-builder.yml
 appId: vn.vietdoc.ocr.desktop        # the release identity: keep it for every later version (upgrade, uninstall)
 productName: VietDoc OCR
 copyright: INTERNAL TEST BUILD / NOT FOR DISTRIBUTION
 extraMetadata:
   vietdocSmokeTest: false
+  vietdocUpdates: true        # lib/updater.js: only builds of this file may update themselves
   # Written into the executables' version information (rcedit): without an author, VietDoc OCR.exe would keep
   # Electron's own CompanyName ("GitHub, Inc.").
   author:
@@ -31,7 +33,13 @@ extraResources:
     to: paddlex
   - from: out/licenses
     to: licenses
-publish: null
+# electron-updater feed: app-update.yml in the app, latest.yml and the blockmap beside the Setup. build_release.py builds
+# with --publish never; packaging/windows/publish_github_release.py uploads the checked files.
+publish:
+  provider: github
+  owner: lahieuphong
+  repo: OCR
+  releaseType: release
 win:
   target:
     - target: nsis
@@ -56,7 +64,7 @@ nsis:
   license: build-resources/INTERNAL_NOTICE.txt
   include: build-resources/installer.nsh
   deleteAppDataOnUninstall: false   # settings and logs survive an upgrade, a reinstall and an uninstall
-  differentialPackage: false        # no blockmap: nothing is updated over the network
+  differentialPackage: true         # blockmap: an update downloads only the changed blocks
   runAfterFinish: true
   unicode: true
   warningsAsErrors: true

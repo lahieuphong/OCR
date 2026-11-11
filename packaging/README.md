@@ -192,16 +192,31 @@ It stops at the first failed check and never uploads, tags, signs or installs an
    location (Windows' 260-character limit), and that the smoke variant differs only in `app.asar` and the executable;
 6. makes the Setup from that exact folder (`--prepackaged`) and the Portable ZIP (`portable_zip.py`: the folder as
    `VietDoc OCR\`, an empty `VietDoc OCR Data\` so the copy keeps its data beside itself, a short guide), reads the
-   whole ZIP back against the folder and, when full 7-Zip is installed, the Setup's payload too;
-7. writes `<out>\release\` (Setup, Portable, `SHA256SUMS.txt`, `BUILD_INFO.txt`, guide, release notes, notices) and
-   `<out>\reports\build_report.json`.
+   whole ZIP back against the folder, and compares the Setup's app payload with the folder (full 7-Zip when
+   installed, otherwise the stored archive carved out of the Setup and read with electron-builder's 7za);
+7. writes `<out>\release\` (Setup, its `.blockmap`, `latest.yml`, Portable, `SHA256SUMS.txt`, `BUILD_INFO.txt`, guide,
+   release notes, notices) and `<out>\reports\build_report.json`; `latest.yml` must name the Setup and its SHA-512.
 
 The release configuration is internal by default (`-INTERNAL` in the names, `INTERNAL_NOTICE.txt` on the licence
-page). `--channel public` needs a clean tree, `desktop/build-resources/PUBLIC_LICENSE.txt` (it exists only once the
-owner has closed the licence review), `--vietocr-license`, the detector's model card, full 7-Zip for the Setup payload
-comparison and a backend built in the same run (no `--reuse-backend`). Every build checks that the backend carries the
-UTF-8 code-page manifest. The installer deletes the installer copy electron-builder leaves in
-`%LOCALAPPDATA%\vietdoc-ocr-desktop-updater` (there is no auto-update).
+page). `--channel public` needs a clean tree, `desktop/build-resources/PUBLIC_LICENSE.txt` (the installer's notice page),
+`--vietocr-license`, the detector's model card, a Setup payload comparison and a backend built in the same run (no
+`--reuse-backend`). Every build checks that the backend carries the UTF-8 code-page manifest and that `app-update.yml`
+points at the GitHub Releases of `lahieuphong/OCR`.
+
+Automatic updates: only the installed Setup updates itself (`desktop/electron/lib/updater.js`, electron-updater);
+the Portable ZIP, development runs, the smoke test and test builds never do. The installer keeps the installer copy in
+`%LOCALAPPDATA%\vietdoc-ocr-desktop-updater` as the base of differential (blockmap) downloads.
+
+Publishing (owner's machine, never CI, because the Setup carries the models):
+
+```
+<packaging venv python> packaging\windows\publish_github_release.py --release-dir <out>\release --publish
+```
+
+It refuses anything but a public build of the checked-out commit whose `SHA256SUMS.txt` and `latest.yml` match the files,
+creates and pushes the annotated tag `v<version>`, creates a draft release with the download page, uploads the Setup, its
+blockmap, the Portable ZIP, `latest.yml`, `SHA256SUMS.txt`, `BUILD_INFO.txt` and `THIRD_PARTY_NOTICES.txt`, compares
+GitHub's SHA-256 of each upload with the local file, and only then publishes the release as Latest.
 
 Real OCR through a built app, compared with the development server of the same checkout:
 
