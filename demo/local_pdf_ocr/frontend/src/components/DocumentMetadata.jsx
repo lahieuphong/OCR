@@ -1,7 +1,8 @@
 import {useState} from "react";
-import {Check, ChevronDown, ChevronRight, Copy, Download, FileSearch, ListChecks, RotateCcw, AlertTriangle} from "lucide-react";
+import {Check, ChevronDown, ChevronRight, Copy, Download, FileSearch, ListChecks, RotateCcw, AlertTriangle, TriangleAlert} from "lucide-react";
 import {Button} from "@/components/ui/button";
 import InlineIcon from "@/components/ui/inline-icon";
+import StatusIcon from "@/components/ui/status-icon";
 import {Badge} from "@/components/ui/badge";
 import {Alert, AlertDescription} from "@/components/ui/alert";
 import ConfirmDialog from "./ConfirmDialog.jsx";
@@ -74,6 +75,7 @@ export default function DocumentMetadata({draft, onEdit, onConfirmField, onReset
     </div>
     <p className="metadata-hint">
       {fromOcr ? "Giá trị từ OCR: đối chiếu" : "Đối chiếu"} bản gốc rồi bấm <InlineIcon icon={Check} label="nút xác nhận"/> để xác nhận.{fromOcr && " Ứng dụng không tự sửa chữ hay dấu."}
+      {validation.review.length > 0 && <> Rê chuột lên nhãn <InlineIcon icon={TriangleAlert} label="" tone="warning"/> Cần kiểm tra để xem lý do.</>}
     </p>
     {draft.typeLabel && !draft.fields.typeName.value && <p className="detected-document-type">Loại nhận diện: <strong>{draft.typeLabel}</strong> · chưa có mã nghiệp vụ, hãy chọn ở “Loại tài liệu”.</p>}
     {validation.unclassifiedMode && checked && <Alert className="metadata-warning"><AlertTriangle/><AlertDescription>Chưa phân loại chế độ sử dụng. Hệ thống lưu trữ có thể mặc định “Công khai” khi mã rỗng; JSON vẫn giữ giá trị rỗng.</AlertDescription></Alert>}
@@ -96,7 +98,7 @@ export default function DocumentMetadata({draft, onEdit, onConfirmField, onReset
             "aria-invalid": Boolean(invalid), "aria-describedby": `metadata-${key}-help`, title: entry.note || undefined};
           return <div className={`metadata-field status-${entry.status}` + (["subject","organName","description"].includes(key) ? " wide-field" : "")} key={key}>
             <div className="field-heading"><label htmlFor={controlProps.id}>{FIELD_LABELS[key]}</label>
-              {showStatus && <Badge variant="outline" className={"field-status " + entry.status} title={entry.note || undefined}>{STATUS_LABELS[entry.status]}</Badge>}
+              {showStatus && <Badge variant="outline" className={"field-status " + entry.status} title={entry.note || undefined}><StatusIcon status={entry.status}/>{STATUS_LABELS[entry.status]}</Badge>}
               {!READ_ONLY.has(key) && entry.value && entry.status !== "confirmed" && <button type="button" className="confirm-field" title={`Xác nhận ${FIELD_LABELS[key]}`} aria-label={`Xác nhận ${FIELD_LABELS[key]}`} onClick={() => onConfirmField(key)}><Check size={13}/></button>}
               {entry.evidence.length > 0 && <details className="field-evidence"><summary title="Xem dòng nguồn"><FileSearch size={11}/> {evidenceLabel(entry.evidence[0])}</summary>
                 <div className="field-evidence-popover">{entry.evidence.map((source, i) => <blockquote key={i}>{source.page && <span>Trang {source.page}, dòng {source.line}{source.precision === "block" ? " · vị trí theo khối" : ""}</span>}{source.text}</blockquote>)}</div>
@@ -106,8 +108,10 @@ export default function DocumentMetadata({draft, onEdit, onConfirmField, onReset
               ...Object.entries(CATALOGS[key]).sort(([a],[b]) => a.localeCompare(b)).map(([code]) => ({value:code,label:catalogOptionLabel(key, code)}))]}/>
               : ["subject","description","autograph"].includes(key) ? <textarea {...controlProps} rows={key === "subject" ? 3 : 2} placeholder="Chưa xác định"/>
                 : <input {...controlProps} type="text" readOnly={READ_ONLY.has(key)} placeholder={key === "docId" ? "Luôn để trống" : key === "issuedDate" ? "DD-MM-YYYY" : "Chưa xác định"}/>}
-            {(invalid || note || entry.candidate) && <div id={`metadata-${key}-help`} className="field-help">
-              {invalid ? <p className="metadata-errors">{invalid}</p> : note ? <p className="field-note">{note}</p> : null}
+            {/* The reason is not printed under the field: it is the tooltip of the label and of the control, and
+                screen readers still hear it. Only a validation error and the stamp candidate are shown. */}
+            {(invalid || note || entry.candidate) && <div id={`metadata-${key}-help`} className={"field-help" + (invalid || entry.candidate ? "" : " sr-only")}>
+              {invalid ? <p className="metadata-errors">{invalid}</p> : note ? <p className="field-note sr-only">{note}</p> : null}
               {entry.candidate && <details className="metadata-unverified-candidate"><summary><ChevronRight size={13}/>Ứng viên chưa xác minh — dấu đóng chồng</summary>
                 <p>Chỉ để đối chiếu ảnh nguồn. Nội dung này không tự điền hoặc xuất thành trích yếu.</p><blockquote>{entry.candidate}</blockquote></details>}
             </div>}

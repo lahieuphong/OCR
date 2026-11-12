@@ -2,6 +2,7 @@ import {useState} from "react";
 import {FileSpreadsheet, LoaderCircle, RotateCcw, Check} from "lucide-react";
 import {Button} from "@/components/ui/button";
 import {Badge} from "@/components/ui/badge";
+import StatusIcon from "@/components/ui/status-icon";
 import ConfirmDialog from "./ConfirmDialog.jsx";
 import {CATALOGS, catalogOptionLabel, documentValues} from "@/lib/documentFields.js";
 import {batchDocumentStatus, batchExportState, BATCH_STATUS_LABELS} from "@/lib/documentBatch.js";
@@ -40,7 +41,7 @@ export default function DocumentList({documents,working,onSelect,onRetry,onConfi
           <td><button className="open-document" onClick={()=>onSelect(doc.id,"metadata")} aria-label={`Mở thông tin tài liệu ${index+1}: ${doc.name}`}>{values.arcDocCode || doc.name}</button><small>{doc.name}</small><small>{PROCESSING_LABELS[doc.mode] || doc.mode}</small></td>
           <td>{Object.hasOwn(CATALOGS.typeName, values.typeName ?? "") ? catalogOptionLabel("typeName", values.typeName) : draft?.typeLabel || "—"}{!values.typeName && draft?.typeLabel && <small>Cần xác nhận mã loại</small>}</td><td>{values.issuedDate || "—"}</td>
           <td><strong>{values.organName || "—"}</strong><p>{values.subject || "Chưa xác định trích yếu"}</p></td>
-          <td><Badge variant="outline" className={"batch-status " + status}>{BATCH_STATUS_LABELS[status]}</Badge>
+          <td><Badge variant="outline" className={"batch-status " + status}><StatusIcon status={status} size={10}/>{BATCH_STATUS_LABELS[status]}</Badge>
             {doc.errorsByMode[doc.mode] && <p className="metadata-errors">{doc.errorsByMode[doc.mode]}</p>}
             {status === "error" && <Button variant="ghost" size="sm" disabled={working} onClick={()=>onRetry(doc.id)}><RotateCcw/> Thử lại</Button>}
             {ready && status !== "confirmed" && <Button variant="ghost" size="sm" disabled={working} aria-label={`Xác nhận tài liệu ${index+1}`} onClick={()=>onConfirm(doc.id)}><Check/> Xác nhận</Button>}

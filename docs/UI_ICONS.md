@@ -33,6 +33,13 @@
    | Xử lý trên máy | `LockKeyhole` |
 
    Kích thước icon trong nút từ 13 đến 18 px, nét mặc định 2. Riêng biểu tượng ứng dụng (`ScanText`) dùng nét 1,7.
+6. **Nhãn trạng thái có màu thì có icon**, dùng `components/ui/status-icon.jsx`:
+   - **Cần kiểm tra**: `TriangleAlert` màu vàng cảnh báo.
+   - **Lỗi**: `TriangleAlert` màu đỏ.
+   - **Đã xác nhận**: `CircleCheck` màu xanh.
+
+   Nhãn trung tính (Chưa xử lý, Đang xử lý, Đã bóc tách) giữ dạng chữ.
+7. **Không in lời giải thích dài dưới từng ô** của form 22 trường. Lý do cần kiểm tra nằm trong tooltip của nhãn **Cần kiểm tra** và của ô nhập; trình đọc màn hình vẫn đọc được. Dưới ô chỉ hiện lỗi nhập sai và mục "Ứng viên chưa xác minh".
 
 ## Ngoại lệ: control mà nhãn chính là giá trị
 

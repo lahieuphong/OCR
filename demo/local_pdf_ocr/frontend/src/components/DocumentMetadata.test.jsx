@@ -35,18 +35,31 @@ test("only review and confirmed fields carry a status badge; empty fields rely o
   expect(document.querySelectorAll(".metadata-field input, .metadata-field [role=combobox], .metadata-field textarea")).toHaveLength(22);
 });
 
-test("a real warning stays visible next to its field", () => {
+// The reason for a review is not printed under the field (it cluttered the form): it is the tooltip of the
+// "Cần kiểm tra" label, which shows the yellow warning icon, and screen readers still hear it.
+function reasonOf(field) {
+  const note = field.querySelector(".field-note");
+  expect(note.classList.contains("sr-only")).toBe(true);
+  expect(note.closest(".field-help").classList.contains("sr-only") || note.closest(".field-help").querySelector(".metadata-unverified-candidate")).toBeTruthy();
+  const badge = field.querySelector(".field-status.review");
+  expect(badge.querySelector("svg.lucide-triangle-alert")).toBeTruthy();
+  expect(badge.title).toContain(note.textContent);
+  return note.textContent;
+}
+
+test("a real warning stays with its field: label tooltip and screen readers, not printed under it", () => {
   const raw = stampSubjectDocument({stamp: true, merged: "mixed"});
   view(raw);
   const subject = document.getElementById("metadata-subject").closest(".metadata-field");
-  expect(subject.querySelector(".field-note").textContent).toContain("Trích yếu chưa xác minh");
+  expect(reasonOf(subject)).toContain("Trích yếu chưa xác minh");
   expect(subject.querySelector(".metadata-unverified-candidate")).toBeTruthy();
+  expect(document.querySelector(".metadata-hint").textContent).toMatch(/Rê chuột lên nhãn\s+Cần kiểm tra để xem lý do\./u);
 });
 
-test("a subject filled beside an arrival stamp says so next to the field", () => {
+test("a subject filled beside an arrival stamp says so on its label", () => {
   view(stampSubjectDocument({stamp: true, merged: true}));
   const subject = document.getElementById("metadata-subject").closest(".metadata-field");
-  expect(subject.querySelector(".field-note").textContent).toContain("Dấu công văn đến chạm vào dòng trích yếu");
+  expect(reasonOf(subject)).toContain("Dấu công văn đến chạm vào dòng trích yếu");
   expect(subject.querySelector(".metadata-unverified-candidate")).toBeNull();
   expect(subject.querySelector(".field-status").textContent).toBe("Cần kiểm tra");
 });
@@ -57,11 +70,11 @@ test("routine notes are removed, other text kept", () => {
   expect(visibleNote("Đã được người dùng kiểm tra và xác nhận.")).toBe("");
 });
 
-test("a provisional type code is marked as such next to the field", () => {
+test("a provisional type code is marked as such in the field and on its label", () => {
   view(fastMetadataDocument());
   const type = document.getElementById("metadata-typeName").closest(".metadata-field");
   expect(type.textContent).toContain("NĐ – Nghị định (mã tạm)");
-  expect(type.querySelector(".field-note").textContent).toContain("Mã tạm “NĐ”");
+  expect(reasonOf(type)).toContain("Mã tạm “NĐ”");
   expect(type.querySelector(".field-status").textContent).toBe("Cần kiểm tra");
   expect(document.querySelector(".detected-document-type")).toBeNull();
 });

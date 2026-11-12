@@ -380,11 +380,15 @@
 .field-heading label { color: #334155; font-size: 11px; font-weight: 500; margin-right: auto; }
 .field-status { padding: 1px 5px; font-size: 9.5px; font-weight: 400; border-radius: 5px; color: #64748b; }
 .field-status.recognized { color: #1d4ed8; background: #eff6ff; border-color: #dbeafe; }
-.field-status.review { color: #92400e; background: #fffbeb; border-color: #fde68a; }
+.field-status.review { color: #92400e; background: #fffbeb; border-color: #fde68a; cursor: help; }
+/* "Cần kiểm tra" carries the yellow warning icon wherever it is shown (components/ui/status-icon.jsx). */
+.field-status, .batch-status { gap: 3px; }
+.field-status.review .status-icon, .batch-status.review .status-icon { color: #d97706; }
 .field-status.confirmed { color: #15803d; background: #f0fdf4; border-color: #bbf7d0; }
 .confirm-field { display: grid; place-items: center; border: 1px solid #e2e8f0; width: 19px; height: 19px; border-radius: 5px; color: #15803d; background: #fff; }
 /* The icon of a button named inside a sentence (components/ui/inline-icon.jsx), in that button's colour. */
 .inline-icon > svg { display: inline-block; vertical-align: -2px; color: #15803d; }
+.inline-icon.warning > svg { color: #d97706; }
 .metadata-field input, .metadata-field textarea { width: 100%; min-width: 0; border: 1px solid #cbd5e1; border-radius: 6px; padding: 7px 9px; color: #334155; background: #fff; font: inherit; font-size: 12px; line-height: 1.6; }
 .metadata-field textarea { resize: vertical; min-height: 58px; }
 .metadata-field input[readonly] { background: #f8fafc; color: #64748b; }
