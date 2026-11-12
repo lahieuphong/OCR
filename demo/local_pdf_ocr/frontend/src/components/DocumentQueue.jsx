@@ -1,6 +1,7 @@
 import {memo, useEffect, useMemo, useRef, useState} from "react";
 import {FilterX, Search, X} from "lucide-react";
 import {Button} from "@/components/ui/button";
+import StatusIcon from "@/components/ui/status-icon";
 import {BATCH_STATUS_LABELS} from "@/lib/documentBatch.js";
 import {QUEUE_FILTERS, queueCounts, queueRows, subfolder, visibleRows} from "@/lib/documentQueue.js";
 
@@ -18,7 +19,7 @@ const QueueRow = memo(function QueueRow({doc, index, status, active, working}) {
       <span className="queue-name">{doc.name}</span>
       {folder && <small className="queue-folder">{folder}</small>}
       <span className="queue-marks">
-        {STATUS_ON_ROW.has(status) && <span className={"queue-status " + status}>{label}</span>}
+        {STATUS_ON_ROW.has(status) && <span className={"queue-status " + status}><StatusIcon status={status} size={10}/>{label}</span>}
       </span>
     </button>
     <button type="button" className="remove-document" aria-label={`Xóa tài liệu ${index + 1}: ${doc.name}`} title="Xóa khỏi danh sách" disabled={working}><X size={14}/></button>
