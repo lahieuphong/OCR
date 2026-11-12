@@ -72,6 +72,8 @@ function checkReport(report, { expect = 'no-models', withPdf = false, withFast =
     const m = c.metadata || {};
     need(m.fields === 22 && m.export_exact_schema === true && m.manual_edits_and_reset === true,
       `22-field form and JSON export: ${JSON.stringify(c.metadata)}`);
+    need(Array.isArray(m.without_icon) && m.without_icon.length === 0,
+      `buttons without their lucide icon (docs/UI_ICONS.md): ${JSON.stringify(m.without_icon)}`);
     const e = c.export || {};
     need(e.both_saved && e.txt_labels_partial_and_keeps_text === true && e.json_method === 'metadata_fast' && e.partial_result === true,
       `partial TXT/JSON export of the header: ${JSON.stringify(c.export)}`);

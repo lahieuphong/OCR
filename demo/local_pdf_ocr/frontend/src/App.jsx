@@ -3,6 +3,7 @@ import {
   ScanText, FileText, FileImage, UploadCloud, ShieldCheck, ArrowRight,
   Download, Copy, Check, AlertTriangle, LoaderCircle, Clock3, FileJson,
   CircleCheck, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, RefreshCw, LockKeyhole, FolderOpen, Pause, RotateCcw, ListChecks,
+  X, Replace, Table2, ClipboardList, PanelTop, Files,
 } from "lucide-react";
 import {Button} from "@/components/ui/button";
 import {Card} from "@/components/ui/card";
@@ -186,13 +187,13 @@ export default function App() {
                 <h3>Kéo thả tài liệu hoặc thư mục vào đây</h3>
                 <p>PDF, PNG, JPG/JPEG · gồm cả thư mục con</p>
                 <div className="drop-actions">
-                  <Button size="sm" onClick={() => openFiles("add")}>Chọn tài liệu</Button>
+                  <Button size="sm" onClick={() => openFiles("add")}><UploadCloud size={15}/> Chọn tài liệu</Button>
                   <Button size="sm" variant="outline" onClick={() => folderInput.current?.click()}><FolderOpen size={15}/> Chọn thư mục</Button>
                 </div>
                 <p className="file-limits">Tối đa 15 MB/tệp · PDF: chỉ đọc trang 1 · Ảnh tối đa 12 MP</p>
               </div> : <>
                 {notice && <Alert className="import-notice" role="status"><FolderOpen size={16}/><AlertTitle>Kết quả thêm tài liệu</AlertTitle>
-                  <AlertDescription>{notice}<Button variant="ghost" size="sm" onClick={dismissNotice}>Đóng</Button></AlertDescription></Alert>}
+                  <AlertDescription>{notice}<Button variant="ghost" size="sm" onClick={dismissNotice}><X size={14}/> Đóng</Button></AlertDescription></Alert>}
 
                 <DocumentQueue documents={documents} activeId={activeId} working={working} onSelect={selectDocument} onRemove={removeDocument}/>
 
@@ -201,7 +202,7 @@ export default function App() {
                     <FileIcon size={15}/>
                     <strong title={document.name}>{document.name}</strong>
                     <small>{(document.size / (1024 * 1024)).toFixed(2)} MB · {isPDF ? "PDF" : "Ảnh"}</small>
-                    <Button variant="ghost" size="sm" disabled={working} onClick={() => openFiles("replace")}>Đổi tệp</Button>
+                    <Button variant="ghost" size="sm" disabled={working} onClick={() => openFiles("replace")}><Replace size={13}/> Đổi tệp</Button>
                     <Button variant="ghost" size="icon" aria-expanded={previewOpen} aria-label={previewOpen ? "Ẩn xem trước" : "Hiện xem trước"} title={previewOpen ? "Ẩn xem trước để danh sách rộng hơn" : "Hiện xem trước"} onClick={() => setPreviewOpen(open => !open)}>
                       {previewOpen ? <ChevronDown size={15}/> : <ChevronUp size={15}/>}
                     </Button>
@@ -257,10 +258,10 @@ export default function App() {
             <Tabs className="result-tabs" value={activeView} onValueChange={value => {setActiveView(value); setCopied(false);}}>
               <div className="result-toolbar">
                 <TabsList aria-label="Cách xem kết quả">
-                  <TabsTrigger value="list">Danh sách văn bản</TabsTrigger>
-                  <TabsTrigger value="metadata" disabled={!result}>Thông tin văn bản</TabsTrigger>
-                  <TabsTrigger value="text">Header (một phần)</TabsTrigger>
-                  <TabsTrigger value="page">Theo trang đã xét</TabsTrigger>
+                  <TabsTrigger value="list"><Table2 size={13}/>Danh sách văn bản</TabsTrigger>
+                  <TabsTrigger value="metadata" disabled={!result}><ClipboardList size={13}/>Thông tin văn bản</TabsTrigger>
+                  <TabsTrigger value="text"><PanelTop size={13}/>Header (một phần)</TabsTrigger>
+                  <TabsTrigger value="page"><Files size={13}/>Theo trang đã xét</TabsTrigger>
                 </TabsList>
                 <div className="toolbar-actions">
                   <ActionButton title="Sao chép header (một phần)" disabled={!result} onClick={copyText}>{copied ? <Check size={16}/> : <Copy size={16}/>}</ActionButton>
@@ -290,7 +291,7 @@ export default function App() {
 
               {result && activeView === "page" && <nav className="page-tabs" aria-label="Chọn trang kết quả">
                 <Button variant="outline" size="icon" aria-label="Trang trước" disabled={page === result.pages[0]?.page} onClick={() => setPage(result.pages[result.pages.findIndex(item => item.page === page) - 1]?.page ?? page)}><ChevronLeft size={16}/></Button>
-                {result.pages.map(item => <Button key={item.page} variant={page === item.page ? "default" : "ghost"} size="sm" aria-current={page === item.page ? "page" : undefined} onClick={() => {setPage(item.page); setCopied(false);}}>Trang {item.page}</Button>)}
+                {result.pages.map(item => <Button key={item.page} className="page-pick" variant={page === item.page ? "default" : "ghost"} size="sm" aria-current={page === item.page ? "page" : undefined} onClick={() => {setPage(item.page); setCopied(false);}}>Trang {item.page}</Button>)}
                 <Button variant="outline" size="icon" aria-label="Trang sau" disabled={page === result.pages.at(-1)?.page} onClick={() => setPage(result.pages[result.pages.findIndex(item => item.page === page) + 1]?.page ?? page)}><ChevronRight size={16}/></Button>
               </nav>}
 
@@ -308,7 +309,7 @@ export default function App() {
           </Card>
         </section>
       </main>
-      {pendingDiscard && <ConfirmDialog title={pendingDiscard.title || "Giữ hay thay thế chỉnh sửa?"} confirmLabel={pendingDiscard.confirmLabel || "Thay thế bản nháp"} onCancel={() => setPendingDiscard(null)}
+      {pendingDiscard && <ConfirmDialog title={pendingDiscard.title || "Giữ hay thay thế chỉnh sửa?"} confirmLabel={pendingDiscard.confirmLabel || "Thay thế bản nháp"} confirmIcon={pendingDiscard.confirmIcon || Replace} onCancel={() => setPendingDiscard(null)}
         onConfirm={() => {const action = pendingDiscard.run; setPendingDiscard(null); action();}}><p>{pendingDiscard.message}</p></ConfirmDialog>}
     </div>
   </TooltipProvider>;

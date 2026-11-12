@@ -1,4 +1,5 @@
 import {useEffect, useReducer, useRef, useState} from "react";
+import {Check, RotateCcw} from "lucide-react";
 import {batchReducer, createBatchDocument, estimateRemainingMs, runDocumentQueue} from "@/lib/documentBatch.js";
 import {createDocumentDraft, validateDocumentDraft} from "@/lib/documentFields.js";
 import {describeImport, documentPath, planImport} from "@/lib/folderImport.js";
@@ -155,7 +156,7 @@ export default function useDocumentBatch(health) {
     const done = documents.filter(doc => doc.resultsByMode[doc.mode]);
     const edited = done.filter(doc => doc.metadataByMode[doc.mode]?.dirty);
     if (!done.length) {process(documents, true); return;}
-    setPendingDiscard({title:"Bóc tách lại tất cả tài liệu?", confirmLabel:"Bóc tách tất cả",
+    setPendingDiscard({title:"Bóc tách lại tất cả tài liệu?", confirmLabel:"Bóc tách tất cả", confirmIcon:RotateCcw,
       message:`${done.length}/${documents.length} tài liệu đã có kết quả và sẽ được bóc tách lại.`
         + (edited.length ? ` ${edited.length} tài liệu có chỉnh sửa metadata sẽ bị thay bằng giá trị tự động mới.` : ""),
       run:() => process(documents, true)});
@@ -174,7 +175,7 @@ export default function useDocumentBatch(health) {
   function confirmDocument(id) {
     const doc = documents.find(item => item.id === id), draft = doc?.metadataByMode[doc.mode];
     if (!draft || Object.keys(validateDocumentDraft(draft).errors).length) {setError("Cần sửa metadata không hợp lệ trước khi xác nhận tài liệu."); return;}
-    setPendingDiscard({title:"Xác nhận đã kiểm tra tài liệu",confirmLabel:"Đã kiểm tra",message:"Xác nhận bạn đã đối chiếu tài liệu này. Các trường chưa xác định vẫn giữ rỗng; cảnh báo chế độ sử dụng chưa phân loại vẫn áp dụng khi xuất.",
+    setPendingDiscard({title:"Xác nhận đã kiểm tra tài liệu",confirmLabel:"Đã kiểm tra",confirmIcon:Check,message:"Xác nhận bạn đã đối chiếu tài liệu này. Các trường chưa xác định vẫn giữ rỗng; cảnh báo chế độ sử dụng chưa phân loại vẫn áp dụng khi xuất.",
       run:() => update(id, current => ({...current,confirmedByMode:{...current.confirmedByMode,[doc.mode]:true}}))});
   }
   return {documents,activeId,active,document,preview,selectedMode,resultsByMode,metadataByMode,setMetadataByMode,

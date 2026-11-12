@@ -1,6 +1,6 @@
 import {useEffect, useId, useLayoutEffect, useRef, useState} from "react";
 import {createPortal} from "react-dom";
-import {Activity, CircleCheck, FolderOpen, LoaderCircle, LogOut, Menu, Minus, Plus, RefreshCw, ScanText, TriangleAlert} from "lucide-react";
+import {Activity, CircleCheck, FolderOpen, LoaderCircle, LogOut, Menu, Minus, Plus, RefreshCw, ScanText, TriangleAlert, X} from "lucide-react";
 import {Button} from "@/components/ui/button";
 
 // The desktop app's bridge (desktop/electron/preload-app.js); absent in a browser, where the menu is not shown.
@@ -44,7 +44,7 @@ function UpdateDialog({state, onClose}) {
       <span>{checking ? "Đang kiểm tra bản mới trên GitHub…" : state.message}</span>
     </p>
     {state?.detail && <p className="update-detail">{state.detail}</p>}
-    <div className="confirm-actions"><Button autoFocus disabled={checking} onClick={onClose}>Đóng</Button></div>
+    <div className="confirm-actions"><Button autoFocus disabled={checking} onClick={onClose}><X size={15}/>Đóng</Button></div>
   </dialog>;
 }
 

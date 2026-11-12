@@ -1,6 +1,7 @@
 import {useState} from "react";
-import {Check, ChevronDown, Copy, Download, FileSearch, ListChecks, RotateCcw, AlertTriangle} from "lucide-react";
+import {Check, ChevronDown, ChevronRight, Copy, Download, FileSearch, ListChecks, RotateCcw, AlertTriangle} from "lucide-react";
 import {Button} from "@/components/ui/button";
+import InlineIcon from "@/components/ui/inline-icon";
 import {Badge} from "@/components/ui/badge";
 import {Alert, AlertDescription} from "@/components/ui/alert";
 import ConfirmDialog from "./ConfirmDialog.jsx";
@@ -72,7 +73,7 @@ export default function DocumentMetadata({draft, onEdit, onConfirmField, onReset
       </div>
     </div>
     <p className="metadata-hint">
-      {fromOcr ? "Giá trị từ OCR: đối chiếu bản gốc rồi bấm ✓ để xác nhận. Ứng dụng không tự sửa chữ hay dấu." : "Đối chiếu bản gốc rồi bấm ✓ để xác nhận."}
+      {fromOcr ? "Giá trị từ OCR: đối chiếu" : "Đối chiếu"} bản gốc rồi bấm <InlineIcon icon={Check} label="nút xác nhận"/> để xác nhận.{fromOcr && " Ứng dụng không tự sửa chữ hay dấu."}
     </p>
     {draft.typeLabel && !draft.fields.typeName.value && <p className="detected-document-type">Loại nhận diện: <strong>{draft.typeLabel}</strong> · chưa có mã nghiệp vụ, hãy chọn ở “Loại tài liệu”.</p>}
     {validation.unclassifiedMode && checked && <Alert className="metadata-warning"><AlertTriangle/><AlertDescription>Chưa phân loại chế độ sử dụng. Hệ thống lưu trữ có thể mặc định “Công khai” khi mã rỗng; JSON vẫn giữ giá trị rỗng.</AlertDescription></Alert>}
@@ -107,7 +108,7 @@ export default function DocumentMetadata({draft, onEdit, onConfirmField, onReset
                 : <input {...controlProps} type="text" readOnly={READ_ONLY.has(key)} placeholder={key === "docId" ? "Luôn để trống" : key === "issuedDate" ? "DD-MM-YYYY" : "Chưa xác định"}/>}
             {(invalid || note || entry.candidate) && <div id={`metadata-${key}-help`} className="field-help">
               {invalid ? <p className="metadata-errors">{invalid}</p> : note ? <p className="field-note">{note}</p> : null}
-              {entry.candidate && <details className="metadata-unverified-candidate"><summary>Ứng viên chưa xác minh — dấu đóng chồng</summary>
+              {entry.candidate && <details className="metadata-unverified-candidate"><summary><ChevronRight size={13}/>Ứng viên chưa xác minh — dấu đóng chồng</summary>
                 <p>Chỉ để đối chiếu ảnh nguồn. Nội dung này không tự điền hoặc xuất thành trích yếu.</p><blockquote>{entry.candidate}</blockquote></details>}
             </div>}
             {key === "arcDocCode" && <NumberCodeReview result={result} sourceFile={sourceFile} disabled={disabled}/>}
@@ -115,7 +116,7 @@ export default function DocumentMetadata({draft, onEdit, onConfirmField, onReset
         })}
       </div>
     </details>)}
-    {pendingExport && <ConfirmDialog title="Xuất bản nháp cần kiểm tra" confirmLabel={pendingExport === "copy" ? "Sao chép bản nháp" : "Xuất bản nháp"}
+    {pendingExport && <ConfirmDialog title="Xuất bản nháp cần kiểm tra" confirmLabel={pendingExport === "copy" ? "Sao chép bản nháp" : "Xuất bản nháp"} confirmIcon={pendingExport === "copy" ? Copy : Download}
       onCancel={() => setPendingExport(null)} onConfirm={() => {const kind = pendingExport; setPendingExport(null); performExport(kind);}}>
       <p>Còn {validation.missing.length} trường chưa xác định và {validation.review.length} trường cần kiểm tra. Các giá trị chưa xác định sẽ được giữ rỗng.</p>
       {validation.unclassifiedMode && <p className="metadata-errors"><strong>Chế độ sử dụng chưa được phân loại.</strong> Backend lưu trữ có thể mặc định mã rỗng thành {catalogOptionLabel("mode", "01")}. Hãy xác nhận rủi ro này trước khi xuất/chuyển dữ liệu.</p>}

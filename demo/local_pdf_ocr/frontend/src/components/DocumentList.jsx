@@ -48,7 +48,7 @@ export default function DocumentList({documents,working,onSelect,onRetry,onConfi
         </tr>;
       })}</tbody>
     </table></div>}
-    {confirmExport && <ConfirmDialog title="Xuất danh sách cần kiểm tra" confirmLabel="Xuất Excel đã chọn" onCancel={()=>setConfirmExport(false)} onConfirm={exportExcel}>
+    {confirmExport && <ConfirmDialog title="Xuất danh sách cần kiểm tra" confirmLabel="Xuất Excel đã chọn" confirmIcon={FileSpreadsheet} onCancel={()=>setConfirmExport(false)} onConfirm={exportExcel}>
       <p>Xuất {selection.ready.length}/{documents.length} tài liệu đã chọn và có kết quả hợp lệ. {selection.unresolved.length} tài liệu chưa xử lý, lỗi hoặc metadata không hợp lệ sẽ không được đưa vào Excel. STT được đánh lại liên tục.</p>
       {selection.drafts.length > 0 && <p>{selection.drafts.length} bản nháp còn trường thiếu hoặc cần kiểm tra; các giá trị chưa xác định vẫn để trống.</p>}
       {selection.unclassified.length > 0 && <p className="metadata-errors">{selection.unclassified.length} tài liệu chưa phân loại chế độ sử dụng. Backend lưu trữ có thể mặc định mã rỗng thành {catalogOptionLabel("mode", "01")}. Excel vẫn giữ mã rỗng.</p>}

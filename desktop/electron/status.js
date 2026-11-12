@@ -12,9 +12,9 @@ function row(list, label, value) {
 
 function render(status) {
   if (!status) return;
-  const message = $('message');
-  message.textContent = status.message || '';
-  message.className = 'message ' + (status.state || '');
+  // The text only: the state's icon (status.html) is chosen by the class.
+  $('message-text').textContent = status.message || '';
+  $('message').className = 'message ' + (status.state || '');
   const facts = $('facts');
   facts.replaceChildren();
   const desk = status.desktop;
@@ -26,7 +26,7 @@ function render(status) {
   row(summary, 'Bản scan và ảnh (OCR)', desk ? (desk.ocr_allowed ? 'Sẵn sàng' : 'Thiếu model OCR hoặc model chưa hợp lệ') : 'Chưa sẵn sàng');
   // After an error the retry is the next step; otherwise restarting the server is a rare, secondary action.
   const retry = $('retry');
-  retry.textContent = status.state === 'error' ? 'Thử lại' : 'Khởi động lại máy chủ';
+  retry.querySelector('span').textContent = status.state === 'error' ? 'Thử lại' : 'Khởi động lại máy chủ';
   retry.className = status.state === 'error' ? 'primary' : '';
   if (desk) {
     row(facts, 'Backend', `đang chạy · 127.0.0.1:${desk.port} · PID ${desk.pid}`);

@@ -179,7 +179,7 @@
 .queue-dot.extracted, .queue-dot.confirmed { background: #16a34a; }
 .queue-dot.review { background: #f59e0b; }
 .queue-dot.error { background: #dc2626; }
-.remove-document { flex: none; display: grid; place-items: center; width: 22px; height: 22px; border: 0; border-radius: 6px; background: none; color: #94a3b8; font-size: 16px; line-height: 1; padding: 0; opacity: 0; }
+.remove-document { flex: none; display: grid; place-items: center; width: 22px; height: 22px; border: 0; border-radius: 6px; background: none; color: #94a3b8; padding: 0; opacity: 0; }
 .input-queue li:hover .remove-document:not(:disabled), .input-queue li.active .remove-document:not(:disabled), .remove-document:focus-visible { opacity: 1; }
 .remove-document:not(:disabled):hover { background: #fef2f2; color: #dc2626; }
 .import-notice { flex: none; white-space: pre-line; max-height: 120px; overflow: auto; }
@@ -250,7 +250,8 @@
 .document-state.complete { color: #15803d; border-color: #bbf7d0; background: #f0fdf4; }
 .result-toolbar { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 16px; }
 .result-toolbar [role="tablist"] { height: auto; min-height: 34px; flex-wrap: wrap; max-width: 100%; padding: 3px; background: #f1f5f9; border-radius: 9px; }
-.result-toolbar [role="tab"] { flex: 0 0 auto; height: 28px; font-size: 12px; border-radius: 7px; padding-inline: 11px; cursor: pointer; }
+/* Icon + label (docs/UI_ICONS.md), kept tight so the four tabs stay on one row in the default window. */
+.result-toolbar [role="tab"] { flex: 0 0 auto; gap: 5px; height: 28px; font-size: 12px; border-radius: 7px; padding-inline: 8px; cursor: pointer; }
 .result-toolbar [role="tab"][data-state="active"] { color: #0f172a; background: #fff; box-shadow: 0 1px 3px #0f172a14; }
 .toolbar-actions { display: flex; gap: 4px; }
 .toolbar-actions button { width: 32px; height: 32px; color: #64748b; box-shadow: none; border-radius: 8px; }
@@ -323,7 +324,10 @@
 ::-webkit-scrollbar-track, ::-webkit-scrollbar-corner { background: transparent; }
 
 .metadata-unverified-candidate { margin-top: 8px; padding: 8px; border: 1px solid #fcd34d; border-radius: 6px; background: #fffbeb; color: #78350f; }
-.metadata-unverified-candidate summary { font-weight: 600; cursor: pointer; }
+.metadata-unverified-candidate summary { display: flex; align-items: center; gap: 5px; list-style: none; font-weight: 600; cursor: pointer; }
+.metadata-unverified-candidate summary::-webkit-details-marker { display: none; }
+.metadata-unverified-candidate summary > svg { flex: none; transition: transform .15s; }
+.metadata-unverified-candidate[open] summary > svg { transform: rotate(90deg); }
 .metadata-unverified-candidate blockquote { margin: 8px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .metadata-editing { border: 0; padding: 0; margin: 0; min-width: 0; }
 .document-list { padding: 16px; min-width: 0; }
@@ -379,6 +383,8 @@
 .field-status.review { color: #92400e; background: #fffbeb; border-color: #fde68a; }
 .field-status.confirmed { color: #15803d; background: #f0fdf4; border-color: #bbf7d0; }
 .confirm-field { display: grid; place-items: center; border: 1px solid #e2e8f0; width: 19px; height: 19px; border-radius: 5px; color: #15803d; background: #fff; }
+/* The icon of a button named inside a sentence (components/ui/inline-icon.jsx), in that button's colour. */
+.inline-icon > svg { display: inline-block; vertical-align: -2px; color: #15803d; }
 .metadata-field input, .metadata-field textarea { width: 100%; min-width: 0; border: 1px solid #cbd5e1; border-radius: 6px; padding: 7px 9px; color: #334155; background: #fff; font: inherit; font-size: 12px; line-height: 1.6; }
 .metadata-field textarea { resize: vertical; min-height: 58px; }
 .metadata-field input[readonly] { background: #f8fafc; color: #64748b; }

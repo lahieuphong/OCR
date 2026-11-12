@@ -1,5 +1,5 @@
 import {memo, useEffect, useMemo, useRef, useState} from "react";
-import {Search} from "lucide-react";
+import {FilterX, Search, X} from "lucide-react";
 import {Button} from "@/components/ui/button";
 import {BATCH_STATUS_LABELS} from "@/lib/documentBatch.js";
 import {QUEUE_FILTERS, queueCounts, queueRows, subfolder, visibleRows} from "@/lib/documentQueue.js";
@@ -21,7 +21,7 @@ const QueueRow = memo(function QueueRow({doc, index, status, active, working}) {
         {STATUS_ON_ROW.has(status) && <span className={"queue-status " + status}>{label}</span>}
       </span>
     </button>
-    <button type="button" className="remove-document" aria-label={`Xóa tài liệu ${index + 1}: ${doc.name}`} title="Xóa khỏi danh sách" disabled={working}>×</button>
+    <button type="button" className="remove-document" aria-label={`Xóa tài liệu ${index + 1}: ${doc.name}`} title="Xóa khỏi danh sách" disabled={working}><X size={14}/></button>
   </li>;
 });
 
@@ -64,7 +64,7 @@ export default function DocumentQueue({documents, activeId, working, onSelect, o
     </div>}
     {filtered && <div className="queue-summary" role="status">
       <span>Đang hiện {shown.length}/{rows.length} tài liệu. “Bóc tách tất cả” vẫn chạy cả danh sách.</span>
-      <Button variant="ghost" size="sm" onClick={clearFilters}>Xóa bộ lọc</Button>
+      <Button variant="ghost" size="sm" onClick={clearFilters}><FilterX size={12}/> Xóa bộ lọc</Button>
     </div>}
     {shown.length > 0 && <ol ref={list} onClick={clickList}>
       {shown.map(({doc,index,status}) => <QueueRow key={doc.id} doc={doc} index={index} status={status} active={doc.id === activeId} working={working}/>)}

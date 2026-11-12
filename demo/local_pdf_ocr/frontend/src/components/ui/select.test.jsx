@@ -3,6 +3,7 @@ import React, {useState} from "react";
 import {expect, test, vi} from "vitest";
 import {render, screen} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import {Check} from "lucide-react";
 import Select from "./select.jsx";
 
 const OPTIONS = [{value:"01",label:"01 · Vĩnh viễn"},{value:"02",label:"02 · 75 năm"},{value:"03",label:"03 · Đỏ tươi"},{value:"04",label:"04 · Tiếng Việt"}];
@@ -11,7 +12,7 @@ function setup({initial = "", ...props} = {}) {
   const onChange = vi.fn();
   function Host() {
     const [value, setValue] = useState(initial);
-    return <><Select ariaLabel="Thử" options={OPTIONS} value={value} onChange={next => {onChange(next); setValue(next);}} {...props}/><button>Khác</button></>;
+    return <><Select ariaLabel="Thử" options={OPTIONS} value={value} onChange={next => {onChange(next); setValue(next);}} {...props}/><button><Check size={14}/>Khác</button></>;
   }
   render(<Host/>);
   return {user:userEvent.setup(), onChange, trigger:screen.getByRole("combobox", {name:"Thử"})};

@@ -310,6 +310,11 @@ model-free backend and frozen-contract tests (a skipped test fails the job),
 documents, labels, predictions, private folders or secrets are tracked, in
 the tree or in the pull request's commits.
 
+The frontend tests also enforce the UI icon rule ([docs/UI_ICONS.md](../../docs/UI_ICONS.md)):
+every button and disclosure shows a lucide icon, an icon-only button has an
+`aria-label`, and no character (×, ✓, ☰…) stands in for an icon. The check
+runs after every rendered test (`src/test/setup.js`).
+
 CI never has the frozen model files or the detector, so it does **not**
 verify OCR output. That is done locally before merging:
 

@@ -118,6 +118,13 @@ with the reason shown in the status window.
   NUL: on Windows a thread blocked on fd 0 froze native imports (numpy/OpenBLAS), so the first real
   OCR request never finished, and child processes no longer inherit the pipe.
 
+## UI icons
+
+The status window and the splash page use the app's lucide icons as inline SVG, one `data-lucide` name
+per icon, so every button looks as it does in the app. The frontend tests compare each one with
+`lucide-react`, and the smoke checks that the real app shows an icon on every button. The rule and its
+exceptions are in [docs/UI_ICONS.md](../docs/UI_ICONS.md).
+
 ## Layout
 
 ```

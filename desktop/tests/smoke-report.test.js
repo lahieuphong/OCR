@@ -17,7 +17,7 @@ function passingNoModels() {
       ui_fast_only: { mode_inputs: 0, bulk_mode: false, queued_mode: 'metadata_fast', run_fast: true },
       ui_fast_pdf: { ok: false, error: 'Không thể hoàn tất thao tácBản desktop chặn OCR: Missing/invalid ONNX files.' },
       ui_fast_flow: { file: 'officialLetter.pdf', ok: true },
-      metadata: { fields: 22, export_exact_schema: true, manual_edits_and_reset: true },
+      metadata: { fields: 22, export_exact_schema: true, manual_edits_and_reset: true, without_icon: [] },
       export: { both_saved: true, txt_labels_partial_and_keeps_text: true, json_method: 'metadata_fast', partial_result: true },
       ocr_allowed: false,
       api_vietocr_ocr: { status: 503, detail: 'Bản desktop chặn OCR: Missing/invalid ONNX files.' },
@@ -85,6 +85,16 @@ test('a method choice in the UI, a missing form check or a full-text export fail
     const r = passingNoModels();
     r.checks[key] = value;
     assert.equal(checkReport(r, { expect: 'no-models', withPdf: true }).ok, false, `${key}: ${JSON.stringify(value)}`);
+  }
+});
+
+test('a button without its lucide icon in the real app fails (docs/UI_ICONS.md)', () => {
+  for (const withoutIcon of [['Đổi tệp'], undefined]) {
+    const r = passingNoModels();
+    r.checks.metadata = { ...r.checks.metadata, without_icon: withoutIcon };
+    const result = checkReport(r, { expect: 'no-models', withPdf: true });
+    assert.equal(result.ok, false, JSON.stringify(withoutIcon));
+    assert.ok(result.failures.some((f) => f.includes('lucide icon')), result.failures.join('\n'));
   }
 });
 

@@ -600,7 +600,12 @@ async function runSmoke() {
       doc_id: document.querySelector('#metadata-docId').value,
       page_count: document.querySelector('#metadata-numberOfPage').value,
       stamp: document.querySelector('#metadata-isCan').value,
-      confidence: document.querySelector('#metadata-confidenceLevel').value })`);
+      confidence: document.querySelector('#metadata-confidenceLevel').value,
+      // The icon rule (docs/UI_ICONS.md) on the busiest screen of the real app: every button and disclosure
+      // shows a lucide icon, except the value controls of the frontend's src/test/iconRule.js.
+      without_icon: Array.from(document.querySelectorAll('button, summary'))
+        .filter(b => !b.matches('[role=option], .select-queued-file, .open-document, .queue-filter, .page-pick, .number-code-choices button, .app-menu-zoom-value'))
+        .filter(b => !b.querySelector('svg.lucide')).map(b => b.textContent.trim() || b.getAttribute('aria-label') || b.className) })`);
     assert.equal(c.metadata.fields, 22);
     assert.equal(c.metadata.doc_id, '');
     // The seal colour is filled only from a red seal found in the page pixels; the code follows it.
@@ -856,11 +861,13 @@ async function runSmoke() {
       summary: document.querySelector('#summary').textContent,
       background: getComputedStyle(document.body).backgroundColor,
       actions: Array.from(document.querySelectorAll('.actions button')).map(b => b.textContent),
+      without_icon: Array.from(document.querySelectorAll('button, summary')).filter(b => !b.querySelector('svg.lucide')).map(b => b.textContent),
       diagnostics: Boolean(document.querySelector('details #facts dd') && document.querySelector('details #problems li')),
       csp: document.querySelector('meta[http-equiv="Content-Security-Policy"]').content
     })`);
     // Running: restarting the server is a secondary action ("Thử lại" is the primary one only after an error).
     assert.deepEqual(c.status_ui.actions, ['Khởi động lại máy chủ', 'Mở thư mục nhật ký', 'Thoát']);
+    assert.deepEqual(c.status_ui.without_icon, [], 'every status window button and disclosure shows its icon');
     assert.ok(c.status_ui.summary.includes('PDF có lớp chữ') && c.status_ui.summary.includes('Sẵn sàng'));
     assert.ok(c.status_ui.csp.includes("default-src 'none'") && c.status_ui.csp.includes("script-src 'self'"));
   }

@@ -1,5 +1,7 @@
 import {useEffect, useMemo, useRef, useState} from "react";
+import {Check, ImageIcon, LoaderCircle} from "lucide-react";
 import {Button} from "@/components/ui/button";
+import InlineIcon from "@/components/ui/inline-icon";
 import {findNumberReviewTargets, NUMBER_REVIEW_REASONS} from "@/lib/numberReview.js";
 import "./NumberCodeReview.css";
 
@@ -74,14 +76,14 @@ export default function NumberCodeReview({result, sourceFile, disabled = false})
         {warned && selected.text && <p className="number-code-original"><span>OCR đọc được:</span> <q>{selected.text}</q></p>}
         {selected.polygon ? <div className="number-code-row">
           <Button type="button" variant="outline" size="sm" disabled={disabled || !sourceFile || current?.phase === "loading"} onClick={showPreview}>
-            {current?.phase === "loading" ? "Đang mở ảnh…" : "Xem ảnh đối chiếu"}
+            {current?.phase === "loading" ? <><LoaderCircle className="spin" size={13}/>Đang mở ảnh…</> : <><ImageIcon size={13}/>Xem ảnh đối chiếu</>}
           </Button>
           {!sourceFile ? <span>Chọn lại tài liệu gốc để mở ảnh.</span> : !warned && <span>Không thấy dấu hiệu bất thường.</span>}
         </div> : <p>Chưa có vị trí đáng tin cậy để cắt ảnh. Hãy đối chiếu toàn bộ trang 1 ở khung xem trước.</p>}
         {current?.phase === "loading" && <p role="status">Đang dựng vùng ảnh từ tài liệu gốc.</p>}
         {current?.phase === "error" && <p role="alert">{current.error} Hãy xem tài liệu gốc ở khung xem trước.</p>}
         {current?.phase === "ready" && <figure><img src={current.url} alt={`Ảnh gốc đối chiếu số/ký hiệu, trang ${selected.page}${selected.line_index ? ` dòng ${selected.line_index}` : ""}`}/>
-          <figcaption>Ảnh từ tài liệu gốc. Sửa Mã văn bản phía trên nếu cần rồi bấm ✓.</figcaption></figure>}
+          <figcaption>Ảnh từ tài liệu gốc. Sửa Mã văn bản phía trên nếu cần rồi bấm <InlineIcon icon={Check} label="nút xác nhận"/>.</figcaption></figure>}
       </>}
     </>}
   </section>;
